@@ -1,57 +1,89 @@
 from __future__ import annotations
-from dataclasses import dataclass
-import re
-import pandas as pd
 
-from .config import Config
-from .utils import http_get, ensure_dir
+import io
+import pandas as pd
+import requests
+
 from .db import connect, bootstrap
 
-@dataclass
-class CatalogRow:
-    dataset_code: str
-    title: str
-    dataset_type: str
-    last_update_data: str | None
-    last_update_structure: str | None
-    raw_line: str
 
-_SPLIT_RE = re.compile(r"\t|\|")
+REQUIRED_COLS = [
+    "dataset_code",
+    "title",
+    "dataset_type",
+    "last_update_data",
+    "last_update_structure",
+]
 
-def parse_toc_txt(text: str) -> list[CatalogRow]:
-    rows: list[CatalogRow] = []
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        parts = [p.strip() for p in _SPLIT_RE.split(line)]
-        parts = [p for p in parts if p != ""]
-        code = parts[0] if len(parts) > 0 else ""
-        title = parts[1] if len(parts) > 1 else ""
-        dtype = parts[2] if len(parts) > 2 else ""
-        lud = parts[3] if len(parts) > 3 else None
-        lus = parts[4] if len(parts) > 4 else None
-        if code:
-            rows.append(CatalogRow(code, title, dtype, lud, lus, line))
-    return rows
 
-def ingest_catalog(cfg: Config) -> pd.DataFrame:
-    url = cfg.get("catalog", "toc_txt_url")
-    timeout = int(cfg.get("ingestion", "request_timeout_s", default=45))
-    r = http_get(url, timeout=timeout)
-    df = pd.DataFrame([r.__dict__ for r in parse_toc_txt(r.text)])
-    return df
+def ingest_catalog(cfg) -> pd.DataFrame:
+    """Download and parse Eurostat TOC TXT into a clean dataframe.
 
-def upsert_catalog(cfg: Config, df: pd.DataFrame) -> None:
-    con = connect(cfg.get("warehouse", "duckdb_path"))
+    The TOC TXT is a tab-separated table with columns like:
+    title, code, type, last update of data, last table structure change
+    """
+    url = cfg.raw["catalog"]["toc_txt_url"]
+    timeout = int(cfg.raw.get("ingestion", {}).get("request_timeout_s", 45))
+
+    r = requests.get(url, timeout=timeout)
+    r.raise_for_status()
+
+    df = pd.read_csv(
+        io.StringIO(r.text),
+        sep="\t",
+        dtype=str,
+        engine="python",
+    )
+
+    rename = {
+        "code": "dataset_code",
+        "title": "title",
+        "type": "dataset_type",
+        "last update of data": "last_update_data",
+        "last table structure change": "last_update_structure",
+    }
+    df = df.rename(columns=rename)
+
+    for c in REQUIRED_COLS:
+        if c not in df.columns:
+            df[c] = None
+
+    return df[REQUIRED_COLS].copy()
+
+
+def upsert_catalog(cfg, df: pd.DataFrame) -> None:
+    """Persist catalog into DuckDB safely (no PK collisions)."""
+    con = connect(cfg)
     bootstrap(con)
-    con.execute("DELETE FROM catalog_registry;")
-    con.register("df", df)
-    con.execute("""
-      INSERT INTO catalog_registry
-      SELECT dataset_code, title, dataset_type, last_update_data, last_update_structure, raw_line
-      FROM df;
-    """)
-    parquet_dir = ensure_dir(cfg.get("warehouse", "parquet_dir"))
-    df.to_parquet(parquet_dir / "catalog_registry.parquet", index=False)
-    con.close()
+
+    d = df.copy()
+
+    # Normalize strings
+    for c in REQUIRED_COLS:
+        d[c] = d[c].astype(str).str.strip().str.strip('"')
+
+    # Drop header-like row(s)
+    d = d[~d["dataset_code"].str.lower().isin(["code", "nan", "none"])]
+
+    # Keep only real datasets (drop folders and blank codes)
+    d = d[d["dataset_code"].notna() & (d["dataset_code"].str.strip() != "")]
+    d = d[~d["dataset_type"].str.lower().isin(["folder"])]
+
+    # Dedupe by dataset_code (TOC can list same dataset multiple times across themes)
+    d = d.drop_duplicates(subset=["dataset_code"], keep="last")
+
+    con.register("df_clean", d)
+
+    # Overwrite deterministically
+    con.execute(
+        """
+        CREATE OR REPLACE TABLE catalog_registry AS
+        SELECT
+          dataset_code,
+          title,
+          dataset_type,
+          NULLIF(last_update_data, '') AS last_update_data,
+          NULLIF(last_update_structure, '') AS last_update_structure
+        FROM df_clean
+        """
+    )

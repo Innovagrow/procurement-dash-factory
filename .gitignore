@@ -1,10 +1,30 @@
-.venv/
+# --- Python ---
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyd
+.venv/
+.env
+.env.*
+.ipynb_checkpoints/
+
+# --- OS / Editor ---
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/
+
+# --- Quarto build/cache (generated) ---
 site/_site/
-warehouse/duckdb/*.wal
-warehouse/duckdb/*.tmp
+site/.quarto/
+site/.gitignore
+**/.quarto/
+
+# --- Warehouse / runs (generated) ---
+warehouse/
 runs/
+
+# --- Accidental junk files seen in your repo ---
+None
+pd.DataFrame
+patch_catalog.bat
+main

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.idea/
+.vscode/
+site/_site/
+warehouse/duckdb/*.wal
+warehouse/duckdb/*.tmp
+runs/

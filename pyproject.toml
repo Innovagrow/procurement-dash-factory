@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eurodash"
+version = "0.1.0"
+description = "Eurostat Dashboards Factory (MVP)"
+requires-python = ">=3.10"
+
+[project.scripts]
+eurodash = "eurodash.cli:app"

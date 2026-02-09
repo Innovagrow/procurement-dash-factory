@@ -1,0 +1,24 @@
+catalog:
+  toc_txt_url: "https://ec.europa.eu/eurostat/api/dissemination/catalogue/toc/txt?lang=en"
+
+selection:
+  mode: "explicit"   # explicit | keyword | updates
+  keyword: "gdp"
+  days_back: 7
+  n: 2
+  explicit_datasets: ["nama_10_gdp", "prc_hicp_midx"]
+
+ingestion:
+  time_window_years: 6
+  geo_level: "country"
+  other_dim_cap: 3
+  request_timeout_s: 45
+
+warehouse:
+  duckdb_path: "warehouse/duckdb/eurodash.duckdb"
+  parquet_dir: "warehouse/parquet"
+
+render:
+  site_dir: "site"
+  dashboards_dir: "site/dashboards"
+  templates_dir: "eurodash/templates"

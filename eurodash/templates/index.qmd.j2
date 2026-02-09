@@ -1,0 +1,16 @@
+---
+title: "Eurostat Dashboards"
+format:
+  html:
+    toc: true
+    theme: cosmo
+execute:
+  echo: false
+---
+
+Welcome! This site is generated automatically from Eurostat datasets.
+
+## Dashboards
+{% for it in items %}
+- [{{ it.title }} ({{ it.code }})]({{ it.path }})
+{% endfor %}

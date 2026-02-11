@@ -1,1 +1,1 @@
-web: gunicorn api_server:app --bind 0.0.0.0:${PORT:-8080} --timeout 600 --workers 2
+web: gunicorn api_server:app --bind 0.0.0.0:$PORT --timeout 600 --workers 2

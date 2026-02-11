@@ -198,6 +198,9 @@ def api_get_user():
 
 
 if __name__ == '__main__':
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    
     print("=" * 60)
     print("Dashboard API Server Starting")
     print("=" * 60)
@@ -209,7 +212,7 @@ if __name__ == '__main__':
     print("  * Real-time generation progress")
     print("  * User authentication (JWT)")
     print()
-    print("Server running at: http://localhost:5000")
+    print(f"Server running on port: {port}")
     print("Serving from: site/_site/")
     print()
     print("Endpoints:")
@@ -220,4 +223,4 @@ if __name__ == '__main__':
     print("Press Ctrl+C to stop")
     print("=" * 60)
     
-    app.run(debug=True, port=5000, threaded=True)
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)

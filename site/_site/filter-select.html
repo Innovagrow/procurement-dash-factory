@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customize Filters | Eurostat AI Dashboards</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <nav class="gradient-bg text-white px-6 py-4 sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">Customize Your Dashboard</h1>
+                <p class="text-sm text-purple-100" id="dataset-title">Dataset</p>
+            </div>
+            <a href="/catalog.html" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
+                Back to Catalog
+            </a>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto px-6 py-12">
+        <!-- Loading State -->
+        <div id="loading" class="text-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p class="text-gray-600">Loading dataset dimensions...</p>
+        </div>
+
+        <!-- Filter Selection -->
+        <div id="filter-form" class="hidden">
+            <div class="bg-white rounded-2xl shadow-lg p-8 mb-6">
+                <h2 class="text-2xl font-bold mb-2">Step 1: Select Your Filters</h2>
+                <p class="text-gray-600 mb-6">Choose specific dimensions or use defaults for a comprehensive report</p>
+
+                <div id="dimensions-container" class="space-y-6">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-4">
+                <button onclick="useDefaults()" class="flex-1 border-2 border-purple-600 text-purple-600 py-3 rounded-lg font-semibold hover:bg-purple-50 transition">
+                    Use Default Filters (Faster)
+                </button>
+                <button onclick="generateWithCustomFilters()" class="flex-1 gradient-bg text-white py-3 rounded-lg font-semibold hover:opacity-90 transition">
+                    Generate with Custom Filters
+                </button>
+            </div>
+
+            <div class="mt-4 text-center">
+                <p class="text-sm text-gray-500">
+                    Default filters show EU-level aggregated data. Custom filters let you focus on specific countries, years, or indicators.
+                </p>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="hidden bg-red-50 border-2 border-red-200 rounded-lg p-6 text-center">
+            <p class="text-red-600 font-semibold">Unable to load dataset dimensions</p>
+            <button onclick="location.href='/catalog.html'" class="mt-4 bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition">
+                Back to Catalog
+            </button>
+        </div>
+    </main>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const datasetCode = urlParams.get('dataset');
+        let dimensions = {};
+
+        async function loadDimensions() {
+            try {
+                // Call Eurostat metadata API
+                const response = await fetch(
+                    `https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/${datasetCode}?format=JSON&compressed=false`,
+                    { timeout: 10000 }
+                );
+                
+                const data = await response.json();
+                dimensions = data.dimension || {};
+
+                document.getElementById('dataset-title').textContent = datasetCode;
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('filter-form').classList.remove('hidden');
+
+                renderDimensions();
+            } catch (error) {
+                console.error('Error loading dimensions:', error);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('error').classList.remove('hidden');
+            }
+        }
+
+        function renderDimensions() {
+            const container = document.getElementById('dimensions-container');
+            container.innerHTML = '';
+
+            for (const [dimId, dimData] of Object.entries(dimensions)) {
+                if (dimId === 'time' || dimId === 'freq') continue; // Skip time, handled separately
+
+                const category = dimData.category || {};
+                const index = category.index || {};
+                const label = category.label || {};
+                const values = Object.keys(index);
+
+                if (values.length === 0) continue;
+
+                const dimHtml = `
+                    <div class="border-2 border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            ${dimData.label || dimId}
+                            <span class="text-gray-400 font-normal">(${values.length} options)</span>
+                        </label>
+                        <select id="filter-${dimId}" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-600 focus:outline-none">
+                            <option value="">All (no filter)</option>
+                            ${values.slice(0, 20).map(val => `
+                                <option value="${val}" ${val === 'TOTAL' || val === 'EU27_2020' || val === '_T' ? 'selected' : ''}>
+                                    ${label[val] || val}
+                                </option>
+                            `).join('')}
+                            ${values.length > 20 ? '<option disabled>... and more</option>' : ''}
+                        </select>
+                    </div>
+                `;
+
+                container.innerHTML += dimHtml;
+            }
+        }
+
+        function getSelectedFilters() {
+            const filters = {};
+            for (const dimId of Object.keys(dimensions)) {
+                const select = document.getElementById(`filter-${dimId}`);
+                if (select && select.value) {
+                    filters[dimId] = select.value;
+                }
+            }
+            return filters;
+        }
+
+        function useDefaults() {
+            // Redirect to report with default filters
+            window.location.href = `/report.html?dataset=${datasetCode}`;
+        }
+
+        function generateWithCustomFilters() {
+            const filters = getSelectedFilters();
+            const filterQuery = new URLSearchParams(filters).toString();
+            window.location.href = `/report.html?dataset=${datasetCode}&${filterQuery}`;
+        }
+
+        // Load dimensions on page load
+        if (datasetCode) {
+            loadDimensions();
+        } else {
+            window.location.href = '/catalog.html';
+        }
+    </script>
+</body>
+</html>

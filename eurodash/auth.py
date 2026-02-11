@@ -39,9 +39,20 @@ def init_auth_db(db_path: str = 'eurodash.duckdb'):
     """Initialize authentication tables"""
     con = duckdb.connect(db_path)
     
+    # Drop existing tables to recreate with proper schema
+    try:
+        con.execute("DROP TABLE IF EXISTS user_sessions")
+        con.execute("DROP TABLE IF EXISTS users")
+    except:
+        pass
+    
+    con.execute("""
+        CREATE SEQUENCE IF NOT EXISTS users_id_seq START 1
+    """)
+    
     con.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY DEFAULT nextval('users_id_seq'),
             email VARCHAR UNIQUE NOT NULL,
             username VARCHAR NOT NULL,
             password_hash VARCHAR NOT NULL,
@@ -51,8 +62,12 @@ def init_auth_db(db_path: str = 'eurodash.duckdb'):
     """)
     
     con.execute("""
+        CREATE SEQUENCE IF NOT EXISTS sessions_id_seq START 1
+    """)
+    
+    con.execute("""
         CREATE TABLE IF NOT EXISTS user_sessions (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY DEFAULT nextval('sessions_id_seq'),
             user_id INTEGER NOT NULL,
             token VARCHAR NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

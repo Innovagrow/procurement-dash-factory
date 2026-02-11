@@ -90,6 +90,12 @@ def upsert_fact(cfg: Config, df: pd.DataFrame, dataset_code: str) -> None:
     con = connect(cfg.get("warehouse", "duckdb_path"))
     bootstrap(con)
     con.execute("DELETE FROM fact_observations WHERE dataset_code = ?;", [dataset_code])
+    
+    # Skip insertion if dataframe is empty
+    if df.empty or len(df.columns) == 0:
+        con.close()
+        return
+    
     con.register("df", df)
     con.execute("""
       INSERT INTO fact_observations

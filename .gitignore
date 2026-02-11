@@ -1,31 +1,63 @@
-# --- Python ---
+# Python
 __pycache__/
 *.py[cod]
-*.pyd
-.venv/
-.env
-.env.*
-.ipynb_checkpoints/
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# --- OS / Editor ---
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# Eurostat Dashboard Factory
+eurodash.duckdb
+eurodash.duckdb.wal
+site/_site/dashboards/*.html
+site/_site/dashboards/*.qmd
+site/dashboards/*.qmd
+plans/*.json
+*.log
+
+# OS
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
 
-# --- Quarto build/cache (generated) ---
-site/_site/
-site/.quarto/
-site/.gitignore
-**/.quarto/
+# Env
+.env
+.env.local
+config.local.yml
 
-# --- Warehouse / runs (generated) ---
-warehouse/
-runs/
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
 
-# --- Accidental junk files seen in your repo ---
-None
-pd.DataFrame
-patch_catalog.bat
-main
-plans/
+# Temporary
+*.tmp
+temp/

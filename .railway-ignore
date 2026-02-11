@@ -1,0 +1,10 @@
+.git
+.cursor
+*.pyc
+__pycache__
+*.log
+.env
+venv
+site/_site/dashboards/*.html
+eurodash.duckdb
+eurodash.duckdb.wal

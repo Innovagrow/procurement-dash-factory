@@ -4,10 +4,7 @@ project:
 
 website:
   title: "Eurostat Dashboards Factory"
-  navbar:
-    left:
-      - href: index.qmd
-        text: Home
+  navbar: false
 
 format:
   html:

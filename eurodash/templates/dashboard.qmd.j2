@@ -15,8 +15,9 @@ import duckdb
 import pandas as pd
 import plotly.express as px
 
-PLAN = {{ plan | tojson }}
-DB_PATH = Path("warehouse/duckdb/eurodash.duckdb")
+PLAN_PATH = Path("../../plans") / "{{ plan.dataset.code }}.json"
+PLAN = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
+DB_PATH = Path("../../warehouse/duckdb/eurodash.duckdb")
 
 con = duckdb.connect(str(DB_PATH))
 

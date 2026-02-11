@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading Report...</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        /* Animated spinner */
+        .spinner-container {
+            display: inline-block;
+            position: relative;
+            width: 80px;
+            height: 80px;
+        }
+        .spinner-container div {
+            box-sizing: border-box;
+            display: block;
+            position: absolute;
+            width: 64px;
+            height: 64px;
+            margin: 8px;
+            border: 6px solid #8b5cf6;
+            border-radius: 50%;
+            animation: spinner 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+            border-color: #8b5cf6 transparent transparent transparent;
+        }
+        .spinner-container div:nth-child(1) {
+            animation-delay: -0.45s;
+        }
+        .spinner-container div:nth-child(2) {
+            animation-delay: -0.3s;
+        }
+        .spinner-container div:nth-child(3) {
+            animation-delay: -0.15s;
+        }
+        @keyframes spinner {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        
+        /* Pulse animation for status */
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: .5;
+            }
+        }
+        
+        /* Progress dots */
+        .progress-dots {
+            display: inline-flex;
+            gap: 8px;
+        }
+        .progress-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(139, 92, 246, 0.3);
+        }
+        .progress-dot.active {
+            background: #8b5cf6;
+            animation: bounce 0.6s ease-in-out;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="min-h-screen flex items-center justify-center p-6">
+        <div class="text-center max-w-xl">
+            <!-- Animated Spinner -->
+            <div class="spinner-container mx-auto mb-8">
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
+            
+            <h1 class="text-3xl font-bold text-gray-900 mb-3">Analyzing Data</h1>
+            <p class="text-lg text-gray-600 mb-6" id="status-text">Fetching data from source...</p>
+            
+            <!-- Dataset Info -->
+            <div class="bg-white rounded-xl border-2 border-purple-100 p-6 mb-6 shadow-sm">
+                <p class="text-sm text-gray-500 mb-2">Dataset Code</p>
+                <p class="font-mono font-bold text-purple-600 text-lg" id="dataset-code">-</p>
+            </div>
+            
+            <!-- Progress Indicator -->
+            <div class="bg-gray-100 rounded-full h-3 mb-3 overflow-hidden">
+                <div id="progress-bar" class="gradient-bg h-3 transition-all duration-700 ease-out" style="width: 0%"></div>
+            </div>
+            <p class="text-sm text-gray-500 mb-6">
+                <span id="progress-text" class="font-semibold">0%</span> complete
+            </p>
+            
+            <!-- Progress Steps -->
+            <div class="space-y-3 text-left max-w-md mx-auto">
+                <div id="step-1" class="flex items-center gap-3 text-sm opacity-50">
+                    <div class="progress-dot"></div>
+                    <span>Connecting to data source</span>
+                </div>
+                <div id="step-2" class="flex items-center gap-3 text-sm opacity-50">
+                    <div class="progress-dot"></div>
+                    <span>Fetching latest dataset</span>
+                </div>
+                <div id="step-3" class="flex items-center gap-3 text-sm opacity-50">
+                    <div class="progress-dot"></div>
+                    <span>Running AI analysis</span>
+                </div>
+                <div id="step-4" class="flex items-center gap-3 text-sm opacity-50">
+                    <div class="progress-dot"></div>
+                    <span>Creating visualizations</span>
+                </div>
+                <div id="step-5" class="flex items-center gap-3 text-sm opacity-50">
+                    <div class="progress-dot"></div>
+                    <span>Building dashboard</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Screen -->
+    <div id="error-screen" class="hidden min-h-screen flex items-center justify-center p-6">
+        <div class="max-w-lg text-center">
+            <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 mb-3">Unable to Load Report</h1>
+            <p class="text-gray-600 mb-6" id="error-message"></p>
+            <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 mb-6 text-left">
+                <p class="text-sm text-yellow-800 font-semibold mb-2">💡 Generate this report manually:</p>
+                <code class="block bg-yellow-100 px-3 py-2 rounded text-xs font-mono text-yellow-900" id="manual-command">
+                    py -m eurodash ai-run --datasets DATASET_CODE
+                </code>
+            </div>
+            <div class="flex gap-3 justify-center">
+                <button onclick="retryLoad()" class="px-6 py-3 rounded-xl gradient-bg text-white font-semibold hover:opacity-90 transition">
+                    Try Again
+                </button>
+                <a href="/" class="px-6 py-3 rounded-xl border-2 border-gray-300 text-gray-700 font-semibold hover:border-purple-400 transition">
+                    Back to Catalog
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const datasetCode = urlParams.get('dataset');
+        
+        if (!datasetCode) {
+            window.location.href = '/';
+        }
+
+        document.getElementById('dataset-code').textContent = datasetCode;
+        document.getElementById('manual-command').textContent = `py -m eurodash ai-run --datasets ${datasetCode}`;
+
+        let currentStep = 0;
+        const steps = [
+            { text: 'Connecting to data source...', progress: 15, stepId: 'step-1' },
+            { text: 'Fetching latest dataset...', progress: 35, stepId: 'step-2' },
+            { text: 'Running AI analysis...', progress: 55, stepId: 'step-3' },
+            { text: 'Creating visualizations...', progress: 75, stepId: 'step-4' },
+            { text: 'Building dashboard...', progress: 95, stepId: 'step-5' }
+        ];
+
+        function updateProgress() {
+            if (currentStep < steps.length) {
+                const step = steps[currentStep];
+                
+                // Update text and progress bar
+                document.getElementById('status-text').textContent = step.text;
+                document.getElementById('progress-bar').style.width = step.progress + '%';
+                document.getElementById('progress-text').textContent = step.progress + '%';
+                
+                // Activate current step
+                const stepEl = document.getElementById(step.stepId);
+                stepEl.classList.remove('opacity-50');
+                stepEl.classList.add('opacity-100');
+                stepEl.querySelector('.progress-dot').classList.add('active');
+                
+                currentStep++;
+                setTimeout(updateProgress, 1800);
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('error-screen').classList.remove('hidden');
+            document.getElementById('error-message').textContent = message;
+        }
+
+        function retryLoad() {
+            window.location.reload();
+        }
+
+        // Start progress animation
+        setTimeout(updateProgress, 800);
+
+        // AUTO-START: Check for pre-rendered dashboard, if not trigger generation
+        const preRenderedUrl = `/dashboards/${datasetCode}_ai.html`;
+        let checkAttempts = 0;
+        const maxAttempts = 360; // 6 minutes max wait for smart filtering
+        
+        fetch(preRenderedUrl, { method: 'HEAD' })
+            .then(response => {
+                if (response.ok) {
+                    // Pre-rendered dashboard exists, redirect immediately
+                    document.getElementById('progress-bar').style.width = '100%';
+                    document.getElementById('progress-text').textContent = '100%';
+                    document.getElementById('status-text').textContent = 'Loading dashboard...';
+                    setTimeout(() => {
+                        window.location.href = preRenderedUrl;
+                    }, 500);
+                } else {
+                    // Not pre-rendered, trigger AI generation
+                    triggerAIGeneration();
+                }
+            })
+            .catch(error => {
+                // Network error, try to generate anyway
+                triggerAIGeneration();
+            });
+        
+        function triggerAIGeneration() {
+            // Trigger generation via API
+            fetch(`/api/generate-dashboard?dataset=${datasetCode}`, {
+                method: 'POST'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.url && !data.generating) {
+                        // Already exists, redirect
+                        window.location.href = data.url;
+                    } else {
+                        // Generation started, poll for status
+                        pollGenerationStatus();
+                    }
+                } else {
+                    showError(data.error || 'Failed to start generation');
+                }
+            })
+            .catch(error => {
+                console.error('API Error:', error);
+                // Fallback: show manual instructions
+                setTimeout(() => {
+                    showError(`Auto-generation unavailable. Please run the command shown below to generate this report.`);
+                }, 8000);
+            });
+        }
+        
+        function pollGenerationStatus() {
+            if (checkAttempts >= maxAttempts) {
+                showError('Generation is taking longer than expected. Please try refreshing the page or run the command manually.');
+                return;
+            }
+            
+            checkAttempts++;
+            
+            fetch(`/api/status/${datasetCode}`)
+                .then(res => res.json())
+                .then(status => {
+                    if (status.status === 'completed') {
+                        // Generation complete, redirect
+                        document.getElementById('progress-bar').style.width = '100%';
+                        document.getElementById('progress-text').textContent = '100%';
+                        document.getElementById('status-text').textContent = 'Dashboard ready! Loading...';
+                        setTimeout(() => {
+                            window.location.href = status.url;
+                        }, 500);
+                    } else if (status.status === 'failed') {
+                        showError(status.message || 'Generation failed');
+                    } else {
+                        // Still generating, update progress
+                        if (status.progress) {
+                            document.getElementById('progress-bar').style.width = status.progress + '%';
+                            document.getElementById('progress-text').textContent = status.progress + '%';
+                        }
+                        if (status.message) {
+                            document.getElementById('status-text').textContent = status.message;
+                        }
+                        // Poll again in 1 second
+                        setTimeout(pollGenerationStatus, 1000);
+                    }
+                })
+                .catch(error => {
+                    console.error('Status poll error:', error);
+                    // Try again
+                    setTimeout(pollGenerationStatus, 2000);
+                });
+        }
+    </script>
+</body>
+</html>

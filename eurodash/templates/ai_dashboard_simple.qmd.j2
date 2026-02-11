@@ -1,0 +1,174 @@
+---
+title: "{{ plan.dataset.title }}"
+subtitle: "AI-Enhanced Analytics Dashboard"
+format:
+  html:
+    theme: cosmo
+    css:
+      - https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
+      - https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css
+    code-fold: true
+    page-layout: full
+    toc: false
+jupyter: python3
+execute:
+  echo: false
+  warning: false
+  error: false
+---
+
+```{python}
+import json
+from pathlib import Path
+import duckdb
+import pandas as pd
+import plotly.express as px
+from IPython.display import HTML
+
+PLAN_PATH = Path("../../plans") / "{{ plan.dataset.code }}_ai.json"
+PLAN = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
+DB_PATH = Path("../../warehouse/duckdb/eurodash.duckdb")
+DATASET_CODE = "{{ plan.dataset.code }}"
+
+con = duckdb.connect(str(DB_PATH), read_only=True)
+
+def run_sql(sql: str) -> pd.DataFrame:
+    try:
+        return con.execute(sql).df()
+    except Exception as e:
+        return pd.DataFrame()
+
+# Load data
+df_all = run_sql(f"SELECT * FROM fact_observations WHERE dataset_code='{DATASET_CODE}'")
+df_latest = run_sql(f"SELECT time, value FROM fact_observations WHERE dataset_code='{DATASET_CODE}' ORDER BY time DESC LIMIT 1")
+df_trend = run_sql(f"SELECT time, AVG(value) as value FROM fact_observations WHERE dataset_code='{DATASET_CODE}' GROUP BY time ORDER BY time")
+df_geo = run_sql(f"""
+    WITH latest AS (SELECT MAX(time) as max_time FROM fact_observations WHERE dataset_code='{DATASET_CODE}')
+    SELECT geo, value FROM fact_observations
+    WHERE dataset_code='{DATASET_CODE}' AND time = (SELECT max_time FROM latest)
+    ORDER BY value DESC LIMIT 30
+""")
+```
+
+<style>
+.gradient-bg {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+.nav-tabs .nav-link {
+    color: #495057;
+    font-weight: 500;
+    border: none;
+    border-bottom: 3px solid transparent;
+}
+.nav-tabs .nav-link.active {
+    color: #8b5cf6;
+    border-bottom-color: #8b5cf6;
+}
+.metric-box {
+    text-align: center;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.1);
+    margin-bottom: 15px;
+}
+.metric-value {
+    font-size: 2em;
+    font-weight: bold;
+    color: #8b5cf6;
+}
+</style>
+
+::: {.panel-tabset}
+
+## 📊 Overview
+
+```{python}
+# KPI Card
+if not df_latest.empty:
+    latest_value = df_latest.iloc[0]['value']
+    latest_time = df_latest.iloc[0]['time']
+    HTML(f'''
+    <div class="gradient-bg">
+        <h4><i class="fas fa-chart-line"></i> Latest Value</h4>
+        <h1>{latest_value:,.2f}</h1>
+        <p>as of {latest_time}</p>
+    </div>
+    ''')
+```
+
+```{python}
+# Trend Chart
+if not df_trend.empty:
+    fig = px.line(df_trend, x='time', y='value', title='Trend Overview')
+    fig.update_layout(template='plotly_white', height=400)
+    fig.show()
+```
+
+## 💡 AI Insights
+
+```{python}
+# Display AI Insights
+insights = PLAN.get('ai_insights', {}).get('insights', [])
+for insight in insights[:5]:
+    severity_colors = {
+        'critical': 'danger',
+        'warning': 'warning',
+        'info': 'info',
+        'success': 'success'
+    }
+    color = severity_colors.get(insight.get('severity', 'info'), 'info')
+    
+    HTML(f'''
+    <div class="alert alert-{color} border-start border-5">
+        <h5><i class="fas fa-lightbulb"></i> {insight.get('title', '')}</h5>
+        <p>{insight.get('description', '')}</p>
+    </div>
+    ''')
+```
+
+## 📈 Trends
+
+```{python}
+# Historical Trends
+if not df_all.empty:
+    df_sample = df_all.groupby(['time', 'geo'])['value'].mean().reset_index()
+    fig = px.line(df_sample.head(200), x='time', y='value', color='geo',
+                 title='Historical Trends by Region')
+    fig.update_layout(template='plotly_white', height=500, hovermode='x unified')
+    fig.show()
+```
+
+## 🌍 Geographic
+
+```{python}
+# Geographic Comparison
+if not df_geo.empty:
+    fig = px.bar(df_geo.head(20), x='geo', y='value', 
+                 title='Latest Values by Region (Top 20)')
+    fig.update_layout(template='plotly_white', height=500)
+    fig.show()
+```
+
+## 💬 AI Chat
+
+<div class="alert alert-info">
+<h5><i class="fas fa-robot"></i> Interactive AI Chat</h5>
+<p>Ask questions about the data in natural language:</p>
+<ul>
+  <li>"What is the latest value?"</li>
+  <li>"Which country has the highest value?"</li>
+  <li>"Show me the trend over time"</li>
+</ul>
+<p class="mb-0"><small><i class="fas fa-info-circle"></i> Full natural language processing available in production version</small></p>
+</div>
+
+:::
+
+```{python}
+con.close()
+```

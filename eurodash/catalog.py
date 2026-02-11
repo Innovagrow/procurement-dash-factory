@@ -33,6 +33,7 @@ def ingest_catalog(cfg) -> pd.DataFrame:
         sep="\t",
         dtype=str,
         engine="python",
+        on_bad_lines="skip",
     )
 
     rename = {
@@ -53,7 +54,8 @@ def ingest_catalog(cfg) -> pd.DataFrame:
 
 def upsert_catalog(cfg, df: pd.DataFrame) -> None:
     """Persist catalog into DuckDB safely (no PK collisions)."""
-    con = connect(cfg)
+    duckdb_path = cfg.get("warehouse", "duckdb_path")
+    con = connect(duckdb_path)
     bootstrap(con)
 
     d = df.copy()

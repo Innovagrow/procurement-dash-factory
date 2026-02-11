@@ -1,0 +1,19 @@
+========================================
+CRITICAL FILE - DO NOT DELETE!
+========================================
+
+This file (site/_site/index.html) is the CLEAN HTML landing page.
+
+DO NOT:
+- Delete this file
+- Let Quarto regenerate it
+- Edit it with Quarto
+
+This is a STATIC HTML file that bypasses Quarto entirely.
+
+If it gets deleted or corrupted:
+1. Check git history for the clean version
+2. Or use the backup in PERMANENT_FIXES.md
+
+Quarto will try to regenerate index.html from index.qmd
+Make sure site/index.qmd does NOT exist!

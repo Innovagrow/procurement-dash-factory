@@ -1,0 +1,79 @@
+[
+  {
+    "objectID": "dashboards/nama_10_a10_ai.html",
+    "href": "dashboards/nama_10_a10_ai.html",
+    "title": "Nama 10 A10",
+    "section": "",
+    "text": "📊 Overview💡 AI Insights📈 Trends🌍 Geographic💬 AI Chat\n\n\n\n\n                                                \n\n\n\n\n\n\n\n\n\n                                                \n\n\n\n\n\n\n                                                \n\n\n\n\n\n\n Interactive AI Chat\n\n\nAsk questions about the data in natural language:\n\n\n\n“What is the latest value?”\n\n\n“Which country has the highest value?”\n\n\n“Show me the trend over time”\n\n\n\n Full natural language processing available in production version"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Eurostat AI Dashboards",
+    "section": "",
+    "text": "&lt;h1&gt;&lt;i class=\"fas fa-chart-line\"&gt;&lt;/i&gt; Eurostat AI Dashboards&lt;/h1&gt;\n&lt;p class=\"lead\"&gt;Power BI-Level Analytics with AI-Powered Insights&lt;/p&gt;\n&lt;p&gt;Automated insights • Predictive forecasting • Anomaly detection • Natural language queries&lt;/p&gt;\n\n\n Available Dashboards\n\n\nFound 1 AI-enhanced dashboard(s)\n\n\n&lt;div class=\"col-md-6 col-lg-4 mb-4\"&gt;\n    &lt;div class=\"card dashboard-card\"&gt;\n        &lt;div class=\"card-header\"&gt;\n            &lt;i class=\"fas fa-brain\"&gt;&lt;/i&gt; Urt Road Gonu\n        &lt;/div&gt;\n        &lt;div class=\"card-body\"&gt;\n            &lt;p class=\"text-muted\"&gt;&lt;small&gt;Dataset: &lt;code&gt;urt_road_gonu&lt;/code&gt;&lt;/small&gt;&lt;/p&gt;\n            \n            &lt;div class=\"mb-3\"&gt;\n                &lt;span class=\"stat-badge\"&gt;&lt;i class=\"fas fa-database\"&gt;&lt;/i&gt; 11,326 observations&lt;/span&gt;\n                &lt;span class=\"stat-badge\"&gt;&lt;i class=\"fas fa-globe\"&gt;&lt;/i&gt; 31 regions&lt;/span&gt;\n            &lt;/div&gt;\n            \n            &lt;div class=\"mb-3\"&gt;\n                &lt;small class=\"text-muted\"&gt;\n                    &lt;i class=\"fas fa-calendar\"&gt;&lt;/i&gt; 2021 - 2024&lt;br&gt;\n                    &lt;i class=\"fas fa-lightbulb\"&gt;&lt;/i&gt; 3 AI insights\n                &lt;/small&gt;\n            &lt;/div&gt;\n            \n            &lt;a href=\"dashboards/urt_road_gonu_ai.html\" class=\"btn btn-primary w-100\"&gt;\n                &lt;i class=\"fas fa-chart-area\"&gt;&lt;/i&gt; Open Dashboard\n            &lt;/a&gt;\n        &lt;/div&gt;\n    &lt;/div&gt;\n&lt;/div&gt;\n\n\n&lt;h3&gt;&lt;i class=\"fas fa-info-circle\"&gt;&lt;/i&gt; Features&lt;/h3&gt;\n&lt;div class=\"row mt-3\"&gt;\n    &lt;div class=\"col-md-3\"&gt;\n        &lt;h5&gt;&lt;i class=\"fas fa-brain text-primary\"&gt;&lt;/i&gt; AI Insights&lt;/h5&gt;\n        &lt;p class=\"small text-muted\"&gt;Automated pattern detection and recommendations&lt;/p&gt;\n    &lt;/div&gt;\n    &lt;div class=\"col-md-3\"&gt;\n        &lt;h5&gt;&lt;i class=\"fas fa-chart-line text-success\"&gt;&lt;/i&gt; Forecasting&lt;/h5&gt;\n        &lt;p class=\"small text-muted\"&gt;Predictive analytics for future trends&lt;/p&gt;\n    &lt;/div&gt;\n    &lt;div class=\"col-md-3\"&gt;\n        &lt;h5&gt;&lt;i class=\"fas fa-exclamation-triangle text-warning\"&gt;&lt;/i&gt; Anomalies&lt;/h5&gt;\n        &lt;p class=\"small text-muted\"&gt;Detect unusual patterns and outliers&lt;/p&gt;\n    &lt;/div&gt;\n    &lt;div class=\"col-md-3\"&gt;\n        &lt;h5&gt;&lt;i class=\"fas fa-question-circle text-info\"&gt;&lt;/i&gt; NL Queries&lt;/h5&gt;\n        &lt;p class=\"small text-muted\"&gt;Ask questions in plain English&lt;/p&gt;\n    &lt;/div&gt;\n&lt;/div&gt;"
+  },
+  {
+    "objectID": "dashboards/nama_10_gdp.html",
+    "href": "dashboards/nama_10_gdp.html",
+    "title": "nama_10_gdp",
+    "section": "",
+    "text": "## Overview\n### Latest value\n**136.455**  \\\n_as of 2025_\n## Trend\n### Trend over time\n\n\n                                                \n\n\n## Latest ranking\n### Top geographies (latest)"
+  },
+  {
+    "objectID": "dashboards/prc_hicp_midx.html",
+    "href": "dashboards/prc_hicp_midx.html",
+    "title": "prc_hicp_midx",
+    "section": "",
+    "text": "## Overview\n### Latest value\n(no data)\n## Trend\n### Trend over time\n(no data)\n## Latest ranking\n### Top geographies (latest)\n(no data)"
+  },
+  {
+    "objectID": "dashboards/urt_road_gonu_ai.html",
+    "href": "dashboards/urt_road_gonu_ai.html",
+    "title": "Urt Road Gonu",
+    "section": "",
+    "text": "📊 Overview💡 AI Insights📈 Trends🌍 Geographic💬 AI Chat\n\n\n\n\n                                                \n\n\n\n\n\n\n\n\n\n                                                \n\n\n\n\n\n\n                                                \n\n\n\n\n\n\n Interactive AI Chat\n\n\nAsk questions about the data in natural language:\n\n\n\n“What is the latest value?”\n\n\n“Which country has the highest value?”\n\n\n“Show me the trend over time”\n\n\n\n Full natural language processing available in production version"
+  },
+  {
+    "objectID": "dashboards/env_wat_pop_ai.html",
+    "href": "dashboards/env_wat_pop_ai.html",
+    "title": "Env Wat Pop",
+    "section": "",
+    "text": "📊 Overview💡 AI Insights📈 Trends🌍 Geographic💬 AI Chat\n\n\n\n\n                                                \n\n\n\n\n\n\n\n\n\n                                                \n\n\n\n\n\n\n                                                \n\n\n\n\n\n\n Interactive AI Chat\n\n\nAsk questions about the data in natural language:\n\n\n\n“What is the latest value?”\n\n\n“Which country has the highest value?”\n\n\n“Show me the trend over time”\n\n\n\n Full natural language processing available in production version"
+  },
+  {
+    "objectID": "dashboards/apri_pi05_outq_ai.html",
+    "href": "dashboards/apri_pi05_outq_ai.html",
+    "title": "Apri Pi05 Outq",
+    "section": "",
+    "text": "📊 Overview💡 AI Insights📈 Trends🌍 Geographic💬 AI Chat\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n Interactive AI Chat\n\n\nAsk questions about the data in natural language:\n\n\n\n“What is the latest value?”\n\n\n“Which country has the highest value?”\n\n\n“Show me the trend over time”\n\n\n\n Full natural language processing available in production version"
+  },
+  {
+    "objectID": "dashboards/apri_pi05_ina_ai.html",
+    "href": "dashboards/apri_pi05_ina_ai.html",
+    "title": "Apri Pi05 Ina",
+    "section": "",
+    "text": "📊 Overview💡 AI Insights📈 Trends🌍 Geographic💬 AI Chat\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n Interactive AI Chat\n\n\nAsk questions about the data in natural language:\n\n\n\n“What is the latest value?”\n\n\n“Which country has the highest value?”\n\n\n“Show me the trend over time”\n\n\n\n Full natural language processing available in production version"
+  },
+  {
+    "objectID": "dashboards/apri_pi05_outa_ai.html",
+    "href": "dashboards/apri_pi05_outa_ai.html",
+    "title": "Apri Pi05 Outa",
+    "section": "",
+    "text": "📊 Overview💡 AI Insights📈 Trends🌍 Geographic💬 AI Chat\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n Interactive AI Chat\n\n\nAsk questions about the data in natural language:\n\n\n\n“What is the latest value?”\n\n\n“Which country has the highest value?”\n\n\n“Show me the trend over time”\n\n\n\n Full natural language processing available in production version"
+  },
+  {
+    "objectID": "dashboards/env_wat_cat_ai.html",
+    "href": "dashboards/env_wat_cat_ai.html",
+    "title": "Env Wat Cat",
+    "section": "",
+    "text": "📊 Overview💡 AI Insights📈 Trends🌍 Geographic💬 AI Chat\n\n\n\n\n                                                \n\n\n\n\n\n\n\n\n\n                                                \n\n\n\n\n\n\n                                                \n\n\n\n\n\n\n Interactive AI Chat\n\n\nAsk questions about the data in natural language:\n\n\n\n“What is the latest value?”\n\n\n“Which country has the highest value?”\n\n\n“Show me the trend over time”\n\n\n\n Full natural language processing available in production version"
+  },
+  {
+    "objectID": "dashboards/rail_tf_ns10_be_ai.html",
+    "href": "dashboards/rail_tf_ns10_be_ai.html",
+    "title": "Rail Tf Ns10 Be",
+    "section": "",
+    "text": "📊 Overview💡 AI Insights📈 Trends🌍 Geographic💬 AI Chat\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n Interactive AI Chat\n\n\nAsk questions about the data in natural language:\n\n\n\n“What is the latest value?”\n\n\n“Which country has the highest value?”\n\n\n“Show me the trend over time”\n\n\n\n Full natural language processing available in production version"
+  }
+]

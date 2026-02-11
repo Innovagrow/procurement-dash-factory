@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Catalog | AI Analytics Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-hover { transition: all 0.3s ease; }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 20px 40px -10px rgba(139, 92, 246, 0.3); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <header class="sticky top-0 z-50 border-b bg-white/95 backdrop-blur shadow-sm">
+        <nav class="mx-auto max-w-7xl flex items-center justify-between px-6 py-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg gradient-bg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-xl font-bold">Data Catalog</span>
+                    <span class="ml-2 bg-purple-100 text-purple-700 text-xs font-semibold px-3 py-1 rounded-full">AI Powered</span>
+                </div>
+            </div>
+            <span class="text-sm text-gray-600">
+                <span id="total-count" class="font-bold text-purple-600">0</span> Datasets
+            </span>
+        </nav>
+    </header>
+
+    <main>
+        <section class="gradient-bg px-6 pt-16 pb-12">
+            <div class="max-w-6xl mx-auto text-center">
+                <h1 class="text-5xl font-extrabold text-white mb-4">Intelligent Analytics Platform</h1>
+                <p class="text-xl text-purple-100 mb-8">
+                    Browse <span id="hero-total" class="font-bold">7,616</span> datasets across <span class="font-bold">24</span> categories
+                </p>
+                <div class="max-w-2xl mx-auto">
+                    <div class="flex items-center gap-4 rounded-xl border-2 border-white/30 bg-white/10 px-6 py-3">
+                        <svg class="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input type="text" id="search-input" placeholder="Search datasets..." 
+                               class="flex-1 bg-transparent text-white placeholder-white/60 outline-none" 
+                               oninput="filterDatasets()">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="px-6 py-12 bg-white border-b">
+            <div class="max-w-7xl mx-auto">
+                <h2 class="text-2xl font-bold mb-6">Data Sources</h2>
+                <div id="sources-grid" class="grid md:grid-cols-3 gap-6"></div>
+            </div>
+        </section>
+
+        <section class="px-6 pt-12 pb-8 bg-gray-50">
+            <div class="max-w-7xl mx-auto">
+                <h3 class="font-semibold mb-4">Categories</h3>
+                <div id="category-filters" class="flex flex-wrap gap-3"></div>
+            </div>
+        </section>
+
+        <section class="px-6 py-12">
+            <div class="max-w-7xl mx-auto">
+                <div class="mb-6 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold">Datasets</h2>
+                        <p class="text-gray-600">Showing <span id="showing-count">0</span> of <span id="total-datasets">0</span></p>
+                    </div>
+                    <select id="sort-select" onchange="sortDatasets()" class="border rounded-lg px-4 py-2">
+                        <option value="recent">Most Recent</option>
+                        <option value="title">Alphabetical</option>
+                    </select>
+                </div>
+                <div id="datasets-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                <div id="load-more" class="mt-12 text-center hidden">
+                    <button onclick="loadMore()" class="gradient-bg text-white px-8 py-3 rounded-xl font-semibold">Load More</button>
+                </div>
+                <div id="empty-state" class="hidden mt-12 text-center py-16">
+                    <p class="text-xl font-semibold">No datasets found</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let allDatasets = [];
+        let filteredDatasets = [];
+        let currentCategory = 'all';
+        let currentPage = 0;
+        const ITEMS_PER_PAGE = 24;
+
+        fetch('/catalog.json')
+            .then(res => res.json())
+            .then(catalog => {
+                allDatasets = catalog.datasets;
+                filteredDatasets = [...allDatasets];
+                
+                document.getElementById('total-count').textContent = catalog.total.toLocaleString();
+                document.getElementById('hero-total').textContent = catalog.total.toLocaleString();
+                document.getElementById('total-datasets').textContent = catalog.total.toLocaleString();
+                
+                renderSources(catalog.sources);
+                renderCategories(catalog.categories);
+                renderDatasets();
+            })
+            .catch(err => {
+                console.error('Failed to load catalog:', err);
+                document.getElementById('datasets-grid').innerHTML = '<div class="col-span-3 text-center text-red-600">Failed to load catalog</div>';
+            });
+
+        function renderSources(sources) {
+            document.getElementById('sources-grid').innerHTML = `
+                <div class="border-2 rounded-xl bg-white p-6 text-center">
+                    <div class="text-4xl mb-3">🇪🇺</div>
+                    <h3 class="font-bold">Eurostat</h3>
+                    <p class="text-sm text-gray-600">European Union Statistics</p>
+                    <p class="text-2xl font-bold text-purple-600 mt-3">${sources.estat.toLocaleString()}</p>
+                    <p class="text-xs text-gray-500">datasets</p>
+                </div>
+            `;
+        }
+
+        function renderCategories(categories) {
+            const total = Object.values(categories).reduce((a, b) => a + b, 0);
+            const sortedCats = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+            
+            document.getElementById('category-filters').innerHTML = `
+                <button onclick="filterCategory('all')" class="category-btn active px-4 py-2 rounded-xl border-2 gradient-bg text-white font-semibold">
+                    All ${total.toLocaleString()}
+                </button>
+            ` + sortedCats.slice(0, 10).map(([cat, count]) => `
+                <button onclick="filterCategory('${cat}')" class="category-btn px-4 py-2 rounded-xl border-2 bg-white hover:border-purple-600">
+                    ${cat} ${count}
+                </button>
+            `).join('');
+        }
+
+        function filterCategory(cat) {
+            currentCategory = cat;
+            currentPage = 0;
+            
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.classList.remove('gradient-bg', 'text-white');
+                btn.classList.add('bg-white');
+            });
+            event.target.classList.add('gradient-bg', 'text-white');
+            event.target.classList.remove('bg-white');
+            
+            filterDatasets();
+        }
+
+        function filterDatasets() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            
+            filteredDatasets = allDatasets.filter(ds => {
+                const matchesCat = currentCategory === 'all' || ds.category === currentCategory;
+                const matchesSearch = !search || ds.title.toLowerCase().includes(search) || ds.code.toLowerCase().includes(search);
+                return matchesCat && matchesSearch;
+            });
+            
+            renderDatasets();
+        }
+
+        function sortDatasets() {
+            const sort = document.getElementById('sort-select').value;
+            
+            if (sort === 'title') {
+                filteredDatasets.sort((a, b) => a.title.localeCompare(b.title));
+            } else {
+                filteredDatasets.sort((a, b) => new Date(b.last_updated) - new Date(a.last_updated));
+            }
+            
+            renderDatasets();
+        }
+
+        function renderDatasets() {
+            const end = (currentPage + 1) * ITEMS_PER_PAGE;
+            const displayed = filteredDatasets.slice(0, end);
+            
+            document.getElementById('showing-count').textContent = displayed.length;
+            
+            if (displayed.length === 0) {
+                document.getElementById('datasets-grid').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('load-more').classList.add('hidden');
+                return;
+            }
+            
+            document.getElementById('datasets-grid').classList.remove('hidden');
+            document.getElementById('empty-state').classList.add('hidden');
+            
+            document.getElementById('datasets-grid').innerHTML = displayed.map(ds => `
+                <a href="report.html?dataset=${ds.code}" class="card-hover border rounded-xl bg-white p-6 block hover:no-underline">
+                    <div class="mb-3">
+                        <span class="bg-purple-100 text-purple-700 text-xs font-semibold px-3 py-1 rounded-full">${ds.category}</span>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2 text-gray-900">${ds.title}</h3>
+                    <p class="text-xs text-gray-500 font-mono mb-4">${ds.code}</p>
+                    <div class="gradient-bg text-white text-center py-2 rounded-lg font-semibold text-sm">
+                        View Report
+                    </div>
+                </a>
+            `).join('');
+            
+            const hasMore = displayed.length < filteredDatasets.length;
+            document.getElementById('load-more').classList.toggle('hidden', !hasMore);
+        }
+
+        function loadMore() {
+            currentPage++;
+            renderDatasets();
+        }
+    </script>
+</body>
+</html>

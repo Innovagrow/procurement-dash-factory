@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <nav class="gradient-bg text-white px-6 py-4 sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">{{ title }}</h1>
+                <p class="text-sm text-purple-100">{{ dataset_code }}</p>
+            </div>
+            <a href="/" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
+                Back to Catalog
+            </a>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        <!-- KPIs -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {% for kpi in kpis %}
+            <div class="bg-white rounded-xl border-2 border-purple-100 p-6 text-center">
+                <p class="text-sm text-gray-600 mb-2">{{ kpi.label }}</p>
+                <p class="text-2xl font-bold text-purple-600">{{ kpi.value }}</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Tabs -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="border-b">
+                <nav class="flex overflow-x-auto">
+                    <button onclick="showTab('overview')" class="tab-btn active px-6 py-4 font-semibold border-b-2 border-purple-600">Overview</button>
+                    <button onclick="showTab('insights')" class="tab-btn px-6 py-4 font-semibold border-b-2 border-transparent">AI Insights</button>
+                    <button onclick="showTab('charts')" class="tab-btn px-6 py-4 font-semibold border-b-2 border-transparent">Visualizations</button>
+                </nav>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="tab-overview" class="tab-content p-6">
+                <h2 class="text-2xl font-bold mb-4">Dataset Overview</h2>
+                <div class="prose max-w-none">
+                    <p class="text-gray-700">{{ ai_summary or 'AI-powered insights for this dataset.' }}</p>
+                </div>
+            </div>
+
+            <!-- AI Insights Tab -->
+            <div id="tab-insights" class="tab-content hidden p-6">
+                <h2 class="text-2xl font-bold mb-4">AI-Powered Insights</h2>
+                <div class="space-y-4">
+                    {% for insight in insights %}
+                    <div class="bg-purple-50 border-l-4 border-purple-600 p-4 rounded">
+                        <h3 class="font-bold text-purple-900 mb-2">{{ insight.title }}</h3>
+                        <p class="text-gray-700">{{ insight.description }}</p>
+                    </div>
+                    {% endfor %}
+                    {% if not insights %}
+                    <p class="text-gray-500">No insights generated for this dataset.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Charts Tab -->
+            <div id="tab-charts" class="tab-content hidden p-6">
+                <h2 class="text-2xl font-bold mb-6">Interactive Visualizations</h2>
+                <div class="space-y-8">
+                    {% for chart in charts %}
+                    <div>
+                        <h3 class="font-semibold text-lg mb-3">{{ chart.title }}</h3>
+                        <div id="chart-{{ loop.index }}" class="w-full"></div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Tab switching
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('active', 'border-purple-600', 'text-purple-600');
+                el.classList.add('border-transparent', 'text-gray-600');
+            });
+            
+            document.getElementById('tab-' + tabName).classList.remove('hidden');
+            event.target.classList.add('active', 'border-purple-600', 'text-purple-600');
+            event.target.classList.remove('border-transparent', 'text-gray-600');
+        }
+
+        // Render Plotly charts
+        const charts = {{ charts | tojson }};
+        charts.forEach((chart, idx) => {
+            const data = JSON.parse(chart.json);
+            Plotly.newPlot('chart-' + (idx + 1), data.data, data.layout, {responsive: true});
+        });
+    </script>
+</body>
+</html>

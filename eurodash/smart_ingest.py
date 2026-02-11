@@ -2,8 +2,19 @@
 Smart ingestion that auto-detects required filters per dataset
 """
 import requests
+import json
+from pathlib import Path
 from typing import Dict, Any
 from .utils import http_get
+
+# Load pre-tested filter database
+FILTER_DB_PATH = Path(__file__).parent.parent / 'dataset_filters.json'
+
+def load_filter_database():
+    """Load pre-tested filters for all datasets"""
+    if FILTER_DB_PATH.exists():
+        return json.loads(FILTER_DB_PATH.read_text())
+    return {}
 
 def get_dataset_structure(dataset_code: str) -> Dict[str, Any]:
     """Get dataset structure/metadata from Eurostat"""
@@ -57,12 +68,35 @@ def detect_dimensions(structure: Dict[str, Any]) -> Dict[str, str]:
 def smart_ingest_dataset(cfg, dataset_code: str) -> 'pd.DataFrame':
     """
     Smart ingestion with automatic filter detection
-    Tries multiple strategies to get data from Eurostat
+    Uses pre-tested filters first, then fallback to dynamic detection
     """
     import pandas as pd
     from .ingest import ingest_dataset
     
     print(f"[SMART INGEST] Starting for {dataset_code}")
+    
+    # Try 0: Use pre-tested filters from database
+    filter_db = load_filter_database()
+    if dataset_code in filter_db:
+        known_filters = filter_db[dataset_code]
+        
+        # Skip if we know it has no data
+        if known_filters.get('_no_data') or known_filters.get('_error'):
+            print(f"[SMART INGEST] Known to have no data, skipping")
+            return pd.DataFrame()
+        
+        # Use pre-tested filters
+        print(f"[SMART INGEST] Using pre-tested filters: {known_filters}")
+        try:
+            df = ingest_dataset(cfg, dataset_code, filters=known_filters)
+            if len(df) > 0:
+                print(f"[SMART INGEST] ✓ Success with pre-tested filters: {len(df)} rows")
+                return df
+        except Exception as e:
+            print(f"[SMART INGEST] Pre-tested filters failed: {str(e)[:100]}")
+    
+    # Fallback to dynamic detection
+    print(f"[SMART INGEST] No pre-tested filters, trying dynamic detection")
     
     # Try 1: No filters first (works for most datasets)
     try:

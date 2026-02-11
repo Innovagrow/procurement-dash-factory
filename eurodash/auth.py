@@ -1,167 +1,200 @@
 """
-User authentication system with JWT tokens
+User Authentication & Authorization
+JWT-based auth with PostgreSQL user storage
 """
+import os
 import jwt
 import bcrypt
-import duckdb
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional, Dict
-import secrets
+from pydantic import BaseModel, EmailStr
+import duckdb
 
-# Secret key for JWT (in production, use environment variable)
-SECRET_KEY = secrets.token_hex(32)
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+# JWT Secret (use environment variable in production)
+JWT_SECRET = os.getenv('JWT_SECRET', 'your-secret-key-change-in-production')
+JWT_ALGORITHM = 'HS256'
+JWT_EXPIRATION_HOURS = 24
 
-class AuthService:
-    """Handle user authentication and authorization"""
+class User(BaseModel):
+    """User model"""
+    id: Optional[int] = None
+    email: EmailStr
+    username: str
+    password_hash: str
+    created_at: Optional[datetime] = None
+    is_active: bool = True
+
+class UserLogin(BaseModel):
+    """Login request"""
+    email: EmailStr
+    password: str
+
+class UserSignup(BaseModel):
+    """Signup request"""
+    email: EmailStr
+    username: str
+    password: str
+
+def init_auth_db(db_path: str = 'eurodash.duckdb'):
+    """Initialize authentication tables"""
+    con = duckdb.connect(db_path)
     
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        self._init_users_table()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY,
+            email VARCHAR UNIQUE NOT NULL,
+            username VARCHAR NOT NULL,
+            password_hash VARCHAR NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT TRUE
+        )
+    """)
     
-    def _init_users_table(self):
-        """Create users table if it doesn't exist"""
-        con = duckdb.connect(self.db_path)
-        con.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY,
-                username VARCHAR UNIQUE NOT NULL,
-                email VARCHAR UNIQUE NOT NULL,
-                password_hash VARCHAR NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_login TIMESTAMP,
-                is_active BOOLEAN DEFAULT TRUE
-            )
-        """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id INTEGER PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            token VARCHAR NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+    
+    con.close()
+
+def hash_password(password: str) -> str:
+    """Hash password with bcrypt"""
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Verify password against hash"""
+    return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+
+def create_jwt_token(user_id: int, email: str) -> str:
+    """Create JWT token"""
+    payload = {
+        'user_id': user_id,
+        'email': email,
+        'exp': datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS),
+        'iat': datetime.utcnow()
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def verify_jwt_token(token: str) -> Optional[Dict]:
+    """Verify JWT token and return payload"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None  # Token expired
+    except jwt.InvalidTokenError:
+        return None  # Invalid token
+
+def signup_user(signup: UserSignup, db_path: str = 'eurodash.duckdb') -> Dict:
+    """Create new user account"""
+    con = duckdb.connect(db_path)
+    
+    # Check if user exists
+    existing = con.execute(
+        "SELECT id FROM users WHERE email = ?", 
+        [signup.email]
+    ).fetchone()
+    
+    if existing:
         con.close()
+        return {'success': False, 'error': 'Email already registered'}
     
-    def hash_password(self, password: str) -> str:
-        """Hash a password using bcrypt"""
-        salt = bcrypt.gensalt()
-        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+    # Hash password
+    password_hash = hash_password(signup.password)
     
-    def verify_password(self, password: str, hashed: str) -> bool:
-        """Verify a password against its hash"""
-        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
-    
-    def create_user(self, username: str, email: str, password: str) -> Dict:
-        """Create a new user"""
-        con = duckdb.connect(self.db_path)
+    # Insert user
+    try:
+        con.execute("""
+            INSERT INTO users (email, username, password_hash)
+            VALUES (?, ?, ?)
+        """, [signup.email, signup.username, password_hash])
         
-        # Check if user exists
-        existing = con.execute(
-            "SELECT id FROM users WHERE username = ? OR email = ?",
-            [username, email]
+        # Get new user ID
+        user = con.execute(
+            "SELECT id, email, username FROM users WHERE email = ?",
+            [signup.email]
         ).fetchone()
         
-        if existing:
-            con.close()
-            raise ValueError("Username or email already exists")
-        
-        # Hash password and insert user
-        password_hash = self.hash_password(password)
-        
-        result = con.execute("""
-            INSERT INTO users (username, email, password_hash)
-            VALUES (?, ?, ?)
-            RETURNING id, username, email, created_at
-        """, [username, email, password_hash]).fetchone()
-        
         con.close()
         
-        return {
-            'id': result[0],
-            'username': result[1],
-            'email': result[2],
-            'created_at': str(result[3])
-        }
-    
-    def authenticate_user(self, username: str, password: str) -> Optional[Dict]:
-        """Authenticate a user and return user data if valid"""
-        con = duckdb.connect(self.db_path)
-        
-        user = con.execute("""
-            SELECT id, username, email, password_hash, is_active
-            FROM users
-            WHERE username = ? OR email = ?
-        """, [username, username]).fetchone()
-        
-        if not user:
-            con.close()
-            return None
-        
-        user_id, username, email, password_hash, is_active = user
-        
-        if not is_active:
-            con.close()
-            return None
-        
-        if not self.verify_password(password, password_hash):
-            con.close()
-            return None
-        
-        # Update last login
-        con.execute(
-            "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
-            [user_id]
-        )
-        con.close()
+        # Create JWT token
+        token = create_jwt_token(user[0], user[1])
         
         return {
-            'id': user_id,
-            'username': username,
-            'email': email
-        }
-    
-    def create_access_token(self, user_data: Dict) -> str:
-        """Create a JWT access token"""
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        
-        to_encode = {
-            'user_id': user_data['id'],
-            'username': user_data['username'],
-            'email': user_data['email'],
-            'exp': expire
-        }
-        
-        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-        return encoded_jwt
-    
-    def verify_token(self, token: str) -> Optional[Dict]:
-        """Verify a JWT token and return user data"""
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            return {
-                'id': payload.get('user_id'),
-                'username': payload.get('username'),
-                'email': payload.get('email')
+            'success': True,
+            'token': token,
+            'user': {
+                'id': user[0],
+                'email': user[1],
+                'username': user[2]
             }
-        except jwt.ExpiredSignatureError:
-            return None
-        except jwt.JWTError:
-            return None
-    
-    def get_user_by_id(self, user_id: int) -> Optional[Dict]:
-        """Get user by ID"""
-        con = duckdb.connect(self.db_path, read_only=True)
-        
-        user = con.execute("""
-            SELECT id, username, email, created_at, last_login
-            FROM users
-            WHERE id = ? AND is_active = TRUE
-        """, [user_id]).fetchone()
-        
-        con.close()
-        
-        if not user:
-            return None
-        
-        return {
-            'id': user[0],
-            'username': user[1],
-            'email': user[2],
-            'created_at': str(user[3]),
-            'last_login': str(user[4]) if user[4] else None
         }
+    except Exception as e:
+        con.close()
+        return {'success': False, 'error': str(e)}
+
+def login_user(login: UserLogin, db_path: str = 'eurodash.duckdb') -> Dict:
+    """Authenticate user and return JWT token"""
+    con = duckdb.connect(db_path)
+    
+    # Get user
+    user = con.execute("""
+        SELECT id, email, username, password_hash, is_active
+        FROM users WHERE email = ?
+    """, [login.email]).fetchone()
+    
+    con.close()
+    
+    if not user:
+        return {'success': False, 'error': 'Invalid email or password'}
+    
+    # Check if active
+    if not user[4]:
+        return {'success': False, 'error': 'Account disabled'}
+    
+    # Verify password
+    if not verify_password(login.password, user[3]):
+        return {'success': False, 'error': 'Invalid email or password'}
+    
+    # Create JWT token
+    token = create_jwt_token(user[0], user[1])
+    
+    return {
+        'success': True,
+        'token': token,
+        'user': {
+            'id': user[0],
+            'email': user[1],
+            'username': user[2]
+        }
+    }
+
+def get_current_user(token: str, db_path: str = 'eurodash.duckdb') -> Optional[Dict]:
+    """Get current user from JWT token"""
+    payload = verify_jwt_token(token)
+    
+    if not payload:
+        return None
+    
+    con = duckdb.connect(db_path, read_only=True)
+    user = con.execute("""
+        SELECT id, email, username, is_active
+        FROM users WHERE id = ?
+    """, [payload['user_id']]).fetchone()
+    con.close()
+    
+    if not user or not user[3]:
+        return None
+    
+    return {
+        'id': user[0],
+        'email': user[1],
+        'username': user[2]
+    }

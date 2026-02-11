@@ -9,38 +9,13 @@ from pathlib import Path
 import threading
 import time
 import json
-from functools import wraps
+from eurodash.auth import init_auth_db, signup_user, login_user, get_current_user, UserLogin, UserSignup
 
 app = Flask(__name__)
 CORS(app)
 
-# Import auth service
-from eurodash.auth import AuthService
-from eurodash.config import Config
-
-cfg = Config.load('config.yml')
-auth_service = AuthService(cfg.get('warehouse', 'duckdb_path'))
-
-def token_required(f):
-    """Decorator to require authentication"""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        
-        if not token:
-            return jsonify({'error': 'Token is missing'}), 401
-        
-        if token.startswith('Bearer '):
-            token = token[7:]
-        
-        user_data = auth_service.verify_token(token)
-        
-        if not user_data:
-            return jsonify({'error': 'Token is invalid or expired'}), 401
-        
-        return f(user_data, *args, **kwargs)
-    
-    return decorated
+# Initialize authentication database
+init_auth_db()
 
 # Track generation status
 generation_status = {}
@@ -184,6 +159,44 @@ def serve_static(path):
     return send_from_directory('site/_site', path)
 
 
+@app.route('/api/auth/signup', methods=['POST'])
+def api_signup():
+    """User signup endpoint"""
+    try:
+        data = request.get_json()
+        signup = UserSignup(**data)
+        result = signup_user(signup)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/auth/login', methods=['POST'])
+def api_login():
+    """User login endpoint"""
+    try:
+        data = request.get_json()
+        login = UserLogin(**data)
+        result = login_user(login)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/auth/me', methods=['GET'])
+def api_get_user():
+    """Get current user from token"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'No token provided'}), 401
+    
+    token = auth_header.split(' ')[1]
+    user = get_current_user(token)
+    
+    if not user:
+        return jsonify({'error': 'Invalid token'}), 401
+    
+    return jsonify({'success': True, 'user': user})
+
+
 if __name__ == '__main__':
     print("=" * 60)
     print("Dashboard API Server Starting")
@@ -194,9 +207,15 @@ if __name__ == '__main__':
     print("  * Auto-analyzes data for optimal insights")
     print("  * Proposes best report structure")
     print("  * Real-time generation progress")
+    print("  * User authentication (JWT)")
     print()
     print("Server running at: http://localhost:5000")
     print("Serving from: site/_site/")
+    print()
+    print("Endpoints:")
+    print("  - POST /api/auth/signup")
+    print("  - POST /api/auth/login")
+    print("  - GET  /api/auth/me")
     print()
     print("Press Ctrl+C to stop")
     print("=" * 60)

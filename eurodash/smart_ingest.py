@@ -10,9 +10,10 @@ def get_dataset_structure(dataset_code: str) -> Dict[str, Any]:
     url = f"https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/{dataset_code}?format=JSON&compressed=false"
     
     try:
-        response = http_get(url, timeout=10)
+        response = http_get(url, timeout=15)
         return response.json()
-    except:
+    except Exception as e:
+        print(f"[SMART] Failed to get structure for {dataset_code}: {e}")
         return {}
 
 def detect_dimensions(structure: Dict[str, Any]) -> Dict[str, str]:
@@ -24,8 +25,9 @@ def detect_dimensions(structure: Dict[str, Any]) -> Dict[str, str]:
     filters = {}
     
     for dim_name, dim_data in dimensions.items():
-        if dim_name in ['time', 'geo', 'freq']:
-            continue  # Handle these separately
+        # Skip time and freq - let API return all
+        if dim_name.lower() in ['time', 'freq']:
+            continue
         
         # Get categories for this dimension
         category = dim_data.get('category', {})
@@ -34,54 +36,78 @@ def detect_dimensions(structure: Dict[str, Any]) -> Dict[str, str]:
         if not index:
             continue
         
-        # Try to find TOTAL, T, or first value
+        # Try to find TOTAL, T, or aggregates
         if isinstance(index, dict):
             keys = list(index.keys())
             
             # Priority order for common values
-            for preferred in ['TOTAL', 'T', 'TOT', 'EU27_2020', 'EU28']:
+            priority = ['TOTAL', '_T', 'T', 'TOT', 'EU27_2020', 'EU28', 'EU27', 'EA19', 'EA']
+            
+            for preferred in priority:
                 if preferred in keys:
                     filters[dim_name] = preferred
                     break
             else:
-                # Use first available value
+                # Use first available value as fallback
                 if keys:
                     filters[dim_name] = keys[0]
     
     return filters
 
 def smart_ingest_dataset(cfg, dataset_code: str) -> 'pd.DataFrame':
-    """Ingest with auto-detected filters"""
+    """
+    Smart ingestion with automatic filter detection
+    Tries multiple strategies to get data from Eurostat
+    """
+    import pandas as pd
     from .ingest import ingest_dataset
     
-    # Try 1: Default filters (what we do now)
+    print(f"[SMART INGEST] Starting for {dataset_code}")
+    
+    # Try 1: No filters first (works for most datasets)
     try:
-        df = ingest_dataset(cfg, dataset_code)
-        if not df.empty:
-            return df
-    except:
-        pass
-    
-    # Try 2: Get structure and auto-detect filters
-    structure = get_dataset_structure(dataset_code)
-    filters = detect_dimensions(structure)
-    
-    if filters:
-        try:
-            df = ingest_dataset(cfg, dataset_code, filters=filters)
-            if not df.empty:
-                return df
-        except:
-            pass
-    
-    # Try 3: Without any filters (some datasets need this)
-    try:
+        print(f"[SMART INGEST] Try 1: No filters")
         df = ingest_dataset(cfg, dataset_code, filters={})
-        if not df.empty:
+        if len(df) > 0:
+            print(f"[SMART INGEST] ✓ Success with no filters: {len(df)} rows")
             return df
-    except:
-        pass
+    except Exception as e:
+        print(f"[SMART INGEST] ✗ No filters failed: {str(e)[:100]}")
     
-    # Give up - no data available
-    import pandas as pd
+    # Try 2: Auto-detect structure and apply smart filters
+    try:
+        print(f"[SMART INGEST] Try 2: Auto-detecting filters from structure")
+        structure = get_dataset_structure(dataset_code)
+        if structure:
+            filters = detect_dimensions(structure)
+            if filters:
+                print(f"[SMART INGEST] Detected filters: {filters}")
+                df = ingest_dataset(cfg, dataset_code, filters=filters)
+                if len(df) > 0:
+                    print(f"[SMART INGEST] ✓ Success with auto filters: {len(df)} rows")
+                    return df
+    except Exception as e:
+        print(f"[SMART INGEST] ✗ Auto-detect failed: {str(e)[:100]}")
+    
+    # Try 3: Common filter combinations
+    common_filters = [
+        {'geo': 'EU27_2020'},
+        {'geo': 'EU28'},
+        {'geo': 'TOTAL'},
+        {'geo': 'EU27_2020', 'unit': 'EUR'},
+        {},  # Empty as final fallback
+    ]
+    
+    for i, filters in enumerate(common_filters, 3):
+        try:
+            print(f"[SMART INGEST] Try {i}: Filters {filters}")
+            df = ingest_dataset(cfg, dataset_code, filters=filters)
+            if len(df) > 0:
+                print(f"[SMART INGEST] ✓ Success: {len(df)} rows")
+                return df
+        except Exception as e:
+            print(f"[SMART INGEST] ✗ Failed: {str(e)[:100]}")
+    
+    # No data found after all attempts
+    print(f"[SMART INGEST] ✗✗ FAILED: No data found for {dataset_code} after all attempts")
     return pd.DataFrame()

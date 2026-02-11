@@ -12,22 +12,40 @@ import duckdb
 
 def generate_plotly_json(df, chart_config: Dict[str, Any]) -> str:
     """Generate Plotly chart as JSON"""
+    if df.empty:
+        raise ValueError("Cannot create chart from empty dataframe")
+    
     chart_type = chart_config.get('type', 'line')
+    title = chart_config.get('title', 'Chart')
     
-    if chart_type == 'line':
-        fig = px.line(df, x='time', y='value', color='geo', 
-                     title=chart_config.get('title', 'Chart'))
-    elif chart_type == 'bar':
-        fig = px.bar(df, x='time', y='value', color='geo',
-                    title=chart_config.get('title', 'Chart'))
-    elif chart_type == 'area':
-        fig = px.area(df, x='time', y='value', color='geo',
-                     title=chart_config.get('title', 'Chart'))
-    else:
-        fig = px.line(df, x='time', y='value', color='geo')
+    # Ensure we have required columns
+    if 'time' not in df.columns or 'value' not in df.columns:
+        raise ValueError(f"Missing required columns. Available: {df.columns.tolist()}")
     
-    fig.update_layout(template='plotly_white', height=400)
-    return fig.to_json()
+    # Handle geo column - might not exist in all datasets
+    color_col = 'geo' if 'geo' in df.columns else None
+    
+    try:
+        if chart_type == 'line':
+            fig = px.line(df, x='time', y='value', color=color_col, title=title)
+        elif chart_type == 'bar':
+            fig = px.bar(df, x='time', y='value', color=color_col, title=title)
+        elif chart_type == 'area':
+            fig = px.area(df, x='time', y='value', color=color_col, title=title)
+        else:
+            fig = px.line(df, x='time', y='value', color=color_col, title=title)
+        
+        fig.update_layout(
+            template='plotly_white',
+            height=450,
+            showlegend=True,
+            hovermode='x unified'
+        )
+        
+        return fig.to_json()
+    except Exception as e:
+        print(f"[PLOTLY ERROR] {e}")
+        raise
 
 def render_fast_dashboard(dataset_code: str, db_path: str, plan_path: Path, output_path: Path):
     """Render dashboard to HTML directly (no Quarto)"""
@@ -44,8 +62,12 @@ def render_fast_dashboard(dataset_code: str, db_path: str, plan_path: Path, outp
     """).df()
     con.close()
     
-    # Generate charts
+    print(f"[FAST RENDER] Loaded {len(df)} rows for {dataset_code}")
+    
+    # Generate charts - create default charts if plan has none
     charts = []
+    
+    # Try to use plan visualizations first
     for page in plan.get('pages', []):
         for viz in page.get('visualizations', []):
             try:
@@ -55,8 +77,24 @@ def render_fast_dashboard(dataset_code: str, db_path: str, plan_path: Path, outp
                     'json': chart_json,
                     'page': page.get('title', 'Overview')
                 })
-            except:
-                pass
+                print(f"[FAST RENDER] Created chart: {viz.get('title')}")
+            except Exception as e:
+                print(f"[FAST RENDER] Chart generation failed: {e}")
+    
+    # If no charts from plan, create default ones
+    if len(charts) == 0 and len(df) > 0:
+        print("[FAST RENDER] No charts in plan, creating defaults")
+        try:
+            # Default line chart
+            default_chart = generate_plotly_json(df, {'type': 'line', 'title': 'Data Over Time'})
+            charts.append({
+                'title': 'Data Over Time',
+                'json': default_chart,
+                'page': 'Overview'
+            })
+            print("[FAST RENDER] Created default chart")
+        except Exception as e:
+            print(f"[FAST RENDER] Default chart failed: {e}")
     
     # Calculate KPIs
     kpis = []

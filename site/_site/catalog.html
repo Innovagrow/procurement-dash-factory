@@ -125,6 +125,31 @@
         let currentPage = 0;
         const ITEMS_PER_PAGE = 24;
 
+        // Check authentication and show appropriate UI
+        function checkAuth() {
+            const token = localStorage.getItem('auth_token');
+            const user = localStorage.getItem('user');
+            
+            if (token && user) {
+                const userData = JSON.parse(user);
+                document.getElementById('username').textContent = userData.username;
+                document.getElementById('user-menu').classList.remove('hidden');
+                document.getElementById('auth-buttons').classList.add('hidden');
+            } else {
+                document.getElementById('user-menu').classList.add('hidden');
+                document.getElementById('auth-buttons').classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user');
+            window.location.reload();
+        }
+
+        // Check auth on page load
+        checkAuth();
+
         fetch('/catalog.json')
             .then(res => res.json())
             .then(catalog => {

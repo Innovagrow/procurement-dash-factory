@@ -198,7 +198,7 @@
             document.getElementById('empty-state').classList.add('hidden');
             
             document.getElementById('datasets-grid').innerHTML = displayed.map(ds => `
-                <a href="report.html?dataset=${ds.code}" class="card-hover border rounded-xl bg-white p-6 block hover:no-underline">
+                <div onclick="openReport('${ds.code}')" class="card-hover border rounded-xl bg-white p-6 cursor-pointer">
                     <div class="mb-3">
                         <span class="bg-purple-100 text-purple-700 text-xs font-semibold px-3 py-1 rounded-full">${ds.category}</span>
                     </div>
@@ -207,7 +207,7 @@
                     <div class="gradient-bg text-white text-center py-2 rounded-lg font-semibold text-sm">
                         View Report
                     </div>
-                </a>
+                </div>
             `).join('');
             
             const hasMore = displayed.length < filteredDatasets.length;
@@ -217,6 +217,57 @@
         function loadMore() {
             currentPage++;
             renderDatasets();
+        }
+
+        // Check authentication before opening report
+        function openReport(datasetCode) {
+            const token = localStorage.getItem('auth_token');
+            
+            if (!token) {
+                // Show login popup
+                showLoginPopup(datasetCode);
+            } else {
+                // User is logged in, open report
+                window.location.href = `report.html?dataset=${datasetCode}`;
+            }
+        }
+
+        function showLoginPopup(datasetCode) {
+            // Store the dataset they wanted to view
+            sessionStorage.setItem('pending_dataset', datasetCode);
+            
+            // Redirect to login page
+            window.location.href = '/login.html';
+        }
+    </script>
+
+    <!-- Login Required Modal (alternative to redirect) -->
+    <div id="loginModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 gradient-bg rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Login Required</h2>
+                <p class="text-gray-600">Please sign in or create an account to view dashboards</p>
+            </div>
+            
+            <div class="space-y-3">
+                <a href="/login.html" class="block w-full gradient-bg text-white text-center py-3 rounded-lg font-semibold hover:opacity-90 transition">
+                    Sign In
+                </a>
+                <button onclick="closeLoginModal()" class="block w-full border-2 border-gray-300 text-gray-700 text-center py-3 rounded-lg font-semibold hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.add('hidden');
         }
     </script>
 </body>

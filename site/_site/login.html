@@ -73,11 +73,10 @@
         <!-- Error/Success Messages -->
         <div id="message" class="mt-4 p-3 rounded-lg hidden"></div>
 
-        <!-- Guest Access -->
+        <!-- Back to Catalog -->
         <div class="mt-6 text-center">
-            <p class="text-gray-600 text-sm mb-3">or</p>
             <a href="/catalog.html" class="text-purple-600 hover:underline font-semibold">
-                <i class="fas fa-arrow-right mr-2"></i>Continue as Guest
+                <i class="fas fa-arrow-left mr-2"></i>Back to Catalog
             </a>
         </div>
     </div>
@@ -138,7 +137,15 @@
                     localStorage.setItem('auth_token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
                     showMessage('Login successful! Redirecting...', false);
-                    setTimeout(() => window.location.href = '/catalog.html', 1000);
+                    
+                    // Check if user was trying to view a specific dataset
+                    const pendingDataset = sessionStorage.getItem('pending_dataset');
+                    if (pendingDataset) {
+                        sessionStorage.removeItem('pending_dataset');
+                        setTimeout(() => window.location.href = `/report.html?dataset=${pendingDataset}`, 1000);
+                    } else {
+                        setTimeout(() => window.location.href = '/catalog.html', 1000);
+                    }
                 } else {
                     showMessage(data.error || 'Login failed', true);
                 }
@@ -168,7 +175,15 @@
                     localStorage.setItem('auth_token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
                     showMessage('Account created! Redirecting...', false);
-                    setTimeout(() => window.location.href = '/catalog.html', 1000);
+                    
+                    // Check if user was trying to view a specific dataset
+                    const pendingDataset = sessionStorage.getItem('pending_dataset');
+                    if (pendingDataset) {
+                        sessionStorage.removeItem('pending_dataset');
+                        setTimeout(() => window.location.href = `/report.html?dataset=${pendingDataset}`, 1000);
+                    } else {
+                        setTimeout(() => window.location.href = '/catalog.html', 1000);
+                    }
                 } else {
                     showMessage(data.error || 'Signup failed', true);
                 }

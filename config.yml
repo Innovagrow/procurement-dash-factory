@@ -1,0 +1,74 @@
+# Procurement Dashboard Factory Configuration
+
+app:
+  name: "Procurement Intelligence Platform"
+  version: "1.0.0"
+  description: "Multi-source government procurement analytics"
+
+sources:
+  ted_eu:
+    enabled: true
+    name: "TED (EU)"
+    api_url: "https://api.ted.europa.eu/v3"
+    api_key: ${TED_API_KEY}  # Set via environment variable
+    cache_hours: 6
+  
+  sam_gov:
+    enabled: false  # Enable when ready
+    name: "SAM.gov (US)"
+    api_url: "https://api.sam.gov/opportunities/v2"
+    api_key: ${SAM_API_KEY}
+    cache_hours: 6
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  reload: true
+
+cache:
+  enabled: true
+  directory: "cache"
+  max_age_hours: 24
+
+dashboards:
+  default_limit: 100
+  max_limit: 1000
+  
+filters:
+  countries:
+    - code: "DE"
+      name: "Germany"
+    - code: "FR"
+      name: "France"
+    - code: "ES"
+      name: "Spain"
+    - code: "IT"
+      name: "Italy"
+    - code: "NL"
+      name: "Netherlands"
+    - code: "BE"
+      name: "Belgium"
+    - code: "PL"
+      name: "Poland"
+    - code: "SE"
+      name: "Sweden"
+    - code: "AT"
+      name: "Austria"
+    - code: "DK"
+      name: "Denmark"
+  
+  cpv_categories:
+    - code: "48"
+      name: "Software & IT Systems"
+    - code: "72"
+      name: "IT Services"
+    - code: "30"
+      name: "Computer Equipment"
+    - code: "45"
+      name: "Construction"
+    - code: "79"
+      name: "Business Services"
+    - code: "85"
+      name: "Health & Social Services"
+    - code: "90"
+      name: "Environmental Services"

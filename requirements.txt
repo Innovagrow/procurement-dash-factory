@@ -1,0 +1,26 @@
+# Procurement Dashboard Factory - Dependencies
+
+# Core
+pandas>=2.0.0
+numpy>=1.24.0
+requests>=2.31.0
+
+# Dashboard & Visualization
+plotly>=5.18.0
+kaleido>=0.2.1
+
+# Web Framework
+fastapi>=0.109.0
+uvicorn>=0.27.0
+python-multipart>=0.0.6
+
+# Data Processing
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# Configuration
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Database (optional)
+duckdb>=0.10.0

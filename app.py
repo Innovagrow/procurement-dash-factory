@@ -154,14 +154,10 @@ async def login(request: Request):
         
         user = users_db[email]
         
-        # ULTIMATE FIX: Pre-hash with SHA256 (same as signup)
-        import hashlib
-        password_prehash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        # Verify password - EXACT SAME AS EUROSTAT PROJECT
+        import bcrypt as bcrypt_lib
         
-        # Verify password
-        from passlib.hash import bcrypt
-        
-        if "hashed_password" not in user or not bcrypt.verify(password_prehash, user["hashed_password"]):
+        if "hashed_password" not in user or not bcrypt_lib.checkpw(password.encode('utf-8'), user["hashed_password"].encode('utf-8')):
             return JSONResponse({
                 'success': False,
                 'error': 'Invalid email or password'
@@ -223,15 +219,10 @@ async def signup(request: Request):
                 'error': 'Email already registered'
             }, status_code=400)
         
-        # ULTIMATE FIX: Pre-hash with SHA256 BEFORE bcrypt
-        # This ensures password is always 64 chars (well under bcrypt's 72 byte limit)
-        # This is actually a security best practice!
-        import hashlib
-        password_prehash = hashlib.sha256(password.encode('utf-8')).hexdigest()
-        
-        # Now hash with bcrypt (will never exceed 72 bytes)
-        from passlib.hash import bcrypt
-        hashed_password = bcrypt.hash(password_prehash)
+        # Hash password - EXACT SAME AS EUROSTAT PROJECT
+        import bcrypt as bcrypt_lib
+        salt = bcrypt_lib.gensalt()
+        hashed_password = bcrypt_lib.hashpw(password.encode('utf-8'), salt).decode('utf-8')
         
         # Create user
         users_db[email] = {

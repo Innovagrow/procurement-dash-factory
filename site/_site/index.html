@@ -522,6 +522,8 @@ const reportUrl = sessionStorage.getItem('pending_report') || pendingReportUrl;
 if (reportUrl) {
 window.location.href = reportUrl;
 sessionStorage.removeItem('pending_report');
+} else {
+window.location.href = '/user/dashboard';
 }
 }, 1000);
 } else {
@@ -559,6 +561,8 @@ const reportUrl = sessionStorage.getItem('pending_report') || pendingReportUrl;
 if (reportUrl) {
 window.location.href = reportUrl;
 sessionStorage.removeItem('pending_report');
+} else {
+window.location.href = '/user/dashboard';
 }
 }, 1000);
 } else {
@@ -604,17 +608,15 @@ showModalMessage('Failed to initiate Google login', true);
 }
 }
 
-// Handle OAuth callback token
+// Handle OAuth callback token (if user ends up on homepage after OAuth)
 const urlParams = new URLSearchParams(window.location.search);
 const token = urlParams.get('token');
 const loginStatus = urlParams.get('login');
 
 if (token && loginStatus === 'success') {
 localStorage.setItem('auth_token', token);
-// Clean URL
-window.history.replaceState({}, document.title, window.location.pathname);
-// Show success message
-alert('Successfully logged in with Google!');
+// Redirect to user dashboard
+window.location.href = '/user/dashboard';
 }
 </script>
 

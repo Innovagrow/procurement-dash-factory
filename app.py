@@ -777,22 +777,44 @@ async def awards_dashboard():
 
 
 @app.get("/user/dashboard", response_class=HTMLResponse)
-async def user_personal_dashboard(credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def user_personal_dashboard(
+    request: Request,
+    token: str = Query(None)
+):
     """User's personal dashboard with favorites"""
     try:
-        token = credentials.credentials
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # Try to get token from query parameter (for OAuth redirects) or Authorization header
+        jwt_token = None
+        
+        if token:
+            # Token from OAuth redirect URL
+            jwt_token = token
+        else:
+            # Try to get from Authorization header
+            auth_header = request.headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                jwt_token = auth_header.replace('Bearer ', '')
+        
+        if not jwt_token:
+            # No token provided, redirect to login
+            return RedirectResponse(url="/login.html", status_code=302)
+        
+        # Decode and validate token
+        payload = jwt.decode(jwt_token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get('email')
         
         if not email:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
         
         return HTMLResponse(content=UserDashboard.get_user_dashboard_html(email))
     
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
+        return RedirectResponse(url="/login.html?error=token_expired", status_code=302)
     except jwt.JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
+    except Exception as e:
+        print(f"Dashboard error: {str(e)}")
+        return RedirectResponse(url="/login.html?error=server_error", status_code=302)
 
 
 @app.post("/api/favorites")

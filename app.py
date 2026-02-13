@@ -219,18 +219,10 @@ async def signup(request: Request):
                 'error': 'Email already registered'
             }, status_code=400)
         
-        # Hash password - configure bcrypt to auto-truncate without error
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(
-            schemes=["bcrypt"],
-            deprecated="auto",
-            bcrypt__default_rounds=12,
-            bcrypt__min_rounds=10,
-            bcrypt__max_rounds=14,
-        )
-        # Use passlib's handling with ident 2b which supports auto-truncation
+        # Hash password - use bcrypt with truncate_error=False to handle long passwords
         from passlib.hash import bcrypt
-        hashed_password = bcrypt.using(rounds=12, ident='2b').hash(password)
+        # This will silently truncate passwords > 72 bytes instead of raising error
+        hashed_password = bcrypt.using(rounds=12, truncate_error=False).hash(password)
         
         # Create user
         users_db[email] = {

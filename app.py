@@ -26,6 +26,7 @@ from connectors.ted_eu import TEDConnector
 from dashboards.generator import DashboardGenerator
 from dashboards.powerbi_layout import PowerBIDashboard
 from user_dashboard import UserDashboard, add_favorite, remove_favorite, get_favorites
+from user_dashboard_enhanced import generate_enhanced_dashboard
 
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-key-in-production")
@@ -847,7 +848,10 @@ async def user_personal_dashboard(
         if not email:
             return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
         
-        return HTMLResponse(content=UserDashboard.get_user_dashboard_html(email))
+        username = payload.get('username', email.split('@')[0])
+        
+        # Use enhanced dashboard with all high-value features
+        return HTMLResponse(content=generate_enhanced_dashboard(email, username))
     
     except jwt.ExpiredSignatureError:
         return RedirectResponse(url="/login.html?error=token_expired", status_code=302)
@@ -857,6 +861,301 @@ async def user_personal_dashboard(
     except Exception as e:
         print(f"Dashboard error: {str(e)}")
         return RedirectResponse(url="/login.html?error=server_error", status_code=302)
+
+
+@app.get("/user/settings", response_class=HTMLResponse)
+async def user_settings(request: Request, token: str = Query(None)):
+    """User settings page"""
+    try:
+        # Get token from query parameter or Authorization header
+        jwt_token = None
+        if token:
+            jwt_token = token
+        else:
+            auth_header = request.headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                jwt_token = auth_header.replace('Bearer ', '')
+        
+        if not jwt_token:
+            return RedirectResponse(url="/login.html", status_code=302)
+        
+        payload = jwt.decode(jwt_token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get('email')
+        username = payload.get('username', email.split('@')[0])
+        
+        if not email:
+            return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
+        
+        # Settings page HTML
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Settings - Procurement Intelligence</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+            <style>
+                .gradient-bg {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }}
+                .setting-card {{ background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+            </style>
+        </head>
+        <body class="bg-gray-50">
+            <div class="min-h-screen">
+                <!-- Header -->
+                <div class="gradient-bg text-white p-6 shadow-lg">
+                    <div class="max-w-6xl mx-auto flex justify-between items-center">
+                        <div>
+                            <h1 class="text-2xl font-bold">⚙️ Settings</h1>
+                            <p class="text-purple-100">Manage your account and preferences</p>
+                        </div>
+                        <a href="/user/dashboard" class="bg-white text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50">
+                            <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+
+                <div class="max-w-6xl mx-auto p-6">
+                    <!-- Account Settings -->
+                    <div class="setting-card">
+                        <h2 class="text-xl font-bold mb-4"><i class="fas fa-user mr-2"></i>Account Information</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>
+                                <input type="text" value="{username}" class="w-full px-4 py-2 border rounded-lg" readonly>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                                <input type="text" value="{email}" class="w-full px-4 py-2 border rounded-lg" readonly>
+                            </div>
+                        </div>
+                        <button class="mt-4 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+                            Change Password
+                        </button>
+                    </div>
+
+                    <!-- Notification Preferences -->
+                    <div class="setting-card">
+                        <h2 class="text-xl font-bold mb-4"><i class="fas fa-bell mr-2"></i>Notifications</h2>
+                        <div class="space-y-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" checked class="mr-3 h-5 w-5">
+                                <span>Email notifications for new matching tenders</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" checked class="mr-3 h-5 w-5">
+                                <span>Alert me about bargain opportunities</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="mr-3 h-5 w-5">
+                                <span>Weekly market intelligence report</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="mr-3 h-5 w-5">
+                                <span>Competitor activity updates</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Display Preferences -->
+                    <div class="setting-card">
+                        <h2 class="text-xl font-bold mb-4"><i class="fas fa-palette mr-2"></i>Display</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Theme</label>
+                                <select class="w-full px-4 py-2 border rounded-lg">
+                                    <option>Light</option>
+                                    <option>Dark</option>
+                                    <option>Auto</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Currency</label>
+                                <select class="w-full px-4 py-2 border rounded-lg">
+                                    <option>EUR (€)</option>
+                                    <option>USD ($)</option>
+                                    <option>GBP (£)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- API Access -->
+                    <div class="setting-card">
+                        <h2 class="text-xl font-bold mb-4"><i class="fas fa-key mr-2"></i>API Access</h2>
+                        <p class="text-gray-600 mb-4">Use API keys to access data programmatically</p>
+                        <button class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+                            Generate API Key
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html)
+    
+    except jwt.ExpiredSignatureError:
+        return RedirectResponse(url="/login.html?error=token_expired", status_code=302)
+    except jwt.InvalidTokenError:
+        return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
+
+
+@app.get("/user/alerts", response_class=HTMLResponse)
+async def user_alerts(request: Request, token: str = Query(None)):
+    """User alerts management page"""
+    try:
+        # Get token
+        jwt_token = None
+        if token:
+            jwt_token = token
+        else:
+            auth_header = request.headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                jwt_token = auth_header.replace('Bearer ', '')
+        
+        if not jwt_token:
+            return RedirectResponse(url="/login.html", status_code=302)
+        
+        payload = jwt.decode(jwt_token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get('email')
+        
+        if not email:
+            return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
+        
+        # Alerts page HTML
+        html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Alerts - Procurement Intelligence</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+            <style>
+                .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+                .alert-card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            </style>
+        </head>
+        <body class="bg-gray-50">
+            <div class="min-h-screen">
+                <!-- Header -->
+                <div class="gradient-bg text-white p-6 shadow-lg">
+                    <div class="max-w-6xl mx-auto flex justify-between items-center">
+                        <div>
+                            <h1 class="text-2xl font-bold">🔔 Smart Alerts</h1>
+                            <p class="text-purple-100">Never miss an opportunity</p>
+                        </div>
+                        <a href="/user/dashboard" class="bg-white text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50">
+                            <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+
+                <div class="max-w-6xl mx-auto p-6">
+                    <!-- Create New Alert -->
+                    <div class="alert-card">
+                        <h2 class="text-xl font-bold mb-4">Create New Alert</h2>
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Alert Type</label>
+                                <select class="w-full px-4 py-2 border rounded-lg">
+                                    <option>💰 Bargain Alert (below market price)</option>
+                                    <option>🎯 Keyword Match</option>
+                                    <option>📊 Value Threshold</option>
+                                    <option>⏰ Deadline Reminder</option>
+                                    <option>🏢 Competitor Activity</option>
+                                    <option>📍 Geographic Alert</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Keywords (comma-separated)</label>
+                                <input type="text" placeholder="IT services, cloud, software" class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Min Value (€)</label>
+                                <input type="number" placeholder="100000" class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Max Value (€)</label>
+                                <input type="number" placeholder="5000000" class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Country</label>
+                                <select class="w-full px-4 py-2 border rounded-lg">
+                                    <option>All Countries</option>
+                                    <option>Germany</option>
+                                    <option>France</option>
+                                    <option>Greece</option>
+                                    <option>USA</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <button class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700">
+                                <i class="fas fa-plus mr-2"></i>Create Alert
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Active Alerts -->
+                    <h2 class="text-xl font-bold mb-4">Active Alerts</h2>
+                    
+                    <!-- Example Alert 1 -->
+                    <div class="alert-card border-l-4 border-green-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-lg">💰 IT Services Bargain Alert</h3>
+                                <p class="text-gray-600 mt-2">Value: €50K - €500K | Keywords: software, cloud, IT</p>
+                                <p class="text-sm text-gray-500 mt-1">Created 2 days ago • <span class="text-green-600 font-semibold">3 matches today</span></p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="text-blue-600 hover:text-blue-800"><i class="fas fa-edit"></i></button>
+                                <button class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Example Alert 2 -->
+                    <div class="alert-card border-l-4 border-orange-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-lg">🏢 Competitor Watch: TechCorp Inc</h3>
+                                <p class="text-gray-600 mt-2">Notify when TechCorp Inc wins or bids on contracts</p>
+                                <p class="text-sm text-gray-500 mt-1">Created 1 week ago • <span class="text-orange-600 font-semibold">1 match this week</span></p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="text-blue-600 hover:text-blue-800"><i class="fas fa-edit"></i></button>
+                                <button class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Example Alert 3 -->
+                    <div class="alert-card border-l-4 border-blue-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-lg">⏰ Deadline Reminder</h3>
+                                <p class="text-gray-600 mt-2">Alert 3 days before deadlines for matching tenders</p>
+                                <p class="text-sm text-gray-500 mt-1">Created 3 weeks ago • <span class="text-blue-600 font-semibold">Active</span></p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="text-blue-600 hover:text-blue-800"><i class="fas fa-edit"></i></button>
+                                <button class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html)
+    
+    except jwt.ExpiredSignatureError:
+        return RedirectResponse(url="/login.html?error=token_expired", status_code=302)
+    except jwt.InvalidTokenError:
+        return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
 
 
 @app.post("/api/favorites")

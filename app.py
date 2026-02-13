@@ -158,8 +158,9 @@ async def login(request: Request):
         from passlib.context import CryptContext
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         
-        # Truncate password to 72 characters (bcrypt requirement)
-        password_truncated = password[:72]
+        # Truncate password to 72 BYTES (not characters) for bcrypt
+        password_bytes = password.encode('utf-8')[:72]
+        password_truncated = password_bytes.decode('utf-8', errors='ignore')
         
         if "hashed_password" not in user or not pwd_context.verify(password_truncated, user["hashed_password"]):
             return JSONResponse({
@@ -223,11 +224,12 @@ async def signup(request: Request):
                 'error': 'Email already registered'
             }, status_code=400)
         
-        # Hash password (bcrypt has 72 byte limit, manually truncate)
+        # Hash password (bcrypt has 72 BYTE limit, must truncate by bytes not characters)
         from passlib.context import CryptContext
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        # Truncate password to 72 characters (bcrypt requirement)
-        password_truncated = password[:72]
+        # Truncate password to 72 BYTES (not characters) for bcrypt
+        password_bytes = password.encode('utf-8')[:72]
+        password_truncated = password_bytes.decode('utf-8', errors='ignore')
         hashed_password = pwd_context.hash(password_truncated)
         
         # Create user

@@ -154,15 +154,10 @@ async def login(request: Request):
         
         user = users_db[email]
         
-        # Verify password (using passlib for secure password hashing)
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        # Verify password
+        from passlib.hash import bcrypt
         
-        # Truncate password to 72 BYTES (not characters) for bcrypt
-        password_bytes = password.encode('utf-8')[:72]
-        password_truncated = password_bytes.decode('utf-8', errors='ignore')
-        
-        if "hashed_password" not in user or not pwd_context.verify(password_truncated, user["hashed_password"]):
+        if "hashed_password" not in user or not bcrypt.verify(password, user["hashed_password"]):
             return JSONResponse({
                 'success': False,
                 'error': 'Invalid email or password'
@@ -224,13 +219,18 @@ async def signup(request: Request):
                 'error': 'Email already registered'
             }, status_code=400)
         
-        # Hash password (bcrypt has 72 BYTE limit, must truncate by bytes not characters)
+        # Hash password - configure bcrypt to auto-truncate without error
         from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        # Truncate password to 72 BYTES (not characters) for bcrypt
-        password_bytes = password.encode('utf-8')[:72]
-        password_truncated = password_bytes.decode('utf-8', errors='ignore')
-        hashed_password = pwd_context.hash(password_truncated)
+        pwd_context = CryptContext(
+            schemes=["bcrypt"],
+            deprecated="auto",
+            bcrypt__default_rounds=12,
+            bcrypt__min_rounds=10,
+            bcrypt__max_rounds=14,
+        )
+        # Use passlib's handling with ident 2b which supports auto-truncation
+        from passlib.hash import bcrypt
+        hashed_password = bcrypt.using(rounds=12, ident='2b').hash(password)
         
         # Create user
         users_db[email] = {

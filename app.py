@@ -35,7 +35,16 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI = os.getenv("HOST", "http://localhost:8002") + "/auth/google/callback"
+# Railway sets PORT, so we build the redirect URI properly
+if os.getenv("RAILWAY_ENVIRONMENT"):
+    # Production on Railway
+    GOOGLE_REDIRECT_URI = "https://web-production-7a78a.up.railway.app/auth/google/callback"
+else:
+    # Local development
+    GOOGLE_REDIRECT_URI = "http://localhost:8002/auth/google/callback"
+
+print(f"Google OAuth Redirect URI: {GOOGLE_REDIRECT_URI}")
+print(f"Google OAuth Configured: {bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)}")
 
 app = FastAPI(
     title="Procurement Intelligence Platform",
@@ -173,10 +182,13 @@ async def login(request: Request):
         })
     
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         print(f"Login error: {str(e)}")
+        print(f"Full traceback: {error_details}")
         return JSONResponse({
             'success': False,
-            'error': 'Login failed'
+            'error': f'Login failed: {str(e)}'
         }, status_code=500)
 
 
@@ -240,10 +252,13 @@ async def signup(request: Request):
         })
     
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         print(f"Signup error: {str(e)}")
+        print(f"Full traceback: {error_details}")
         return JSONResponse({
             'success': False,
-            'error': 'Signup failed'
+            'error': f'Signup failed: {str(e)}'
         }, status_code=500)
 
 
@@ -903,6 +918,10 @@ async def google_oauth_callback(code: str = Query(None), state: str = Query(None
             )
             
             if token_response.status_code != 200:
+                error_body = token_response.text
+                print(f"Google token exchange failed. Status: {token_response.status_code}")
+                print(f"Response: {error_body}")
+                print(f"Redirect URI used: {GOOGLE_REDIRECT_URI}")
                 return RedirectResponse(url="/login.html?error=token_exchange_failed")
             
             token_data = token_response.json()

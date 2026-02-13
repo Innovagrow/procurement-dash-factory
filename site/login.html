@@ -159,6 +159,12 @@
                     body: JSON.stringify({ email, password })
                 });
 
+                if (!response.ok) {
+                    const data = await response.json();
+                    showMessage(data.error || 'Login failed', true);
+                    return;
+                }
+
                 const data = await response.json();
 
                 if (data.success) {
@@ -177,7 +183,7 @@
                     showMessage(data.error || 'Login failed', true);
                 }
             } catch (error) {
-                showMessage('Network error. Please try again.', true);
+                showMessage(`Network error: ${error.message}`, true);
             }
         });
 
@@ -195,6 +201,12 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, email, password })
                 });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    showMessage(data.error || 'Signup failed', true);
+                    return;
+                }
 
                 const data = await response.json();
 
@@ -214,7 +226,7 @@
                     showMessage(data.error || 'Signup failed', true);
                 }
             } catch (error) {
-                showMessage('Network error. Please try again.', true);
+                showMessage(`Network error: ${error.message}`, true);
             }
         });
 

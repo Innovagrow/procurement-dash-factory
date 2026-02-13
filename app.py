@@ -154,15 +154,14 @@ async def login(request: Request):
         
         user = users_db[email]
         
-        # CRITICAL FIX: Truncate password to 72 bytes before verification
-        password_bytes = password.encode('utf-8')
-        if len(password_bytes) > 72:
-            password = password_bytes[:72].decode('utf-8', errors='ignore')
+        # ULTIMATE FIX: Pre-hash with SHA256 (same as signup)
+        import hashlib
+        password_prehash = hashlib.sha256(password.encode('utf-8')).hexdigest()
         
         # Verify password
         from passlib.hash import bcrypt
         
-        if "hashed_password" not in user or not bcrypt.verify(password, user["hashed_password"]):
+        if "hashed_password" not in user or not bcrypt.verify(password_prehash, user["hashed_password"]):
             return JSONResponse({
                 'success': False,
                 'error': 'Invalid email or password'
@@ -224,15 +223,15 @@ async def signup(request: Request):
                 'error': 'Email already registered'
             }, status_code=400)
         
-        # CRITICAL FIX: Manually truncate password to 72 bytes BEFORE hashing
-        # bcrypt cannot handle passwords > 72 bytes
-        password_bytes = password.encode('utf-8')
-        if len(password_bytes) > 72:
-            password = password_bytes[:72].decode('utf-8', errors='ignore')
+        # ULTIMATE FIX: Pre-hash with SHA256 BEFORE bcrypt
+        # This ensures password is always 64 chars (well under bcrypt's 72 byte limit)
+        # This is actually a security best practice!
+        import hashlib
+        password_prehash = hashlib.sha256(password.encode('utf-8')).hexdigest()
         
-        # Hash password
+        # Now hash with bcrypt (will never exceed 72 bytes)
         from passlib.hash import bcrypt
-        hashed_password = bcrypt.hash(password)
+        hashed_password = bcrypt.hash(password_prehash)
         
         # Create user
         users_db[email] = {

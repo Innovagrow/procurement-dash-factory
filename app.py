@@ -154,6 +154,11 @@ async def login(request: Request):
         
         user = users_db[email]
         
+        # CRITICAL FIX: Truncate password to 72 bytes before verification
+        password_bytes = password.encode('utf-8')
+        if len(password_bytes) > 72:
+            password = password_bytes[:72].decode('utf-8', errors='ignore')
+        
         # Verify password
         from passlib.hash import bcrypt
         
@@ -219,10 +224,15 @@ async def signup(request: Request):
                 'error': 'Email already registered'
             }, status_code=400)
         
-        # Hash password - use bcrypt with truncate_error=False to handle long passwords
+        # CRITICAL FIX: Manually truncate password to 72 bytes BEFORE hashing
+        # bcrypt cannot handle passwords > 72 bytes
+        password_bytes = password.encode('utf-8')
+        if len(password_bytes) > 72:
+            password = password_bytes[:72].decode('utf-8', errors='ignore')
+        
+        # Hash password
         from passlib.hash import bcrypt
-        # This will silently truncate passwords > 72 bytes instead of raising error
-        hashed_password = bcrypt.using(rounds=12, truncate_error=False).hash(password)
+        hashed_password = bcrypt.hash(password)
         
         # Create user
         users_db[email] = {

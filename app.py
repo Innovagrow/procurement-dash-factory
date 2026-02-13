@@ -206,10 +206,37 @@ async def signup(request: Request):
                 'error': 'Username, email and password are required'
             }, status_code=400)
         
-        if len(password) < 8:
+        # Strong password validation
+        if len(password) < 12:
             return JSONResponse({
                 'success': False,
-                'error': 'Password must be at least 8 characters'
+                'error': 'Password must be at least 12 characters'
+            }, status_code=400)
+        
+        # Check for uppercase, lowercase, number, and special character
+        import re
+        if not re.search(r'[A-Z]', password):
+            return JSONResponse({
+                'success': False,
+                'error': 'Password must include at least one uppercase letter'
+            }, status_code=400)
+        
+        if not re.search(r'[a-z]', password):
+            return JSONResponse({
+                'success': False,
+                'error': 'Password must include at least one lowercase letter'
+            }, status_code=400)
+        
+        if not re.search(r'[0-9]', password):
+            return JSONResponse({
+                'success': False,
+                'error': 'Password must include at least one number'
+            }, status_code=400)
+        
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+            return JSONResponse({
+                'success': False,
+                'error': 'Password must include at least one special character (!@#$%^&*...)'
             }, status_code=400)
         
         # Check if user already exists

@@ -872,7 +872,7 @@ async def tender_report_page(request: Request, tender_id: str, token: str = Quer
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Tender Report - {{tender_details['id']}}</title>
+            <title>Tender Report - {tender_details['id']}</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
             <style>
@@ -884,10 +884,10 @@ async def tender_report_page(request: Request, tender_id: str, token: str = Quer
                 <div class="max-w-5xl mx-auto px-6 py-4">
                     <div class="flex justify-between items-center">
                         <div>
-                            <div class="text-sm opacity-90">Tender ID: {{tender_details['id']}}</div>
-                            <h1 class="text-2xl font-bold mt-1">{{tender_details['title']}}</h1>
+                            <div class="text-sm opacity-90">Tender ID: {tender_details['id']}</div>
+                            <h1 class="text-2xl font-bold mt-1">{tender_details['title']}</h1>
                         </div>
-                        <a href="/user/dashboard?token={{jwt_token}}" class="bg-white text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50">
+                        <a href="/user/dashboard?token={jwt_token}" class="bg-white text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50">
                             <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
                         </a>
                     </div>
@@ -899,19 +899,19 @@ async def tender_report_page(request: Request, tender_id: str, token: str = Quer
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                     <div class="bg-white rounded-lg shadow-sm p-4">
                         <div class="text-sm text-gray-600 mb-1">Value</div>
-                        <div class="text-2xl font-bold text-purple-600">€{{tender_details['value']:,}}</div>
+                        <div class="text-2xl font-bold text-purple-600">€{tender_details['value']:,}</div>
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4">
                         <div class="text-sm text-gray-600 mb-1">Country</div>
-                        <div class="text-2xl font-bold text-gray-800">{{tender_details['country']}}</div>
+                        <div class="text-2xl font-bold text-gray-800">{tender_details['country']}</div>
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4">
                         <div class="text-sm text-gray-600 mb-1">Deadline</div>
-                        <div class="text-lg font-bold text-orange-600">{{tender_details['deadline']}}</div>
+                        <div class="text-lg font-bold text-orange-600">{tender_details['deadline']}</div>
                     </div>
                     <div class="bg-white rounded-lg shadow-sm p-4">
                         <div class="text-sm text-gray-600 mb-1">CPV Code</div>
-                        <div class="text-lg font-bold text-gray-800">{{tender_details['cpv_code']}}</div>
+                        <div class="text-lg font-bold text-gray-800">{tender_details['cpv_code']}</div>
                     </div>
                 </div>
 
@@ -921,7 +921,7 @@ async def tender_report_page(request: Request, tender_id: str, token: str = Quer
                         <!-- Description -->
                         <div class="bg-white rounded-lg shadow-sm p-6">
                             <h2 class="text-lg font-bold mb-4">Description</h2>
-                            <p class="text-gray-700">{{tender_details['description']}}</p>
+                            <p class="text-gray-700">{tender_details['description']}</p>
                         </div>
 
                         <!-- Details -->
@@ -930,19 +930,19 @@ async def tender_report_page(request: Request, tender_id: str, token: str = Quer
                             <div class="space-y-3">
                                 <div class="flex justify-between border-b pb-2">
                                     <span class="text-gray-600">Contracting Authority</span>
-                                    <span class="font-semibold">{{tender_details['contracting_authority']}}</span>
+                                    <span class="font-semibold">{tender_details['contracting_authority']}</span>
                                 </div>
                                 <div class="flex justify-between border-b pb-2">
                                     <span class="text-gray-600">Procedure Type</span>
-                                    <span class="font-semibold">{{tender_details['procedure_type']}}</span>
+                                    <span class="font-semibold">{tender_details['procedure_type']}</span>
                                 </div>
                                 <div class="flex justify-between border-b pb-2">
                                     <span class="text-gray-600">Published Date</span>
-                                    <span class="font-semibold">{{tender_details['published']}}</span>
+                                    <span class="font-semibold">{tender_details['published']}</span>
                                 </div>
                                 <div class="flex justify-between border-b pb-2">
                                     <span class="text-gray-600">CPV Description</span>
-                                    <span class="font-semibold">{{tender_details['cpv_description']}}</span>
+                                    <span class="font-semibold">{tender_details['cpv_description']}</span>
                                 </div>
                             </div>
                         </div>
@@ -982,10 +982,10 @@ async def tender_report_page(request: Request, tender_id: str, token: str = Quer
                                 <button class="w-full gradient-bg text-white py-2 rounded-lg font-semibold hover:opacity-90">
                                     <i class="fas fa-file-alt mr-2"></i>Prepare Bid
                                 </button>
-                                <button onclick="addToFavorites('{{tender_details['id']}}')" class="w-full border border-purple-600 text-purple-600 py-2 rounded-lg font-semibold hover:bg-purple-50">
+                                <button onclick="addToFavorites('{tender_details['id']}')" class="w-full border border-purple-600 text-purple-600 py-2 rounded-lg font-semibold hover:bg-purple-50">
                                     <i class="fas fa-star mr-2"></i>Add to Favorites
                                 </button>
-                                <button onclick="setAlert('{{tender_details['id']}}')" class="w-full border border-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-50">
+                                <button onclick="setAlert('{tender_details['id']}')" class="w-full border border-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-50">
                                     <i class="fas fa-bell mr-2"></i>Set Alert
                                 </button>
                                 <button class="w-full border border-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-50">

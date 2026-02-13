@@ -138,6 +138,17 @@ class UserDashboard:
             
             <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
             <script>
+                // Handle OAuth callback token from URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+                const loginStatus = urlParams.get('login');
+                
+                if (token && loginStatus === 'success') {{
+                    localStorage.setItem('auth_token', token);
+                    // Clean URL
+                    window.history.replaceState({{}}, document.title, window.location.pathname);
+                }}
+                
                 function removeFavorite(tenderId) {{
                     fetch(`/api/favorites/${{tenderId}}`, {{
                         method: 'DELETE',

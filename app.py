@@ -122,6 +122,131 @@ async def google_config():
     })
 
 
+@app.post("/api/auth/login")
+async def login(request: Request):
+    """Login with email and password"""
+    try:
+        data = await request.json()
+        email = data.get("email")
+        password = data.get("password")
+        
+        if not email or not password:
+            return JSONResponse({
+                'success': False,
+                'error': 'Email and password are required'
+            }, status_code=400)
+        
+        # Check if user exists
+        if email not in users_db:
+            return JSONResponse({
+                'success': False,
+                'error': 'Invalid email or password'
+            }, status_code=401)
+        
+        user = users_db[email]
+        
+        # Verify password (using passlib for secure password hashing)
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        
+        if "hashed_password" not in user or not pwd_context.verify(password, user["hashed_password"]):
+            return JSONResponse({
+                'success': False,
+                'error': 'Invalid email or password'
+            }, status_code=401)
+        
+        # Create JWT token
+        token_payload = {
+            "email": email,
+            "username": user.get("username", email.split("@")[0]),
+            "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        }
+        token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
+        
+        return JSONResponse({
+            'success': True,
+            'token': token,
+            'user': {
+                'email': email,
+                'username': user.get("username", email.split("@")[0])
+            }
+        })
+    
+    except Exception as e:
+        print(f"Login error: {str(e)}")
+        return JSONResponse({
+            'success': False,
+            'error': 'Login failed'
+        }, status_code=500)
+
+
+@app.post("/api/auth/signup")
+async def signup(request: Request):
+    """Create new account with email and password"""
+    try:
+        data = await request.json()
+        username = data.get("username")
+        email = data.get("email")
+        password = data.get("password")
+        
+        if not email or not password or not username:
+            return JSONResponse({
+                'success': False,
+                'error': 'Username, email and password are required'
+            }, status_code=400)
+        
+        if len(password) < 8:
+            return JSONResponse({
+                'success': False,
+                'error': 'Password must be at least 8 characters'
+            }, status_code=400)
+        
+        # Check if user already exists
+        if email in users_db:
+            return JSONResponse({
+                'success': False,
+                'error': 'Email already registered'
+            }, status_code=400)
+        
+        # Hash password
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        hashed_password = pwd_context.hash(password)
+        
+        # Create user
+        users_db[email] = {
+            "email": email,
+            "username": username,
+            "hashed_password": hashed_password,
+            "provider": "email",
+            "created_at": datetime.now().isoformat()
+        }
+        
+        # Create JWT token
+        token_payload = {
+            "email": email,
+            "username": username,
+            "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        }
+        token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
+        
+        return JSONResponse({
+            'success': True,
+            'token': token,
+            'user': {
+                'email': email,
+                'username': username
+            }
+        })
+    
+    except Exception as e:
+        print(f"Signup error: {str(e)}")
+        return JSONResponse({
+            'success': False,
+            'error': 'Signup failed'
+        }, status_code=500)
+
+
 @app.get("/api/search")
 async def search_tenders(
     country: str = Query(None, description="ISO 2-letter country code (e.g., DE, FR)"),
@@ -790,8 +915,8 @@ async def google_oauth_callback(code: str = Query(None), state: str = Query(None
             }
             jwt_token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
             
-            # Redirect to home with token in URL (frontend will save to localStorage)
-            return RedirectResponse(url=f"/?token={jwt_token}&login=success")
+            # Redirect to user dashboard with token in URL (frontend will save to localStorage)
+            return RedirectResponse(url=f"/user/dashboard?token={jwt_token}&login=success")
     
     except Exception as e:
         print(f"Google OAuth error: {str(e)}")

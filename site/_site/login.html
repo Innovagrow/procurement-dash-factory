@@ -171,7 +171,7 @@
                         sessionStorage.removeItem('pending_tender');
                         setTimeout(() => window.location.href = `/report.html?tender=${pendingTender}`, 1000);
                     } else {
-                        setTimeout(() => window.location.href = '/', 1000);
+                        setTimeout(() => window.location.href = '/user/dashboard', 1000);
                     }
                 } else {
                     showMessage(data.error || 'Login failed', true);
@@ -208,7 +208,7 @@
                         sessionStorage.removeItem('pending_tender');
                         setTimeout(() => window.location.href = `/report.html?tender=${pendingTender}`, 1000);
                     } else {
-                        setTimeout(() => window.location.href = '/', 1000);
+                        setTimeout(() => window.location.href = '/user/dashboard', 1000);
                     }
                 } else {
                     showMessage(data.error || 'Signup failed', true);

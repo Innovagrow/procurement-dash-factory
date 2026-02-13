@@ -154,6 +154,18 @@
     </div>
 
     <script>
+        // CHECK AUTHENTICATION FIRST
+        const authToken = localStorage.getItem('auth_token');
+        if (!authToken || authToken === '') {
+            // Not authenticated - save pending report and redirect to login
+            const urlParams = new URLSearchParams(window.location.search);
+            const tenderCode = urlParams.get('tender');
+            sessionStorage.setItem('pending_report', window.location.href);
+            window.location.href = '/login.html';
+            // Stop execution
+            throw new Error('Redirecting to login');
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         const tenderCode = urlParams.get('tender');
         

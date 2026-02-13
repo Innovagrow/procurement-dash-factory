@@ -31,7 +31,7 @@ from user_dashboard_enhanced import generate_enhanced_dashboard
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-key-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  # 30 days (user stays logged in for 1 month)
 
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -84,7 +84,18 @@ templates = Jinja2Templates(directory="site")
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    """Homepage - serves Quarto-rendered site"""
+    """Homepage - redirect to dashboard if logged in, otherwise show landing page"""
+    
+    # Check if user is already logged in
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.replace('Bearer ', '')
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            # User is logged in, redirect to dashboard
+            return RedirectResponse(url="/user/dashboard", status_code=302)
+        except:
+            pass  # Invalid token, show landing page
     
     # Serve the Quarto-rendered index.html
     index_path = Path(__file__).parent / "site" / "_site" / "index.html"
@@ -244,7 +255,7 @@ async def signup(request: Request):
         if email in users_db:
             return JSONResponse({
                 'success': False,
-                'error': 'Email already registered'
+                'error': 'You already have an account! Please login instead.'
             }, status_code=400)
         
         # Hash password - EXACT SAME AS EUROSTAT PROJECT
@@ -408,7 +419,7 @@ async def tender_dashboard(
         <div class="header">
             <h1>📊 Tender Overview Dashboard</h1>
             <p>EU Procurement Intelligence</p>
-            <a href="/" style="color: white;">← Back to Home</a>
+            <a href="/user/dashboard" style="color: white;">← Back to My Dashboard</a>
         </div>
         
         <div class="kpi-grid">
@@ -509,7 +520,7 @@ async def it_dashboard():
         <div class="header">
             <h1>💻 IT Tenders Dashboard</h1>
             <p>Software, Cloud Computing & IT Services</p>
-            <a href="/" style="color: white;">← Back to Home</a>
+            <a href="/user/dashboard" style="color: white;">← Back to My Dashboard</a>
         </div>
         
         <div class="kpi-grid">
@@ -605,7 +616,7 @@ async def countries_dashboard():
         <div class="header">
             <h1>🌍 Geographic Analysis Dashboard</h1>
             <p>Country & Regional Procurement Trends</p>
-            <a href="/" style="color: white;">← Back to Home</a>
+            <a href="/user/dashboard" style="color: white;">← Back to My Dashboard</a>
         </div>
         
         <div class="kpi-grid">
@@ -696,7 +707,7 @@ async def value_dashboard():
         <div class="header">
             <h1>💰 Value Analysis Dashboard</h1>
             <p>Contract Value Trends & Distribution</p>
-            <a href="/" style="color: white;">← Back to Home</a>
+            <a href="/user/dashboard" style="color: white;">← Back to My Dashboard</a>
         </div>
         
         <div class="kpi-grid">
@@ -787,7 +798,7 @@ async def awards_dashboard():
         <div class="header">
             <h1>🏆 Award Analytics Dashboard</h1>
             <p>Contract Award Analysis & Winners</p>
-            <a href="/" style="color: white;">← Back to Home</a>
+            <a href="/user/dashboard" style="color: white;">← Back to My Dashboard</a>
         </div>
         
         <div class="kpi-grid">

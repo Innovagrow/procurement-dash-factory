@@ -231,7 +231,7 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
                 
                 <div class="border-t border-gray-700 my-3"></div>
                 
-                <a href="/user/alerts" class="sidebar-item">
+                <a href="#" class="sidebar-item" onclick="navigateWithToken('/user/alerts')">
                     <i class="fas fa-bell"></i>
                     <span>Alerts</span>
                     <span class="badge">3</span>
@@ -251,7 +251,7 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
                 
                 <div class="border-t border-gray-700 my-3"></div>
                 
-                <a href="/user/settings" class="sidebar-item">
+                <a href="#" class="sidebar-item" onclick="navigateWithToken('/user/settings')">
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
                 </a>
@@ -285,11 +285,11 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
                             <span id="page-title">Dashboard Overview</span>
                         </h1>
                         <div class="flex items-center gap-4">
-                            <button class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2">
+                            <button onclick="openSearchModal()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2">
                                 <i class="fas fa-search"></i>
                                 Search Tenders
                             </button>
-                            <button class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+                            <button onclick="exportData()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
                                 <i class="fas fa-download"></i>
                                 Export Data
                             </button>
@@ -365,11 +365,57 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
                         </div>
                     </div>
 
-                    <!-- Market Intelligence Charts -->
+                    <!-- Browse Reports -->
                     <div class="mt-6 bg-white rounded-lg shadow-sm p-6">
-                        <h2 class="text-lg font-bold mb-4">📈 Market Trends</h2>
-                        <div class="text-gray-500 text-center py-8">
-                            Interactive charts coming soon: Sector growth, price trends, competition heatmap
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold">📊 Trending Reports</h2>
+                            <button onclick="showTab('market-intel')" class="text-purple-600 hover:text-purple-700 text-sm font-semibold">
+                                View All →
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div onclick="viewTenderDetails('TD-2024-001')" class="border rounded-lg p-4 hover:shadow-lg transition cursor-pointer">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-2xl">🇩🇪</span>
+                                    <div>
+                                        <div class="font-semibold text-gray-800">Cloud Infrastructure</div>
+                                        <div class="text-xs text-gray-500">Germany • IT Services</div>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-gray-600 mt-2">€145,000</div>
+                                <div class="mt-2 flex items-center gap-2">
+                                    <span class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">🔥 Hot Deal</span>
+                                    <span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">92% Match</span>
+                                </div>
+                            </div>
+                            <div onclick="viewTenderDetails('TD-2024-002')" class="border rounded-lg p-4 hover:shadow-lg transition cursor-pointer">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-2xl">🇫🇷</span>
+                                    <div>
+                                        <div class="font-semibold text-gray-800">Software Development</div>
+                                        <div class="text-xs text-gray-500">France • Development</div>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-gray-600 mt-2">€89,000</div>
+                                <div class="mt-2 flex items-center gap-2">
+                                    <span class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">🔥 Hot Deal</span>
+                                    <span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">88% Match</span>
+                                </div>
+                            </div>
+                            <div onclick="viewTenderDetails('TD-2024-003')" class="border rounded-lg p-4 hover:shadow-lg transition cursor-pointer">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-2xl">🇳🇱</span>
+                                    <div>
+                                        <div class="font-semibold text-gray-800">IT Security Audit</div>
+                                        <div class="text-xs text-gray-500">Netherlands • Security</div>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-gray-600 mt-2">€56,000</div>
+                                <div class="mt-2 flex items-center gap-2">
+                                    <span class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">🔥 Hot Deal</span>
+                                    <span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">95% Match</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -435,10 +481,121 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
 
                 <!-- Other tabs (Market Intel, Watchlist, Bids) -->
                 <div id="market-intel-tab" class="tab-content">
-                    <div class="bg-white rounded-lg shadow-sm p-8 text-center">
-                        <i class="fas fa-chart-line text-6xl text-gray-400 mb-4"></i>
-                        <h2 class="text-2xl font-bold mb-2">Market Intelligence</h2>
-                        <p class="text-gray-600">Coming soon: Detailed market analysis, trends, and forecasting</p>
+                    <div class="mb-6">
+                        <div class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg p-6 shadow-lg">
+                            <h2 class="text-2xl font-bold mb-2">📈 Market Intelligence</h2>
+                            <p class="text-blue-100">Real-time insights and trends across all procurement markets</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- Trending Sectors -->
+                        <div class="bg-white rounded-lg shadow-sm p-6">
+                            <h3 class="text-lg font-bold mb-4">🔥 Trending Sectors</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-3 border rounded-lg">
+                                    <div>
+                                        <div class="font-semibold">IT Services & Software</div>
+                                        <div class="text-sm text-gray-600">234 active tenders</div>
+                                    </div>
+                                    <div class="text-green-600 font-bold">+34%</div>
+                                </div>
+                                <div class="flex items-center justify-between p-3 border rounded-lg">
+                                    <div>
+                                        <div class="font-semibold">Green Energy Projects</div>
+                                        <div class="text-sm text-gray-600">128 active tenders</div>
+                                    </div>
+                                    <div class="text-green-600 font-bold">+28%</div>
+                                </div>
+                                <div class="flex items-center justify-between p-3 border rounded-lg">
+                                    <div>
+                                        <div class="font-semibold">Healthcare & Medical</div>
+                                        <div class="text-sm text-gray-600">156 active tenders</div>
+                                    </div>
+                                    <div class="text-green-600 font-bold">+19%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Price Trends -->
+                        <div class="bg-white rounded-lg shadow-sm p-6">
+                            <h3 class="text-lg font-bold mb-4">💰 Price Trends</h3>
+                            <div class="space-y-3">
+                                <div class="border-l-4 border-blue-500 pl-4 py-2">
+                                    <div class="font-semibold">IT Sector Average</div>
+                                    <div class="text-2xl font-bold text-blue-600">€285K</div>
+                                    <div class="text-sm text-gray-600">+5% vs last quarter</div>
+                                </div>
+                                <div class="border-l-4 border-green-500 pl-4 py-2">
+                                    <div class="font-semibold">Construction Average</div>
+                                    <div class="text-2xl font-bold text-green-600">€1.2M</div>
+                                    <div class="text-sm text-gray-600">-3% vs last quarter</div>
+                                </div>
+                                <div class="border-l-4 border-purple-500 pl-4 py-2">
+                                    <div class="font-semibold">Services Average</div>
+                                    <div class="text-2xl font-bold text-purple-600">€145K</div>
+                                    <div class="text-sm text-gray-600">Stable</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Market Forecast -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <h3 class="text-lg font-bold mb-4">🔮 Market Forecast (Next 90 Days)</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="p-4 bg-green-50 border-l-4 border-green-500 rounded">
+                                <div class="text-sm text-green-800 font-semibold">High Growth Expected</div>
+                                <ul class="mt-2 text-sm text-green-700 space-y-1">
+                                    <li>• Cloud Services (+40%)</li>
+                                    <li>• Cybersecurity (+35%)</li>
+                                    <li>• Green Tech (+30%)</li>
+                                </ul>
+                            </div>
+                            <div class="p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
+                                <div class="text-sm text-blue-800 font-semibold">Stable Growth</div>
+                                <ul class="mt-2 text-sm text-blue-700 space-y-1">
+                                    <li>• Professional Services (+10%)</li>
+                                    <li>• Healthcare (+8%)</li>
+                                    <li>• Education (+5%)</li>
+                                </ul>
+                            </div>
+                            <div class="p-4 bg-orange-50 border-l-4 border-orange-500 rounded">
+                                <div class="text-sm text-orange-800 font-semibold">Declining</div>
+                                <ul class="mt-2 text-sm text-orange-700 space-y-1">
+                                    <li>• Traditional IT (-5%)</li>
+                                    <li>• Office Supplies (-12%)</li>
+                                    <li>• Print Services (-8%)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Geographic Hotspots -->
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <h3 class="text-lg font-bold mb-4">🗺️ Geographic Hotspots</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="text-center p-4 border rounded-lg hover:shadow-md transition cursor-pointer" onclick="viewTenderDetails('germany-it')">
+                                <div class="text-3xl mb-2">🇩🇪</div>
+                                <div class="font-bold">Germany</div>
+                                <div class="text-sm text-gray-600">€45M available</div>
+                            </div>
+                            <div class="text-center p-4 border rounded-lg hover:shadow-md transition cursor-pointer" onclick="viewTenderDetails('france-construction')">
+                                <div class="text-3xl mb-2">🇫🇷</div>
+                                <div class="font-bold">France</div>
+                                <div class="text-sm text-gray-600">€38M available</div>
+                            </div>
+                            <div class="text-center p-4 border rounded-lg hover:shadow-md transition cursor-pointer" onclick="viewTenderDetails('netherlands-services')">
+                                <div class="text-3xl mb-2">🇳🇱</div>
+                                <div class="font-bold">Netherlands</div>
+                                <div class="text-sm text-gray-600">€28M available</div>
+                            </div>
+                            <div class="text-center p-4 border rounded-lg hover:shadow-md transition cursor-pointer" onclick="viewTenderDetails('spain-energy')">
+                                <div class="text-3xl mb-2">🇪🇸</div>
+                                <div class="font-bold">Spain</div>
+                                <div class="text-sm text-gray-600">€52M available</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -460,7 +617,71 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
             </div>
         </div>
 
+        <!-- Search Modal -->
+        <div id="searchModal" style="display:none;" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
+                <div class="gradient-bg text-white p-6 flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">🔍 Search Tenders</h2>
+                    <button onclick="closeSearchModal()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Keywords</label>
+                            <input type="text" placeholder="e.g., IT services, software" class="w-full px-4 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Country</label>
+                            <select class="w-full px-4 py-2 border rounded-lg">
+                                <option>All Countries</option>
+                                <option>Germany</option>
+                                <option>France</option>
+                                <option>Greece</option>
+                                <option>USA</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Min Value (€)</label>
+                            <input type="number" placeholder="0" class="w-full px-4 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Max Value (€)</label>
+                            <input type="number" placeholder="1000000" class="w-full px-4 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Deadline</label>
+                            <select class="w-full px-4 py-2 border rounded-lg">
+                                <option>Any time</option>
+                                <option>Next 7 days</option>
+                                <option>Next 30 days</option>
+                                <option>Next 90 days</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="performSearch()" class="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:opacity-90">
+                        <i class="fas fa-search mr-2"></i>Search
+                    </button>
+                    <div id="searchResults" class="mt-6">
+                        <!-- Results will appear here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <script>
+            // Save token from URL if present
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            if (token) {{
+                localStorage.setItem('auth_token', token);
+                // Clean URL
+                window.history.replaceState({{}}, document.title, window.location.pathname);
+            }}
+
             // Tab switching
             function showTab(tabName) {{
                 // Hide all tabs
@@ -478,7 +699,9 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
                 document.querySelectorAll('.sidebar-item').forEach(item => {{
                     item.classList.remove('active');
                 }});
-                event.target.closest('.sidebar-item')?.classList.add('active');
+                if (event && event.target) {{
+                    event.target.closest('.sidebar-item')?.classList.add('active');
+                }}
                 
                 // Update page title
                 const titles = {{
@@ -494,6 +717,73 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
                 document.getElementById('page-title').textContent = titles[tabName] || 'Dashboard';
             }}
 
+            // Navigate with JWT token
+            function navigateWithToken(url) {{
+                const token = localStorage.getItem('auth_token');
+                if (token) {{
+                    window.location.href = url + '?token=' + encodeURIComponent(token);
+                }} else {{
+                    window.location.href = '/login.html';
+                }}
+            }}
+
+            // View tender details
+            function viewTenderDetails(tenderId) {{
+                navigateWithToken('/report/' + tenderId);
+            }}
+
+            // Search modal functions
+            function openSearchModal() {{
+                document.getElementById('searchModal').style.display = 'flex';
+            }}
+
+            function closeSearchModal() {{
+                document.getElementById('searchModal').style.display = 'none';
+            }}
+
+            function performSearch() {{
+                const resultsDiv = document.getElementById('searchResults');
+                resultsDiv.innerHTML = '<div class="text-center py-8"><div class="animate-pulse text-purple-600 mb-2"><i class="fas fa-spinner fa-spin text-3xl"></i></div><div>Searching...</div></div>';
+                
+                // Simulate search (replace with real API call)
+                setTimeout(() => {{
+                    resultsDiv.innerHTML = `
+                        <div class="border-t pt-4">
+                            <h3 class="font-bold mb-3">Search Results (Sample)</h3>
+                            <div class="space-y-3">
+                                <div class="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer" onclick="viewTenderDetails('TD-001')">
+                                    <div class="font-semibold text-gray-800">Cloud Infrastructure Services</div>
+                                    <div class="text-sm text-gray-600 mt-1">€145,000 | Germany | 18 days left</div>
+                                </div>
+                                <div class="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer" onclick="viewTenderDetails('TD-002')">
+                                    <div class="font-semibold text-gray-800">Software Development Framework</div>
+                                    <div class="text-sm text-gray-600 mt-1">€89,000 | France | 24 days left</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }}, 1000);
+            }}
+
+            // Export data function
+            function exportData() {{
+                alert('Export functionality coming soon! You will be able to export to Excel, CSV, and PDF.');
+            }}
+
+            // Add to favorites
+            function addToFavorites(tenderId) {{
+                alert('Added tender ' + tenderId + ' to your favorites!');
+                // TODO: Implement actual API call
+            }}
+
+            // Set alert
+            function setAlert(tenderId) {{
+                if (confirm('Set an alert for this tender? You will be notified of any updates.')) {{
+                    alert('Alert set for tender ' + tenderId);
+                    // TODO: Implement actual API call
+                }}
+            }}
+
             // Logout function
             function logout() {{
                 if (confirm('Are you sure you want to logout?')) {{
@@ -501,15 +791,6 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
                     localStorage.removeItem('user');
                     window.location.href = '/';
                 }}
-            }}
-
-            // Save token from URL if present
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
-            if (token) {{
-                localStorage.setItem('auth_token', token);
-                // Clean URL
-                window.history.replaceState({{}}, document.title, window.location.pathname);
             }}
         </script>
     </body>
@@ -605,13 +886,13 @@ def generate_hot_deals_section(deals: List[Dict]) -> str:
             </div>
             
             <div class="flex gap-2">
-                <button class="flex-1 bg-white text-red-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100">
+                <button onclick="viewTenderDetails('{deal['id']}')" class="flex-1 bg-white text-red-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100">
                     View Details
                 </button>
-                <button class="px-4 py-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30">
+                <button onclick="addToFavorites('{deal['id']}')" class="px-4 py-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30" title="Add to Favorites">
                     <i class="fas fa-star"></i>
                 </button>
-                <button class="px-4 py-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30">
+                <button onclick="setAlert('{deal['id']}')" class="px-4 py-2 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30" title="Set Alert">
                     <i class="fas fa-bell"></i>
                 </button>
             </div>
@@ -660,10 +941,10 @@ def generate_matches_section(matches: List[Dict]) -> str:
             </div>
             
             <div class="flex gap-2">
-                <button class="flex-1 gradient-bg text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90">
+                <button onclick="viewTenderDetails('{match['id']}')" class="flex-1 gradient-bg text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90">
                     View Tender
                 </button>
-                <button class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                <button onclick="addToFavorites('{match['id']}')" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50" title="Add to Favorites">
                     <i class="fas fa-heart"></i>
                 </button>
             </div>

@@ -810,7 +810,8 @@ async def user_personal_dashboard(
     
     except jwt.ExpiredSignatureError:
         return RedirectResponse(url="/login.html?error=token_expired", status_code=302)
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
+        # Catches all JWT-related errors (DecodeError, InvalidSignatureError, etc.)
         return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
     except Exception as e:
         print(f"Dashboard error: {str(e)}")

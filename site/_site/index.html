@@ -523,7 +523,7 @@ if (reportUrl) {
 window.location.href = reportUrl;
 sessionStorage.removeItem('pending_report');
 } else {
-window.location.href = '/user/dashboard';
+window.location.href = `/user/dashboard?token=${data.token}&login=success`;
 }
 }, 1000);
 } else {
@@ -562,7 +562,7 @@ if (reportUrl) {
 window.location.href = reportUrl;
 sessionStorage.removeItem('pending_report');
 } else {
-window.location.href = '/user/dashboard';
+window.location.href = `/user/dashboard?token=${data.token}&login=success`;
 }
 }, 1000);
 } else {

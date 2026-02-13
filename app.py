@@ -852,7 +852,7 @@ async def tender_report_page(request: Request, tender_id: str, token: str = Quer
             return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
         
         # Sample tender data (replace with real database lookup)
-        tender_details = {{
+        tender_details = {
             'id': tender_id,
             'title': 'Cloud Infrastructure Services',
             'description': 'Comprehensive cloud infrastructure setup and maintenance for government agency. Includes server setup, security implementation, and 24/7 support.',
@@ -866,7 +866,7 @@ async def tender_report_page(request: Request, tender_id: str, token: str = Quer
             'contracting_authority': 'Federal Ministry of Interior',
             'procedure_type': 'Open Procedure',
             'documents': ['Technical Specifications.pdf', 'Terms and Conditions.pdf'],
-        }}
+        }
         
         html = f"""
         <!DOCTYPE html>

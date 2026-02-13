@@ -218,16 +218,26 @@
             }
         });
 
-        function loginWithGoogle() {
-            // Google OAuth flow
-            const clientId = 'YOUR_GOOGLE_CLIENT_ID'; // Replace with actual Google OAuth client ID
-            const redirectUri = window.location.origin + '/auth/google/callback';
-            const scope = 'email profile';
-            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}`;
-            
-            // For demo purposes, simulate Google login
-            showMessage('Google OAuth integration ready. Add your Google Client ID to activate.', false);
-            // window.location.href = authUrl;
+        async function loginWithGoogle() {
+            try {
+                // Fetch Google Client ID from backend
+                const response = await fetch(`${API_URL}/api/auth/google-config`);
+                const config = await response.json();
+                
+                if (!config.client_id) {
+                    showMessage('Google OAuth not configured on server', true);
+                    return;
+                }
+                
+                // Redirect to Google OAuth
+                const redirectUri = window.location.origin + '/auth/google/callback';
+                const scope = 'email profile';
+                const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.client_id}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+                
+                window.location.href = authUrl;
+            } catch (error) {
+                showMessage('Failed to initiate Google login', true);
+            }
         }
     </script>
 </body>

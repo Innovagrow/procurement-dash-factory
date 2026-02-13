@@ -3,7 +3,7 @@ Procurement Intelligence Platform - Main Application
 FastAPI web server for procurement analytics dashboards
 """
 from fastapi import FastAPI, Query, Request, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import jwt
 from dotenv import load_dotenv
+import httpx
 
 # Load environment variables
 load_dotenv()
@@ -30,6 +31,11 @@ from user_dashboard import UserDashboard, add_favorite, remove_favorite, get_fav
 SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-key-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI = os.getenv("HOST", "http://localhost:8002") + "/auth/google/callback"
 
 app = FastAPI(
     title="Procurement Intelligence Platform",
@@ -103,6 +109,15 @@ async def report_page():
     if report_path.exists():
         return HTMLResponse(content=report_path.read_text(), status_code=200)
     return HTMLResponse(content="<h1>Report page not found</h1>", status_code=404)
+
+
+@app.get("/api/auth/google-config")
+async def google_config():
+    """Return Google OAuth configuration"""
+    return JSONResponse({
+        'client_id': GOOGLE_CLIENT_ID,
+        'configured': bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+    })
 
 
 @app.get("/api/search")
@@ -711,6 +726,74 @@ async def get_user_favorites(credentials: HTTPAuthorizationCredentials = Depends
     
     except jwt.JWTError:
         return JSONResponse({'success': False, 'error': 'Invalid token'}, status_code=401)
+
+
+@app.get("/auth/google/callback")
+async def google_oauth_callback(code: str = Query(None), state: str = Query(None)):
+    """Handle Google OAuth callback"""
+    
+    if not code:
+        return RedirectResponse(url="/login.html?error=no_code")
+    
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        return RedirectResponse(url="/login.html?error=oauth_not_configured")
+    
+    try:
+        # Exchange code for access token
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": code,
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": GOOGLE_REDIRECT_URI,
+                    "grant_type": "authorization_code",
+                }
+            )
+            
+            if token_response.status_code != 200:
+                return RedirectResponse(url="/login.html?error=token_exchange_failed")
+            
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
+            
+            # Get user info from Google
+            user_response = await client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            
+            if user_response.status_code != 200:
+                return RedirectResponse(url="/login.html?error=user_info_failed")
+            
+            user_data = user_response.json()
+            email = user_data.get("email")
+            name = user_data.get("name", email.split("@")[0])
+            
+            # Create or update user in database
+            if email not in users_db:
+                users_db[email] = {
+                    "email": email,
+                    "username": name,
+                    "provider": "google",
+                    "created_at": datetime.now().isoformat()
+                }
+            
+            # Create JWT token
+            token_payload = {
+                "email": email,
+                "username": name,
+                "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            }
+            jwt_token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
+            
+            # Redirect to home with token in URL (frontend will save to localStorage)
+            return RedirectResponse(url=f"/?token={jwt_token}&login=success")
+    
+    except Exception as e:
+        print(f"Google OAuth error: {str(e)}")
+        return RedirectResponse(url="/login.html?error=oauth_failed")
 
 
 if __name__ == '__main__':

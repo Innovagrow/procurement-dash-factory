@@ -486,12 +486,38 @@ messageEl.className = `alert mt-3 ${isError ? 'alert-danger' : 'alert-success'}`
 messageEl.style.display = 'block';
 }
 
-function loginWithGoogle() {
-// Google OAuth flow
-const clientId = 'YOUR_GOOGLE_CLIENT_ID'; // Replace with actual Google OAuth client ID
+async function loginWithGoogle() {
+try {
+// Fetch Google Client ID from backend
+const response = await fetch('/api/auth/google-config');
+const config = await response.json();
+
+if (!config.client_id) {
+showModalMessage('Google OAuth not configured on server', true);
+return;
+}
+
+// Redirect to Google OAuth
 const redirectUri = window.location.origin + '/auth/google/callback';
 const scope = 'email profile';
-const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}`;
+const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.client_id}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+
 window.location.href = authUrl;
+} catch (error) {
+showModalMessage('Failed to initiate Google login', true);
+}
+}
+
+// Handle OAuth callback token
+const urlParams = new URLSearchParams(window.location.search);
+const token = urlParams.get('token');
+const loginStatus = urlParams.get('login');
+
+if (token && loginStatus === 'success') {
+localStorage.setItem('auth_token', token);
+// Clean URL
+window.history.replaceState({}, document.title, window.location.pathname);
+// Show success message
+alert('Successfully logged in with Google!');
 }
 </script>

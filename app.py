@@ -52,8 +52,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files from _site directory
-app.mount("/site_libs", StaticFiles(directory="site/_site/site_libs"), name="site_libs")
+# Mount static files from _site directory (if it exists)
+site_libs_path = Path(__file__).parent / "site" / "_site" / "site_libs"
+if site_libs_path.exists():
+    app.mount("/site_libs", StaticFiles(directory="site/_site/site_libs"), name="site_libs")
 
 # Initialize connectors
 ted_connector = TEDConnector()

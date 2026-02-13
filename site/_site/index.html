@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Procurement Intelligence Platform</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-e31584831b205ffbb2d98406f31c2a5b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-search-results"></div>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-full">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    
+<!-- main -->
+<main class="content column-page" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Procurement Intelligence Platform</h1>
+<p class="subtitle lead">Government Tender Analytics</p>
+</div>
+
+
+
+<div class="quarto-title-meta column-page">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<style>
+.dashboard-card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    height: 100%;
+}
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+}
+.dashboard-card .card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: bold;
+    border-radius: 10px 10px 0 0 !important;
+}
+.stat-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: #f8f9fa;
+    border-radius: 20px;
+    font-size: 0.85em;
+    margin: 2px;
+}
+.hero-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 60px 20px;
+    border-radius: 15px;
+    margin-bottom: 40px;
+    text-align: center;
+    position: relative;
+}
+.source-badge {
+    background: #e7f5ff;
+    color: #1971c2;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+.login-btn {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    background: white;
+    color: #667eea;
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+.login-btn:hover {
+    background: rgba(255,255,255,0.9);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+</style>
+<div class="hero-section">
+<p><a href="login.html" class="login-btn"> <i class="fas fa-sign-in-alt"></i> Login / Sign Up </a></p>
+<section id="procurement-intelligence-platform" class="level1 unnumbered">
+<h1 class="unnumbered"><i class="fas fa-gavel"></i> Procurement Intelligence Platform</h1>
+<p><strong>Multi-Source Government Tender Analytics</strong></p>
+<p>EU + US + Greece | Real-time data | EUR 600B+ annually | API access</p>
+</section>
+</div>
+<section id="data-sources" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="data-sources"><i class="fas fa-database"></i> Data Sources</h2>
+<div class="row mb-5">
+<div class="col-md-3 mb-3">
+<div class="text-center p-3" style="background: white; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+<h3 style="color: #667eea;" class="anchored">
+<i class="fas fa-flag"></i>
+</h3>
+<h5 class="anchored">
+TED (EU)
+</h5>
+<p class="text-muted small">
+27 Countries
+</p>
+<p><span class="source-badge">EUR 600B+/year</span></p>
+</div>
+</div>
+<div class="col-md-3 mb-3">
+<div class="text-center p-3" style="background: white; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+<h3 style="color: #667eea;" class="anchored">
+<i class="fas fa-landmark"></i>
+</h3>
+<h5 class="anchored">
+SAM.gov
+</h5>
+<p class="text-muted small">
+US Federal
+</p>
+<p><span class="source-badge">$500B+/year</span></p>
+</div>
+</div>
+<div class="col-md-3 mb-3">
+<div class="text-center p-3" style="background: white; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+<h3 style="color: #667eea;" class="anchored">
+<i class="fas fa-building"></i>
+</h3>
+<h5 class="anchored">
+KIMDIS
+</h5>
+<p class="text-muted small">
+Greece
+</p>
+<p><span class="source-badge">EUR 10B+/year</span></p>
+</div>
+</div>
+<div class="col-md-3 mb-3">
+<div class="text-center p-3" style="background: white; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+<h3 style="color: #667eea;" class="anchored">
+<i class="fas fa-file-alt"></i>
+</h3>
+<h5 class="anchored">
+Diavgeia
+</h5>
+<p class="text-muted small">
+GR Transparency
+</p>
+<p><span class="source-badge">All Decisions</span></p>
+</div>
+</div>
+</div>
+</section>
+<section id="available-dashboards" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="available-dashboards"><i class="fas fa-chart-bar"></i> Available Dashboards</h2>
+<p class="text-muted">
+Currently showing sample EU procurement data (Connect API keys for live data)
+</p>
+<div class="row">
+<div class="col-md-6 col-lg-4 mb-4">
+<div class="card dashboard-card">
+<div class="card-header">
+<p><i class="fas fa-shopping-cart"></i> Tender Overview</p>
+</div>
+<div class="card-body">
+<p class="text-muted">
+<small>All EU Procurement Opportunities</small>
+</p>
+<div class="mb-3">
+<p><span class="stat-badge"><i class="fas fa-database"></i> Live tenders</span> <span class="stat-badge"><i class="fas fa-globe"></i> 27 countries</span></p>
+</div>
+<div class="mb-3">
+<p><small class="text-muted"> <i class="fas fa-calendar"></i> Updated daily<br> <i class="fas fa-euro-sign"></i> EUR 600B+ annually </small></p>
+</div>
+<p><a href="report.html?tender=overview" class="btn btn-primary w-100"> <i class="fas fa-chart-area"></i> View Report </a></p>
+</div>
+</div>
+</div>
+<div class="col-md-6 col-lg-4 mb-4">
+<div class="card dashboard-card">
+<div class="card-header">
+<p><i class="fas fa-laptop-code"></i> IT &amp; Software Tenders</p>
+</div>
+<div class="card-body">
+<p class="text-muted">
+<small>Technology Procurement</small>
+</p>
+<div class="mb-3">
+<p><span class="stat-badge"><i class="fas fa-code"></i> Software</span> <span class="stat-badge"><i class="fas fa-cloud"></i> Cloud</span> <span class="stat-badge"><i class="fas fa-shield-alt"></i> Security</span></p>
+</div>
+<div class="mb-3">
+<p><small class="text-muted"> <i class="fas fa-tag"></i> CPV: 48<em>, 72</em><br> <i class="fas fa-chart-line"></i> High-value contracts </small></p>
+</div>
+<p><a href="report.html?tender=it-software" class="btn btn-primary w-100"> <i class="fas fa-chart-area"></i> View Report </a></p>
+</div>
+</div>
+</div>
+<div class="col-md-6 col-lg-4 mb-4">
+<div class="card dashboard-card">
+<div class="card-header">
+<p><i class="fas fa-globe-europe"></i> Geographic Analysis</p>
+</div>
+<div class="card-body">
+<p class="text-muted">
+<small>Country &amp; Regional Trends</small>
+</p>
+<div class="mb-3">
+<p><span class="stat-badge"><i class="fas fa-map"></i> EU-27</span> <span class="stat-badge"><i class="fas fa-chart-pie"></i> Regional</span></p>
+</div>
+<div class="mb-3">
+<p><small class="text-muted"> <i class="fas fa-flag"></i> By country<br> <i class="fas fa-building"></i> By agency </small></p>
+</div>
+<p><a href="report.html?tender=geographic" class="btn btn-primary w-100"> <i class="fas fa-chart-area"></i> View Report </a></p>
+</div>
+</div>
+</div>
+<div class="col-md-6 col-lg-4 mb-4">
+<div class="card dashboard-card">
+<div class="card-header">
+<p><i class="fas fa-euro-sign"></i> Value Analysis</p>
+</div>
+<div class="card-body">
+<p class="text-muted">
+<small>Contract Value Trends</small>
+</p>
+<div class="mb-3">
+<p><span class="stat-badge"><i class="fas fa-chart-line"></i> Trends</span> <span class="stat-badge"><i class="fas fa-calculator"></i> Statistics</span></p>
+</div>
+<div class="mb-3">
+<p><small class="text-muted"> <i class="fas fa-coins"></i> Value distribution<br> <i class="fas fa-trending-up"></i> Growth analysis </small></p>
+</div>
+<p><a href="report.html?tender=value-analysis" class="btn btn-primary w-100"> <i class="fas fa-chart-area"></i> View Report </a></p>
+</div>
+</div>
+</div>
+<div class="col-md-6 col-lg-4 mb-4">
+<div class="card dashboard-card">
+<div class="card-header">
+<p><i class="fas fa-trophy"></i> Award Analytics</p>
+</div>
+<div class="card-body">
+<p class="text-muted">
+<small>Contract Award Analysis</small>
+</p>
+<div class="mb-3">
+<p><span class="stat-badge"><i class="fas fa-building"></i> Winners</span> <span class="stat-badge"><i class="fas fa-percent"></i> Win rates</span></p>
+</div>
+<div class="mb-3">
+<p><small class="text-muted"> <i class="fas fa-crown"></i> Top contractors<br> <i class="fas fa-chart-bar"></i> Success metrics </small></p>
+</div>
+<p><a href="report.html?tender=awards" class="btn btn-primary w-100"> <i class="fas fa-chart-area"></i> View Report </a></p>
+</div>
+</div>
+</div>
+<div class="col-md-6 col-lg-4 mb-4">
+<div class="card dashboard-card">
+<div class="card-header">
+<p><i class="fas fa-code"></i> API Access</p>
+</div>
+<div class="card-body">
+<p class="text-muted">
+<small>Programmatic Data Access</small>
+</p>
+<div class="mb-3">
+<p><span class="stat-badge"><i class="fas fa-plug"></i> REST API</span> <span class="stat-badge"><i class="fas fa-book"></i> Swagger</span></p>
+</div>
+<div class="mb-3">
+<p><small class="text-muted"> <i class="fas fa-search"></i> Search endpoints<br> <i class="fas fa-chart-line"></i> Stats endpoints </small></p>
+</div>
+<p><a href="./docs" class="btn btn-primary w-100"> <i class="fas fa-file-code"></i> API Documentation </a></p>
+</div>
+</div>
+</div>
+</div>
+<section id="platform-features" class="level3 unnumbered" style="margin-top: 50px; padding: 30px; background: #f8f9fa; border-radius: 10px;">
+<h3 class="unnumbered anchored" data-anchor-id="platform-features"><i class="fas fa-info-circle"></i> Platform Features</h3>
+<div class="row mt-3">
+<div class="col-md-3">
+<h5 class="anchored">
+<i class="fas fa-globe text-primary"></i> Multi-Source
+</h5>
+<p class="small text-muted">
+EU, US, and Greece procurement data
+</p>
+</div>
+<div class="col-md-3">
+<h5 class="anchored">
+<i class="fas fa-bolt text-success"></i> Real-Time
+</h5>
+<p class="small text-muted">
+Live tender updates and alerts
+</p>
+</div>
+<div class="col-md-3">
+<h5 class="anchored">
+<i class="fas fa-filter text-warning"></i> Smart Filtering
+</h5>
+<p class="small text-muted">
+By country, category, value, deadline
+</p>
+</div>
+<div class="col-md-3">
+<h5 class="anchored">
+<i class="fas fa-download text-info"></i> Export
+</h5>
+<p class="small text-muted">
+CSV, PDF, and API access
+</p>
+</div>
+</div>
+</section>
+<section id="quick-start" class="level3 unnumbered" style="margin-top: 30px; padding: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; text-align: center;">
+<h3 class="unnumbered anchored" data-anchor-id="quick-start"><i class="fas fa-rocket"></i> Quick Start</h3>
+<p><strong>Start exploring government procurement opportunities now!</strong></p>
+<div class="mt-4">
+<p><a href="login.html" class="btn btn-light btn-lg me-2" style="margin-right: 10px;"> <i class="fas fa-user-plus"></i> Create Free Account </a> <a href="./docs" class="btn btn-outline-light btn-lg"> <i class="fas fa-book"></i> API Docs </a></p>
+</div>
+</section>
+<!-- Login Modal -->
+<div id="loginModal" class="modal fade" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+<div class="modal-dialog modal-dialog-centered">
+<div class="modal-content">
+<div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+<h5 class="modal-title anchored" id="loginModalLabel">
+<i class="fas fa-lock"></i> Login Required
+</h5>
+<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close">
+</button>
+</div>
+<div class="modal-body" style="padding: 30px;">
+<p class="text-center text-muted mb-4">
+Sign in to access procurement intelligence reports
+</p>
+<ul class="nav nav-tabs mb-4" id="authTabs" role="tablist">
+<li class="nav-item" role="presentation">
+<button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login-pane" type="button" role="tab">
+Login
+</button>
+</li>
+<li class="nav-item" role="presentation">
+<button class="nav-link" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup-pane" type="button" role="tab">
+Sign Up
+</button>
+</li>
+</ul>
+<div id="authTabsContent" class="tab-content">
+<div id="login-pane" class="tab-pane fade show active" role="tabpanel">
+<form id="modal-login-form">
+<div class="mb-3">
+<p><label class="form-label">Email</label> <input type="email" class="form-control" id="modal-login-email" required=""></p>
+</div>
+<div class="mb-3">
+<p><label class="form-label">Password</label> <input type="password" class="form-control" id="modal-login-password" required=""></p>
+</div>
+<button type="submit" class="btn w-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600;">
+<i class="fas fa-sign-in-alt"></i> Sign In
+</button>
+</form>
+<div class="text-center my-3">
+<p><span class="text-muted">or</span></p>
+</div>
+<button onclick="loginWithGoogle()" class="btn btn-outline-dark w-100 mb-2">
+<i class="fab fa-google me-2"></i> Continue with Google
+</button>
+</div>
+<div id="signup-pane" class="tab-pane fade" role="tabpanel">
+<form id="modal-signup-form">
+<div class="mb-3">
+<p><label class="form-label">Username</label> <input type="text" class="form-control" id="modal-signup-username" required=""></p>
+</div>
+<div class="mb-3">
+<p><label class="form-label">Email</label> <input type="email" class="form-control" id="modal-signup-email" required=""></p>
+</div>
+<div class="mb-3">
+<p><label class="form-label">Password</label> <input type="password" class="form-control" id="modal-signup-password" required="" minlength="8"> <small class="text-muted">Minimum 8 characters</small></p>
+</div>
+<button type="submit" class="btn w-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600;">
+<i class="fas fa-user-plus"></i> Create Account
+</button>
+</form>
+<div class="text-center my-3">
+<p><span class="text-muted">or</span></p>
+</div>
+<button onclick="loginWithGoogle()" class="btn btn-outline-dark w-100 mb-2">
+<i class="fab fa-google me-2"></i> Sign up with Google
+</button>
+</div>
+</div>
+<div id="modal-message" class="alert mt-3" style="display: none;">
+
+</div>
+</div>
+</div>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let loginModal;
+let pendingReportUrl = '';
+
+document.addEventListener('DOMContentLoaded', function() {
+loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+
+// Add click handlers to all report links
+document.querySelectorAll('a[href^="report.html"]').forEach(link => {
+link.addEventListener('click', function(e) {
+if (!isLoggedIn()) {
+e.preventDefault();
+pendingReportUrl = this.getAttribute('href');
+sessionStorage.setItem('pending_report', pendingReportUrl);
+loginModal.show();
+}
+});
+});
+
+// Modal login form
+document.getElementById('modal-login-form').addEventListener('submit', async (e) => {
+e.preventDefault();
+const email = document.getElementById('modal-login-email').value;
+const password = document.getElementById('modal-login-password').value;
+
+try {
+const response = await fetch('/api/auth/login', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ email, password })
+});
+
+const data = await response.json();
+
+if (data.success) {
+localStorage.setItem('auth_token', data.token);
+localStorage.setItem('user', JSON.stringify(data.user));
+showModalMessage('Login successful! Redirecting...', false);
+
+setTimeout(() => {
+loginModal.hide();
+const reportUrl = sessionStorage.getItem('pending_report') || pendingReportUrl;
+if (reportUrl) {
+window.location.href = reportUrl;
+sessionStorage.removeItem('pending_report');
+}
+}, 1000);
+} else {
+showModalMessage(data.error || 'Login failed', true);
+}
+} catch (error) {
+showModalMessage('Network error. Please try again.', true);
+}
+});
+
+// Modal signup form
+document.getElementById('modal-signup-form').addEventListener('submit', async (e) => {
+e.preventDefault();
+const username = document.getElementById('modal-signup-username').value;
+const email = document.getElementById('modal-signup-email').value;
+const password = document.getElementById('modal-signup-password').value;
+
+try {
+const response = await fetch('/api/auth/signup', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ username, email, password })
+});
+
+const data = await response.json();
+
+if (data.success) {
+localStorage.setItem('auth_token', data.token);
+localStorage.setItem('user', JSON.stringify(data.user));
+showModalMessage('Account created! Redirecting...', false);
+
+setTimeout(() => {
+loginModal.hide();
+const reportUrl = sessionStorage.getItem('pending_report') || pendingReportUrl;
+if (reportUrl) {
+window.location.href = reportUrl;
+sessionStorage.removeItem('pending_report');
+}
+}, 1000);
+} else {
+showModalMessage(data.error || 'Signup failed', true);
+}
+} catch (error) {
+showModalMessage('Network error. Please try again.', true);
+}
+});
+});
+
+function isLoggedIn() {
+const token = localStorage.getItem('auth_token');
+return token && token.length > 0;
+}
+
+function showModalMessage(text, isError) {
+const messageEl = document.getElementById('modal-message');
+messageEl.textContent = text;
+messageEl.className = `alert mt-3 ${isError ? 'alert-danger' : 'alert-success'}`;
+messageEl.style.display = 'block';
+}
+
+async function loginWithGoogle() {
+try {
+// Fetch Google Client ID from backend
+const response = await fetch('/api/auth/google-config');
+const config = await response.json();
+
+if (!config.client_id) {
+showModalMessage('Google OAuth not configured on server', true);
+return;
+}
+
+// Redirect to Google OAuth
+const redirectUri = window.location.origin + '/auth/google/callback';
+const scope = 'email profile';
+const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.client_id}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+
+window.location.href = authUrl;
+} catch (error) {
+showModalMessage('Failed to initiate Google login', true);
+}
+}
+
+// Handle OAuth callback token
+const urlParams = new URLSearchParams(window.location.search);
+const token = urlParams.get('token');
+const loginStatus = urlParams.get('login');
+
+if (token && loginStatus === 'success') {
+localStorage.setItem('auth_token', token);
+// Clean URL
+window.history.replaceState({}, document.title, window.location.pathname);
+// Show success message
+alert('Successfully logged in with Google!');
+}
+</script>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

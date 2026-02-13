@@ -50,7 +50,18 @@ class UserDashboard:
                     justify-content: space-between;
                     align-items: center;
                 }}
-                .logo {{ font-size: 1.5rem; font-weight: bold; display: flex; align-items: center; gap: 0.5rem; }}
+                .logo {{ 
+                    font-size: 1.5rem; 
+                    font-weight: bold; 
+                    display: flex; 
+                    align-items: center; 
+                    gap: 0.5rem;
+                    transition: all 0.3s;
+                }}
+                .logo:hover {{
+                    transform: scale(1.05);
+                    opacity: 0.9;
+                }}
                 
                 /* Profile Dropdown */
                 .profile-dropdown {{
@@ -204,10 +215,10 @@ class UserDashboard:
             <!-- Top Header with Profile -->
             <div class="top-header">
                 <div class="header-content">
-                    <div class="logo">
+                    <a href="/user/dashboard" class="logo" style="text-decoration: none; color: white; cursor: pointer;">
                         <i class="fas fa-gavel"></i>
                         <span>Procurement Intelligence</span>
-                    </div>
+                    </a>
                     <div class="profile-dropdown">
                         <button class="profile-btn" onclick="toggleProfile()">
                             <i class="fas fa-user-circle"></i>

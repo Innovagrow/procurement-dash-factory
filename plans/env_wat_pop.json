@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "dataset": {
+    "code": "env_wat_pop",
+    "title": null
+  },
+  "template": "time_geo_explorer",
+  "dimensions": [
+    "freq",
+    "wat_proc",
+    "unit",
+    "geo",
+    "time"
+  ],
+  "defaults": {
+    "filters": {
+      "freq": "A",
+      "wat_proc": "POP_PWS"
+    },
+    "time_window_years": 6,
+    "geo_level": "country"
+  },
+  "metrics": [
+    {
+      "id": "value",
+      "label": "Value",
+      "sql_expr": "value"
+    },
+    {
+      "id": "yoy_pct",
+      "label": "YoY %",
+      "sql_expr": "(value / lag(value) over (partition by series_key order by time) - 1) * 100"
+    }
+  ],
+  "pages": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "visuals": [
+        {
+          "id": "kpi_latest",
+          "kind": "kpi",
+          "title": "Latest value",
+          "sql": "SELECT time, value FROM fact_observations WHERE dataset_code='env_wat_pop' ORDER BY time DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": "trend",
+      "title": "Trend",
+      "visuals": [
+        {
+          "id": "trend_line",
+          "kind": "line",
+          "title": "Trend over time",
+          "sql": "SELECT time, geo, value FROM fact_observations WHERE dataset_code='env_wat_pop' ORDER BY time"
+        }
+      ]
+    },
+    {
+      "id": "rank_latest",
+      "title": "Latest ranking",
+      "visuals": [
+        {
+          "id": "rank_bar",
+          "kind": "bar",
+          "title": "Top geographies (latest)",
+          "sql": "WITH t AS (SELECT max(time) AS t FROM fact_observations WHERE dataset_code='env_wat_pop')\nSELECT geo, value FROM fact_observations WHERE dataset_code='env_wat_pop' AND time=(SELECT t FROM t) ORDER BY value DESC LIMIT 25"
+        }
+      ]
+    }
+  ]
+}

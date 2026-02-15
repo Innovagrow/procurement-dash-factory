@@ -1,0 +1,215 @@
+{
+  "version": "2.0",
+  "dataset": {
+    "code": "urt_road_gonu",
+    "title": "Urt Road Gonu"
+  },
+  "template": "ai_enhanced_dashboard",
+  "ai_insights": {
+    "narrative": "# Data Analysis Summary: urt_road_gonu\n\n## Overview\nThis dataset contains 11,326 observations \nspanning 4 time periods from 2021 to 2024.\nData covers 31 geographic regions.\n\n## Key Statistics\n- Average Value: 31895.06\n- Range: 1.00 to 2996810.00\n- Standard Deviation: 138214.25\n\n## Insights (3 detected)\n1. **Data spans 4 time periods**: Time series from 2021 to 2024\n2. **Geographic coverage: 31 regions**: Data available across multiple geographic regions enabling comparison analysis\n3. **Value range: 1.00 to 2996810.00**: Variance of 2996809.00 across dataset",
+    "insights": [
+      {
+        "type": "trend",
+        "title": "Data spans 4 time periods",
+        "description": "Time series from 2021 to 2024",
+        "severity": "high",
+        "data_points": {
+          "min_time": "2021",
+          "max_time": "2024",
+          "periods": 4
+        }
+      },
+      {
+        "type": "distribution",
+        "title": "Geographic coverage: 31 regions",
+        "description": "Data available across multiple geographic regions enabling comparison analysis",
+        "severity": "medium",
+        "data_points": {
+          "geo_count": 31
+        }
+      },
+      {
+        "type": "distribution",
+        "title": "Value range: 1.00 to 2996810.00",
+        "description": "Variance of 2996809.00 across dataset",
+        "severity": "low",
+        "data_points": {
+          "min": 1.0,
+          "max": 2996810.0,
+          "avg": 31895.061539819882,
+          "stddev": 138214.25347479238
+        }
+      }
+    ],
+    "key_metrics": [
+      {
+        "name": "Total Observations",
+        "value": 11326,
+        "format": "number"
+      },
+      {
+        "name": "Time Periods",
+        "value": 4,
+        "format": "number"
+      },
+      {
+        "name": "Geographic Regions",
+        "value": 31,
+        "format": "number"
+      },
+      {
+        "name": "Average Value",
+        "value": 31895.061539819882,
+        "format": "decimal"
+      },
+      {
+        "name": "Anomalies Detected",
+        "value": 0,
+        "format": "number"
+      }
+    ]
+  },
+  "pages": [
+    {
+      "id": "insights",
+      "title": "AI Insights",
+      "description": "Automated insights and recommendations",
+      "visuals": [
+        {
+          "id": "ai_insights_summary",
+          "kind": "insights",
+          "title": "Automated Analysis",
+          "description": "AI-generated insights from your data",
+          "insights": [
+            {
+              "type": "trend",
+              "title": "Data spans 4 time periods",
+              "description": "Time series from 2021 to 2024",
+              "severity": "high",
+              "data_points": {
+                "min_time": "2021",
+                "max_time": "2024",
+                "periods": 4
+              }
+            },
+            {
+              "type": "distribution",
+              "title": "Geographic coverage: 31 regions",
+              "description": "Data available across multiple geographic regions enabling comparison analysis",
+              "severity": "medium",
+              "data_points": {
+                "geo_count": 31
+              }
+            },
+            {
+              "type": "distribution",
+              "title": "Value range: 1.00 to 2996810.00",
+              "description": "Variance of 2996809.00 across dataset",
+              "severity": "low",
+              "data_points": {
+                "min": 1.0,
+                "max": 2996810.0,
+                "avg": 31895.061539819882,
+                "stddev": 138214.25347479238
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "overview",
+      "title": "Overview",
+      "description": "Key metrics and summary insights",
+      "visuals": [
+        {
+          "id": "kpi_0",
+          "kind": "kpi",
+          "title": "Latest Value",
+          "description": "Most recent data point with timestamp",
+          "sql": "SELECT time, value, geo FROM fact_observations WHERE dataset_code='urt_road_gonu' ORDER BY time DESC LIMIT 1",
+          "config": {
+            "format": "number"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trends",
+      "title": "Trends & Patterns",
+      "description": "Temporal analysis and growth patterns",
+      "visuals": [
+        {
+          "id": "line_1",
+          "kind": "line",
+          "title": "Trend Over Time",
+          "description": "Historical trend showing evolution over time",
+          "sql": "\n                SELECT time, geo, AVG(value) as value \n                FROM fact_observations \n                WHERE dataset_code='urt_road_gonu' \n                GROUP BY time, geo\n                ORDER BY time\n            ",
+          "config": {
+            "x": "time",
+            "y": "value",
+            "color": "geo"
+          }
+        },
+        {
+          "id": "bar_2",
+          "kind": "bar",
+          "title": "Year-over-Year Growth Rate",
+          "description": "Annual growth rate showing acceleration or deceleration",
+          "sql": "\n                WITH yoy AS (\n                    SELECT \n                        time,\n                        geo,\n                        value,\n                        LAG(value) OVER (PARTITION BY geo ORDER BY time) as prev_value\n                    FROM fact_observations\n                    WHERE dataset_code='urt_road_gonu'\n                )\n                SELECT \n                    time,\n                    geo,\n                    ((value / NULLIF(prev_value, 0)) - 1) * 100 as growth_rate\n                FROM yoy\n                WHERE prev_value IS NOT NULL\n                ORDER BY time DESC\n                LIMIT 20\n            ",
+          "config": {
+            "x": "time",
+            "y": "growth_rate",
+            "color": "geo"
+          }
+        }
+      ]
+    },
+    {
+      "id": "comparison",
+      "title": "Geographic Comparison",
+      "description": "Cross-regional analysis and rankings",
+      "visuals": [
+        {
+          "id": "bar_3",
+          "kind": "bar",
+          "title": "Geographic Comparison (Latest)",
+          "description": "Compare latest values across all regions",
+          "sql": "\n                WITH latest AS (\n                    SELECT MAX(time) as max_time \n                    FROM fact_observations \n                    WHERE dataset_code='urt_road_gonu'\n                )\n                SELECT \n                    geo,\n                    value\n                FROM fact_observations\n                WHERE dataset_code='urt_road_gonu' \n                    AND time = (SELECT max_time FROM latest)\n                ORDER BY value DESC\n                LIMIT 30\n            ",
+          "config": {
+            "x": "geo",
+            "y": "value",
+            "orientation": "horizontal"
+          }
+        }
+      ]
+    },
+    {
+      "id": "details",
+      "title": "Detailed Analysis",
+      "description": "In-depth exploration and distributions",
+      "visuals": [
+        {
+          "id": "table_4",
+          "kind": "table",
+          "title": "Top & Bottom Performers",
+          "description": "Regions with highest and lowest values",
+          "sql": "\n                WITH latest AS (\n                    SELECT MAX(time) as max_time \n                    FROM fact_observations \n                    WHERE dataset_code='urt_road_gonu'\n                ),\n                ranked AS (\n                    SELECT \n                        geo,\n                        value,\n                        time,\n                        ROW_NUMBER() OVER (ORDER BY value DESC) as rank_desc,\n                        ROW_NUMBER() OVER (ORDER BY value ASC) as rank_asc\n                    FROM fact_observations\n                    WHERE dataset_code='urt_road_gonu' \n                        AND time = (SELECT max_time FROM latest)\n                )\n                SELECT geo, value, time, 'Top' as category\n                FROM ranked\n                WHERE rank_desc <= 5\n                UNION ALL\n                SELECT geo, value, time, 'Bottom' as category\n                FROM ranked\n                WHERE rank_asc <= 5\n                ORDER BY category, value DESC\n            ",
+          "config": {}
+        },
+        {
+          "id": "scatter_5",
+          "kind": "scatter",
+          "title": "Value Distribution",
+          "description": "Scatter plot showing data distribution pattern",
+          "sql": "\n            SELECT \n                time,\n                geo,\n                value\n            FROM fact_observations\n            WHERE dataset_code='urt_road_gonu'\n            ORDER BY time DESC\n            LIMIT 500\n        ",
+          "config": {
+            "x": "time",
+            "y": "value",
+            "color": "geo"
+          }
+        }
+      ]
+    }
+  ]
+}

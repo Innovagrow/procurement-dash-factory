@@ -1,0 +1,117 @@
+{
+  "version": "2.0",
+  "dataset": {
+    "code": "rail_tf_ns10_be",
+    "title": "Rail Tf Ns10 Be"
+  },
+  "template": "ai_enhanced_dashboard",
+  "ai_insights": {
+    "narrative": "# Data Analysis Summary: rail_tf_ns10_be\n\n## Overview\nThis dataset contains 0 observations \n\n## Key Statistics\n- Average Value: nan\n- Range: nan to nan\n- Standard Deviation: nan\n\n## Insights (1 detected)\n1. **Value range: nan to nan**: Variance of nan across dataset",
+    "insights": [
+      {
+        "type": "distribution",
+        "title": "Value range: nan to nan",
+        "description": "Variance of nan across dataset",
+        "severity": "low",
+        "data_points": {
+          "min": NaN,
+          "max": NaN,
+          "avg": NaN,
+          "stddev": NaN
+        }
+      }
+    ],
+    "key_metrics": [
+      {
+        "name": "Total Observations",
+        "value": 0,
+        "format": "number"
+      },
+      {
+        "name": "Time Periods",
+        "value": 0,
+        "format": "number"
+      },
+      {
+        "name": "Geographic Regions",
+        "value": 0,
+        "format": "number"
+      },
+      {
+        "name": "Average Value",
+        "value": NaN,
+        "format": "decimal"
+      },
+      {
+        "name": "Anomalies Detected",
+        "value": 0,
+        "format": "number"
+      }
+    ]
+  },
+  "pages": [
+    {
+      "id": "insights",
+      "title": "AI Insights",
+      "description": "Automated insights and recommendations",
+      "visuals": [
+        {
+          "id": "ai_insights_summary",
+          "kind": "insights",
+          "title": "Automated Analysis",
+          "description": "AI-generated insights from your data",
+          "insights": [
+            {
+              "type": "distribution",
+              "title": "Value range: nan to nan",
+              "description": "Variance of nan across dataset",
+              "severity": "low",
+              "data_points": {
+                "min": NaN,
+                "max": NaN,
+                "avg": NaN,
+                "stddev": NaN
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "overview",
+      "title": "Overview",
+      "description": "Key metrics and summary insights",
+      "visuals": [
+        {
+          "id": "kpi_0",
+          "kind": "kpi",
+          "title": "Latest Value",
+          "description": "Most recent data point with timestamp",
+          "sql": "SELECT time, value, geo FROM fact_observations WHERE dataset_code='rail_tf_ns10_be' ORDER BY time DESC LIMIT 1",
+          "config": {
+            "format": "number"
+          }
+        }
+      ]
+    },
+    {
+      "id": "details",
+      "title": "Detailed Analysis",
+      "description": "In-depth exploration and distributions",
+      "visuals": [
+        {
+          "id": "scatter_1",
+          "kind": "scatter",
+          "title": "Value Distribution",
+          "description": "Scatter plot showing data distribution pattern",
+          "sql": "\n            SELECT \n                time,\n                geo,\n                value\n            FROM fact_observations\n            WHERE dataset_code='rail_tf_ns10_be'\n            ORDER BY time DESC\n            LIMIT 500\n        ",
+          "config": {
+            "x": "time",
+            "y": "value",
+            "color": "geo"
+          }
+        }
+      ]
+    }
+  ]
+}

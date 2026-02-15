@@ -1,0 +1,77 @@
+---
+title: "prc_hicp_midx"
+format:
+  html:
+    toc: true
+    theme: cosmo
+execute:
+  echo: false
+---
+
+```{python}
+import json
+from pathlib import Path
+import duckdb
+import pandas as pd
+import plotly.express as px
+
+PLAN_PATH = Path("../../plans") / "prc_hicp_midx.json"
+PLAN = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
+DB_PATH = Path("../../warehouse/duckdb/eurodash.duckdb")
+
+con = duckdb.connect(str(DB_PATH))
+
+def run_sql(sql: str) -> pd.DataFrame:
+    return con.execute(sql).df()
+
+def render_visual(v):
+    df = run_sql(v["sql"])
+    kind = v["kind"]
+    title = v["title"]
+
+    if kind == "kpi":
+        if df.empty:
+            print(f"### {title}\n(no data)")
+            return
+        row = df.iloc[0].to_dict()
+        t = row.get("time")
+        val = row.get("value")
+        print(f"### {title}")
+        print(f"**{val}**  \\")
+        if t is not None:
+            print(f"_as of {t}_")
+
+    elif kind == "line":
+        print(f"### {title}")
+        if df.empty:
+            print("(no data)")
+            return
+        if "geo" in df.columns and df["geo"].notna().any():
+            fig = px.line(df, x="time", y="value", color="geo")
+        else:
+            fig = px.line(df, x="time", y="value")
+        fig.show()
+
+    elif kind == "bar":
+        print(f"### {title}")
+        if df.empty:
+            print("(no data)")
+            return
+        xcol = df.columns[0]
+        ycol = df.columns[1] if len(df.columns) > 1 else "value"
+        fig = px.bar(df, x=xcol, y=ycol)
+        fig.show()
+
+    elif kind == "table":
+        print(f"### {title}")
+        display(df)
+    else:
+        print(f"(unsupported kind: {kind})")
+
+for page in PLAN.get("pages", []):
+    print(f"## {page['title']}")
+    for v in page.get("visuals", []):
+        render_visual(v)
+
+con.close()
+```

@@ -1,0 +1,256 @@
+{
+  "version": "2.0",
+  "dataset": {
+    "code": "nama_10_gdp",
+    "title": "Nama 10 Gdp"
+  },
+  "template": "ai_enhanced_dashboard",
+  "ai_insights": {
+    "narrative": "# Data Analysis Summary: nama_10_gdp\n\n## Overview\nThis dataset contains 4,841 observations \nspanning 5 time periods from 2021 to 2025.\nData covers 40 geographic regions.\n\n## Key Statistics\n- Average Value: 550125.47\n- Range: -27.30 to 69986484.00\n- Standard Deviation: 3299384.69\n\n## Insights (4 detected)\n1. **Data spans 5 time periods**: Time series from 2021 to 2025\n2. **Geographic coverage: 40 regions**: Data available across multiple geographic regions enabling comparison analysis\n3. **Value range: -27.30 to 69986484.00**: Variance of 69986511.30 across dataset\n4. **1 Anomalies Detected**: 1 high-severity outliers found using Time Series Analysis",
+    "insights": [
+      {
+        "type": "trend",
+        "title": "Data spans 5 time periods",
+        "description": "Time series from 2021 to 2025",
+        "severity": "high",
+        "data_points": {
+          "min_time": "2021",
+          "max_time": "2025",
+          "periods": 5
+        }
+      },
+      {
+        "type": "distribution",
+        "title": "Geographic coverage: 40 regions",
+        "description": "Data available across multiple geographic regions enabling comparison analysis",
+        "severity": "medium",
+        "data_points": {
+          "geo_count": 40
+        }
+      },
+      {
+        "type": "distribution",
+        "title": "Value range: -27.30 to 69986484.00",
+        "description": "Variance of 69986511.30 across dataset",
+        "severity": "low",
+        "data_points": {
+          "min": -27.3,
+          "max": 69986484.0,
+          "avg": 550125.467027267,
+          "stddev": 3299384.686141564
+        }
+      },
+      {
+        "type": "anomaly",
+        "title": "1 Anomalies Detected",
+        "description": "1 high-severity outliers found using Time Series Analysis",
+        "severity": "high",
+        "data_points": {
+          "total": 1,
+          "high_severity": 1,
+          "method": "Time Series Analysis"
+        }
+      }
+    ],
+    "key_metrics": [
+      {
+        "name": "Total Observations",
+        "value": 4841,
+        "format": "number"
+      },
+      {
+        "name": "Time Periods",
+        "value": 5,
+        "format": "number"
+      },
+      {
+        "name": "Geographic Regions",
+        "value": 40,
+        "format": "number"
+      },
+      {
+        "name": "Average Value",
+        "value": 550125.467027267,
+        "format": "decimal"
+      },
+      {
+        "name": "Anomalies Detected",
+        "value": 1,
+        "format": "number"
+      }
+    ]
+  },
+  "pages": [
+    {
+      "id": "insights",
+      "title": "AI Insights",
+      "description": "Automated insights and recommendations",
+      "visuals": [
+        {
+          "id": "ai_insights_summary",
+          "kind": "insights",
+          "title": "Automated Analysis",
+          "description": "AI-generated insights from your data",
+          "insights": [
+            {
+              "type": "trend",
+              "title": "Data spans 5 time periods",
+              "description": "Time series from 2021 to 2025",
+              "severity": "high",
+              "data_points": {
+                "min_time": "2021",
+                "max_time": "2025",
+                "periods": 5
+              }
+            },
+            {
+              "type": "distribution",
+              "title": "Geographic coverage: 40 regions",
+              "description": "Data available across multiple geographic regions enabling comparison analysis",
+              "severity": "medium",
+              "data_points": {
+                "geo_count": 40
+              }
+            },
+            {
+              "type": "distribution",
+              "title": "Value range: -27.30 to 69986484.00",
+              "description": "Variance of 69986511.30 across dataset",
+              "severity": "low",
+              "data_points": {
+                "min": -27.3,
+                "max": 69986484.0,
+                "avg": 550125.467027267,
+                "stddev": 3299384.686141564
+              }
+            },
+            {
+              "type": "anomaly",
+              "title": "1 Anomalies Detected",
+              "description": "1 high-severity outliers found using Time Series Analysis",
+              "severity": "high",
+              "data_points": {
+                "total": 1,
+                "high_severity": 1,
+                "method": "Time Series Analysis"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "overview",
+      "title": "Overview",
+      "description": "Key metrics and summary insights",
+      "visuals": [
+        {
+          "id": "kpi_0",
+          "kind": "kpi",
+          "title": "Latest Value",
+          "description": "Most recent data point with timestamp",
+          "sql": "SELECT time, value, geo FROM fact_observations WHERE dataset_code='nama_10_gdp' ORDER BY time DESC LIMIT 1",
+          "config": {
+            "format": "number"
+          }
+        }
+      ]
+    },
+    {
+      "id": "trends",
+      "title": "Trends & Patterns",
+      "description": "Temporal analysis and growth patterns",
+      "visuals": [
+        {
+          "id": "line_1",
+          "kind": "line",
+          "title": "Trend Over Time",
+          "description": "Historical trend showing evolution over time",
+          "sql": "\n                SELECT time, geo, AVG(value) as value \n                FROM fact_observations \n                WHERE dataset_code='nama_10_gdp' \n                GROUP BY time, geo\n                ORDER BY time\n            ",
+          "config": {
+            "x": "time",
+            "y": "value",
+            "color": "geo"
+          }
+        },
+        {
+          "id": "bar_2",
+          "kind": "bar",
+          "title": "Year-over-Year Growth Rate",
+          "description": "Annual growth rate showing acceleration or deceleration",
+          "sql": "\n                WITH yoy AS (\n                    SELECT \n                        time,\n                        geo,\n                        value,\n                        LAG(value) OVER (PARTITION BY geo ORDER BY time) as prev_value\n                    FROM fact_observations\n                    WHERE dataset_code='nama_10_gdp'\n                )\n                SELECT \n                    time,\n                    geo,\n                    ((value / NULLIF(prev_value, 0)) - 1) * 100 as growth_rate\n                FROM yoy\n                WHERE prev_value IS NOT NULL\n                ORDER BY time DESC\n                LIMIT 20\n            ",
+          "config": {
+            "x": "time",
+            "y": "growth_rate",
+            "color": "geo"
+          }
+        }
+      ]
+    },
+    {
+      "id": "comparison",
+      "title": "Geographic Comparison",
+      "description": "Cross-regional analysis and rankings",
+      "visuals": [
+        {
+          "id": "bar_3",
+          "kind": "bar",
+          "title": "Geographic Comparison (Latest)",
+          "description": "Compare latest values across all regions",
+          "sql": "\n                WITH latest AS (\n                    SELECT MAX(time) as max_time \n                    FROM fact_observations \n                    WHERE dataset_code='nama_10_gdp'\n                )\n                SELECT \n                    geo,\n                    value\n                FROM fact_observations\n                WHERE dataset_code='nama_10_gdp' \n                    AND time = (SELECT max_time FROM latest)\n                ORDER BY value DESC\n                LIMIT 30\n            ",
+          "config": {
+            "x": "geo",
+            "y": "value",
+            "orientation": "horizontal"
+          }
+        }
+      ]
+    },
+    {
+      "id": "details",
+      "title": "Detailed Analysis",
+      "description": "In-depth exploration and distributions",
+      "visuals": [
+        {
+          "id": "table_4",
+          "kind": "table",
+          "title": "Top & Bottom Performers",
+          "description": "Regions with highest and lowest values",
+          "sql": "\n                WITH latest AS (\n                    SELECT MAX(time) as max_time \n                    FROM fact_observations \n                    WHERE dataset_code='nama_10_gdp'\n                ),\n                ranked AS (\n                    SELECT \n                        geo,\n                        value,\n                        time,\n                        ROW_NUMBER() OVER (ORDER BY value DESC) as rank_desc,\n                        ROW_NUMBER() OVER (ORDER BY value ASC) as rank_asc\n                    FROM fact_observations\n                    WHERE dataset_code='nama_10_gdp' \n                        AND time = (SELECT max_time FROM latest)\n                )\n                SELECT geo, value, time, 'Top' as category\n                FROM ranked\n                WHERE rank_desc <= 5\n                UNION ALL\n                SELECT geo, value, time, 'Bottom' as category\n                FROM ranked\n                WHERE rank_asc <= 5\n                ORDER BY category, value DESC\n            ",
+          "config": {}
+        },
+        {
+          "id": "scatter_5",
+          "kind": "scatter",
+          "title": "Value Distribution",
+          "description": "Scatter plot showing data distribution pattern",
+          "sql": "\n            SELECT \n                time,\n                geo,\n                value\n            FROM fact_observations\n            WHERE dataset_code='nama_10_gdp'\n            ORDER BY time DESC\n            LIMIT 500\n        ",
+          "config": {
+            "x": "time",
+            "y": "value",
+            "color": "geo"
+          }
+        },
+        {
+          "id": "scatter_6",
+          "kind": "scatter",
+          "title": "Anomaly Detection",
+          "description": "Highlighting 1 anomalies",
+          "sql": "SELECT time, geo, value FROM fact_observations WHERE dataset_code='nama_10_gdp' ORDER BY time",
+          "config": {
+            "x": "time",
+            "y": "value",
+            "color": "geo",
+            "anomalies": [
+              {
+                "time": "2024",
+                "value": 0.51,
+                "severity": "high"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

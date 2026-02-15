@@ -1,0 +1,504 @@
+// BidRoom GR - Prisma Schema
+// Greek Public Tender Bidding Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MULTI-TENANCY & USERS
+// ============================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      Plan     @default(STARTER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  memberships        Membership[]
+  monitoringProfiles MonitoringProfile[]
+  bidRooms           BidRoom[]
+  watchlists         Watchlist[]
+  savedSearches      SavedSearch[]
+  checklistTemplates ChecklistTemplate[]
+  auditEvents        AuditEvent[]
+
+  @@map("organizations")
+}
+
+enum Plan {
+  STARTER
+  GROWTH
+  PRO
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  emailVerified DateTime?
+  image         String?
+  password      String? // Hashed, optional (Google OAuth users may not have password)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relationships
+  memberships      Membership[]
+  accounts         Account[]
+  sessions         Session[]
+  assignedTasks    Task[]               @relation("TaskAssignee")
+  createdTasks     Task[]               @relation("TaskCreator")
+  comments         Comment[]
+  documentVersions DocumentVersion[]
+  packages         Package[]
+  auditEvents      AuditEvent[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           Role     @default(CONTRIBUTOR)
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@map("memberships")
+}
+
+enum Role {
+  ORG_ADMIN
+  BID_MANAGER
+  CONTRIBUTOR
+  VIEWER
+}
+
+// ============================================
+// MONITORING & PROFILES
+// ============================================
+
+model MonitoringProfile {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  sectors        String[] // e.g., ["Facilities", "PPE", "Medical"]
+  regions        String[]
+  minBudget      Float?
+  maxBudget      Float?
+  certifications String[]
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cpvCodes           ProfileCPV[]
+  keywords           ProfileKeyword[]
+  exclusions         ProfileExclusion[]
+
+  @@map("monitoring_profiles")
+}
+
+model ProfileCPV {
+  id        String @id @default(cuid())
+  profileId String
+  cpvCode   String
+  cpvName   String?
+
+  profile MonitoringProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, cpvCode])
+  @@map("profile_cpvs")
+}
+
+model ProfileKeyword {
+  id        String @id @default(cuid())
+  profileId String
+  keyword   String
+
+  profile MonitoringProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("profile_keywords")
+}
+
+model ProfileExclusion {
+  id             String @id @default(cuid())
+  profileId      String
+  exclusionType  String // "keyword" | "buyer" | "cpv"
+  exclusionValue String
+
+  profile MonitoringProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("profile_exclusions")
+}
+
+// ============================================
+// TENDERS
+// ============================================
+
+model Tender {
+  id             String    @id @default(cuid())
+  source         String // "KIMDIS" | "DIAVGEIA" | "TED"
+  externalId     String
+  title          String
+  description    String?   @db.Text
+  buyer          String?
+  buyerAddress   String?
+  cpvCodes       String[]
+  sectors        String[]
+  value          Float?
+  currency       String?   @default("EUR")
+  publicationDate DateTime?
+  deadline       DateTime?
+  country        String?   @default("GR")
+  region         String?
+  portalLink     String?
+  status         String?   @default("ACTIVE")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relationships
+  revisions          TenderRevision[]
+  attachments        TenderAttachmentLink[]
+  watchlists         Watchlist[]
+  savedSearches      SavedSearch[]
+  bidRooms           BidRoom[]
+
+  @@unique([source, externalId])
+  @@index([deadline])
+  @@index([cpvCodes])
+  @@index([status])
+  @@map("tenders")
+}
+
+model TenderRevision {
+  id              String   @id @default(cuid())
+  tenderId        String
+  revisionNumber  Int
+  changes         Json? // Track what changed
+  detectedAt      DateTime @default(now())
+
+  tender Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@unique([tenderId, revisionNumber])
+  @@map("tender_revisions")
+}
+
+model TenderAttachmentLink {
+  id       String  @id @default(cuid())
+  tenderId String
+  name     String
+  url      String
+  type     String?
+
+  tender Tender @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@map("tender_attachment_links")
+}
+
+model Watchlist {
+  id             String   @id @default(cuid())
+  organizationId String
+  tenderId       String
+  addedBy        String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tender       Tender       @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, tenderId])
+  @@map("watchlists")
+}
+
+model SavedSearch {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  query          Json // Search criteria
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tenders      Tender[]
+
+  @@map("saved_searches")
+}
+
+// ============================================
+// BID ROOMS
+// ============================================
+
+model BidRoom {
+  id             String         @id @default(cuid())
+  organizationId String
+  tenderId       String
+  name           String
+  status         BidRoomStatus  @default(DRAFT)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tender       Tender            @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  documentSlots DocumentSlot[]
+  checklistItems ChecklistItem[]
+  tasks         Task[]
+  comments      Comment[]
+  packages      Package[]
+  submissionProofs SubmissionProof[]
+  auditEvents   AuditEvent[]
+
+  @@unique([organizationId, tenderId])
+  @@map("bid_rooms")
+}
+
+enum BidRoomStatus {
+  DRAFT
+  IN_REVIEW
+  READY_TO_PACKAGE
+  READY_TO_SUBMIT
+  SUBMITTED
+  ARCHIVED
+}
+
+// ============================================
+// DOCUMENT MANAGEMENT
+// ============================================
+
+model DocumentSlot {
+  id          String   @id @default(cuid())
+  bidRoomId   String
+  category    String // "Eligibility" | "Technical" | "Financial" | "Forms" | "Annexes"
+  name        String
+  required    Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  bidRoom  BidRoom           @relation(fields: [bidRoomId], references: [id], onDelete: Cascade)
+  versions DocumentVersion[]
+
+  @@map("document_slots")
+}
+
+model DocumentVersion {
+  id                String    @id @default(cuid())
+  slotId            String
+  version           Int
+  originalFilename  String
+  storagePath       String
+  fileSize          Int
+  mimeType          String
+  hash              String // SHA-256 for duplicate detection
+  signatureType     String?   @default("NONE") // "NONE" | "AdES" | "QES"
+  isSigned          Boolean   @default(false)
+  signedVersionId   String? // Link to signed version if unsigned
+  uploadedById      String
+  uploadedAt        DateTime  @default(now())
+
+  slot             DocumentSlot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  uploadedBy       User             @relation(fields: [uploadedById], references: [id])
+  signedVersion    DocumentVersion? @relation("SignedVersions", fields: [signedVersionId], references: [id])
+  unsignedVersions DocumentVersion[] @relation("SignedVersions")
+
+  @@unique([slotId, version])
+  @@map("document_versions")
+}
+
+// ============================================
+// CHECKLISTS
+// ============================================
+
+model ChecklistTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  sector         String // "Facilities" | "PPE" | "Medical" | "Custom"
+  createdAt      DateTime @default(now())
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        ChecklistTemplateItem[]
+
+  @@map("checklist_templates")
+}
+
+model ChecklistTemplateItem {
+  id          String  @id @default(cuid())
+  templateId  String
+  title       String
+  description String?
+  required    Boolean @default(false)
+  order       Int     @default(0)
+
+  template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("checklist_template_items")
+}
+
+model ChecklistItem {
+  id          String    @id @default(cuid())
+  bidRoomId   String
+  title       String
+  description String?
+  required    Boolean   @default(false)
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  dueDate     DateTime?
+  order       Int       @default(0)
+  linkedSlotIds String[] // Link to document slots
+
+  bidRoom BidRoom @relation(fields: [bidRoomId], references: [id], onDelete: Cascade)
+
+  @@map("checklist_items")
+}
+
+// ============================================
+// TASKS & COLLABORATION
+// ============================================
+
+model Task {
+  id          String      @id @default(cuid())
+  bidRoomId   String
+  title       String
+  description String?
+  status      TaskStatus  @default(TODO)
+  priority    String?     @default("MEDIUM") // "LOW" | "MEDIUM" | "HIGH"
+  assigneeId  String?
+  createdById String
+  dueDate     DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  bidRoom   BidRoom   @relation(fields: [bidRoomId], references: [id], onDelete: Cascade)
+  assignee  User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy User      @relation("TaskCreator", fields: [createdById], references: [id])
+  comments  Comment[]
+
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  authorId  String
+  bidRoomId String?
+  taskId    String?
+  createdAt DateTime @default(now())
+
+  author  User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  bidRoom BidRoom? @relation(fields: [bidRoomId], references: [id], onDelete: Cascade)
+  task    Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+// ============================================
+// PACKAGING & SUBMISSION
+// ============================================
+
+model Package {
+  id           String   @id @default(cuid())
+  bidRoomId    String
+  version      Int
+  zipPath      String
+  manifestPath String
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  bidRoom   BidRoom @relation(fields: [bidRoomId], references: [id], onDelete: Cascade)
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@unique([bidRoomId, version])
+  @@map("packages")
+}
+
+model SubmissionProof {
+  id                String   @id @default(cuid())
+  bidRoomId         String
+  receiptPath       String? // Screenshot or PDF receipt
+  submissionTime    DateTime @default(now())
+  portalReference   String?
+  notes             String?  @db.Text
+  submittedBy       String?
+
+  bidRoom BidRoom @relation(fields: [bidRoomId], references: [id], onDelete: Cascade)
+
+  @@map("submission_proofs")
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  bidRoomId      String?
+  userId         String?
+  action         String // "BID_ROOM_CREATED" | "DOCUMENT_UPLOADED" | "PACKAGE_GENERATED" | etc.
+  details        Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bidRoom      BidRoom?     @relation(fields: [bidRoomId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([bidRoomId, createdAt])
+  @@map("audit_events")
+}

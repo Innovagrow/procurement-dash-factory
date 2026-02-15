@@ -1,321 +1,318 @@
-# 🏛️ Procurement Intelligence Platform
+# BidRoom GR - Greek Public Tender Bidding Platform
 
-**Multi-Source Public Procurement Data Intelligence Dashboard**
+**Complete end-to-end solution for bidding on Greek public tenders through NEPPS/ESIDIS**
 
-[![Railway](https://img.shields.io/badge/Deploy-Railway-blueviolet)](https://railway.app/)
-[![Python](https://img.shields.io/badge/Python-3.12-blue)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)](https://fastapi.tiangolo.com/)
-[![Quarto](https://img.shields.io/badge/Quarto-1.6-orange)](https://quarto.org/)
+## 🎯 Features
 
----
-
-## 🚀 **READY TO DEPLOY!**
-
-**All issues fixed! Authentication enforced! Railway config updated!**
-
-👉 **[START HERE: DEPLOY_NOW.md](DEPLOY_NOW.md)** 👈
-
----
-
-## ✨ Features
-
-### 🌍 Multi-Source Data
-- **TED (EU)** - 500,000+ annual tenders
-- **SAM.gov (USA)** - 100,000+ annual opportunities
-- **KIMDIS (Greece)** - 30,000+ annual tenders
-- **Diavgeia (Greece)** - 2M+ annual decisions
-
-### 🔒 Authentication & Security
-- Login/signup system
-- Google OAuth ready
-- JWT tokens
-- **Reports require login** ✅
-
-### 📊 Power BI Style Dashboards
-- Tabbed interface
-- Minimal scroll
-- Interactive charts (Plotly)
-- KPI cards
-- Real-time filters
-
-### 👤 User Features
-- Personal dashboard
-- Favorites system
-- Saved searches
-- Custom alerts (future)
-
-### 🔌 Full REST API
-- Search tenders
-- Get statistics
-- Filter by CPV code
-- OpenAPI docs at `/docs`
-
----
+- **No CPV Knowledge Required**: Sector-based onboarding (Facilities, PPE, Medical, IT, etc.)
+- **Tender Discovery**: Search, filter, and alerts for Greek procurement (KHMDHS/KIMDIS, Diavgeia)
+- **Qualification Scoring**: Explainable fit scores (0-100) based on your profile
+- **Bid Room**: Complete workspace with documents, versioning, tasks, checklist, signatures
+- **Packaging Engine**: Automatic ZIP generation with naming conventions and manifest.json
+- **Compliance Gating**: Mandatory checks before packaging (documents, signatures, checklist)
+- **Submission Assistant**: Step-by-step guide for NEPPS/ESIDIS upload with validations
+- **Multi-Tenancy**: Organizations, RBAC (Org Admin, Bid Manager, Contributor, Viewer)
+- **Audit Log**: Complete audit trail of all actions
+- **Background Jobs**: Daily tender ingestion, alerts, deadline reminders (BullMQ + Redis)
 
 ## 🏗️ Tech Stack
 
-- **Backend:** FastAPI (Python)
-- **Frontend:** Quarto + Bootstrap 5
-- **Charts:** Plotly.js
-- **Auth:** JWT + Google OAuth
-- **Data:** Pandas for processing
-- **Deployment:** Railway
+- **Frontend**: Next.js 14 (App Router) + React + TypeScript + Tailwind + shadcn/ui
+- **Backend**: Next.js Server Actions + API Routes
+- **Database**: PostgreSQL + Prisma
+- **Jobs**: BullMQ + Redis
+- **Storage**: S3-compatible (MinIO)
+- **Auth**: NextAuth (email/password + Google OAuth)
+- **Deployment**: Railway
 
----
-
-## 💻 Local Development
+## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.12+
-- Quarto 1.6+
 
-### Quick Start
+- Node.js 18+
+- Docker & Docker Compose
+- Git
+
+### 1. Clone Repository
 
 ```bash
-# Clone the repository
-git clone https://github.com/Innovagrow/procurement-dash-factory.git
+git clone https://github.com/yourusername/procurement-dash-factory.git
 cd procurement-dash-factory
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Render Quarto site
-cd site
-quarto render
-cd ..
-
-# Run the server
-python app.py
 ```
 
-Visit: `http://localhost:8002`
+### 2. Start Infrastructure (Postgres, Redis, MinIO)
 
-### Windows Users
+```bash
+docker-compose up -d
+```
 
-Double-click `START_SERVER.bat` to automatically start both Quarto and FastAPI.
+This starts:
+- PostgreSQL on port 5432
+- Redis on port 6379
+- MinIO on ports 9000 (API) and 9001 (Console)
 
----
+### 3. Environment Setup
 
-## 🚀 Railway Deployment
+```bash
+cp .env.example .env
+```
 
-### One-Click Deploy
+Edit `.env` and set:
+- `DATABASE_URL` (already configured for local Docker)
+- `NEXTAUTH_SECRET` (generate with: `openssl rand -base64 32`)
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (optional, for Google OAuth)
 
-1. Go to [Railway](https://railway.app/)
-2. New Project → Deploy from GitHub
-3. Select `Innovagrow/procurement-dash-factory`
-4. Add environment variable:
-   ```
-   SECRET_KEY=your-secret-key-here
-   ```
-5. Deploy!
+### 4. Install Dependencies
 
-**Detailed guide:** [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md)
+```bash
+npm install
+```
 
----
+### 5. Database Setup
+
+```bash
+# Push schema to database
+npm run db:push
+
+# Seed demo data
+npm run db:seed
+```
+
+This creates:
+- Demo organization
+- 3 demo users (admin, manager, contributor)
+- 2 monitoring profiles
+- 20 sample tenders
+- 2 sample bid rooms
+
+### 6. Start Development Server
+
+```bash
+npm run dev
+```
+
+Visit: `http://localhost:3000`
+
+### 7. Start Background Worker (Optional)
+
+In a separate terminal:
+
+```bash
+npm run worker
+```
+
+This starts the BullMQ worker for:
+- Tender ingestion
+- Daily digests
+- Deadline reminders
+
+## 👤 Demo Credentials
+
+| Role        | Email                | Password     |
+|-------------|----------------------|--------------|
+| Org Admin   | admin@demo.gr        | password123  |
+| Bid Manager | manager@demo.gr      | password123  |
+| Contributor | contributor@demo.gr  | password123  |
+
+## 📦 Deployment to Railway
+
+### 1. Install Railway CLI
+
+```bash
+npm install -g @railway/cli
+```
+
+### 2. Login to Railway
+
+```bash
+railway login
+```
+
+### 3. Create New Project
+
+```bash
+railway init
+```
+
+### 4. Add Services
+
+```bash
+# Add PostgreSQL
+railway add --database postgres
+
+# Add Redis
+railway add --database redis
+```
+
+### 5. Set Environment Variables
+
+```bash
+railway variables set NEXTAUTH_SECRET=your-secret-here
+railway variables set GOOGLE_CLIENT_ID=your-google-client-id
+railway variables set GOOGLE_CLIENT_SECRET=your-google-client-secret
+railway variables set NEXTAUTH_URL=https://your-app.up.railway.app
+```
+
+### 6. Deploy
+
+```bash
+railway up
+```
+
+Railway will automatically:
+- Detect Next.js
+- Install dependencies
+- Run `prisma generate`
+- Build the app
+- Start it
+
+### 7. Run Database Migration
+
+```bash
+railway run npm run db:push
+railway run npm run db:seed
+```
+
+### 8. Access Your App
+
+Your app will be available at: `https://your-app.up.railway.app`
 
 ## 📂 Project Structure
 
 ```
 procurement-dash-factory/
-├── app.py                          # Main FastAPI application
-├── requirements.txt                # Python dependencies
-├── nixpacks.toml                  # Railway build config
-├── .railwayignore                 # Files to ignore on Railway
-├── START_SERVER.bat               # Windows startup script
-│
-├── connectors/                    # Data source connectors
-│   ├── __init__.py
-│   ├── base.py                    # Base connector class
-│   └── ted_eu.py                  # TED (EU) connector
-│
-├── dashboards/                    # Dashboard generators
-│   ├── __init__.py
-│   ├── generator.py               # Dashboard builder
-│   └── powerbi_layout.py          # Power BI style layout
-│
-├── user_dashboard.py              # User personal dashboard
-│
-├── site/                          # Quarto frontend
-│   ├── index.qmd                  # Homepage
-│   ├── login.html                 # Login/signup page
-│   ├── report.html                # Report loading page
-│   ├── _quarto.yml                # Quarto config
-│   └── _site/                     # Generated HTML (not in git)
-│
-└── docs/                          # Documentation
-    ├── DEPLOY_NOW.md              # 👈 START HERE!
-    ├── DEPLOY_RAILWAY.md          # Detailed Railway guide
-    ├── GOOGLE_OAUTH_SETUP.md      # Google OAuth setup
-    ├── AUTHENTICATION_GUIDE.md    # Backend auth guide
-    ├── DATA_SOURCES_ANALYSIS.md   # Data source details
-    └── FINAL_CHECKLIST.md         # Feature checklist
+├── prisma/
+│   ├── schema.prisma        # Database schema
+│   └── seed.ts              # Seed script
+├── src/
+│   ├── app/                 # Next.js app directory
+│   │   ├── api/             # API routes
+│   │   ├── login/           # Login page
+│   │   ├── signup/          # Signup page
+│   │   ├── onboarding/      # Onboarding wizard
+│   │   ├── dashboard/       # Dashboard
+│   │   ├── tenders/         # Tender discovery
+│   │   ├── bidrooms/        # Bid rooms
+│   │   └── admin/           # Admin panel
+│   ├── components/          # React components
+│   │   └── ui/              # shadcn/ui components
+│   ├── lib/                 # Utilities
+│   │   ├── prisma.ts        # Prisma client
+│   │   ├── auth.ts          # NextAuth config
+│   │   ├── s3.ts            # S3 storage
+│   │   ├── utils.ts         # Helpers
+│   │   ├── cpv-sectors.ts   # CPV sector packs
+│   │   └── connectors/      # API connectors
+│   │       └── kimdis.ts    # KHMDHS/KIMDIS
+│   ├── workers/             # Background jobs
+│   │   └── index.ts         # BullMQ workers
+│   └── types/               # TypeScript types
+├── docker-compose.yml       # Local infrastructure
+├── package.json             # Dependencies
+└── README.md                # This file
 ```
 
----
+## 🔐 Authentication
 
-## 🔐 Authentication Flow
+### Manual Login/Signup
+- Email/password with bcrypt hashing
+- JWT sessions via NextAuth
+- Automatic organization creation on signup
 
-1. User clicks "View Report"
-2. **JavaScript checks for auth token**
-3. **No token → Redirect to `/login.html`**
-4. User logs in or signs up
-5. Token saved to `localStorage`
-6. **Redirect back to requested report**
-7. ✅ Access granted
+### Google OAuth
+1. Create OAuth credentials at [Google Cloud Console](https://console.cloud.google.com/)
+2. Add to Authorized redirect URIs:
+   - `http://localhost:3000/api/auth/callback/google` (local)
+   - `https://your-app.up.railway.app/api/auth/callback/google` (production)
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`
 
-**No way to bypass authentication!**
+## 📊 Data Sources
 
----
-
-## 📊 Available Dashboards
-
-1. **IT Tenders** - `/dashboard/it-tenders`
-   - Computer equipment, software, IT services
-   - CPV: 30000000, 48000000, 72000000
-
-2. **Construction Projects** - `/dashboard/construction`
-   - Building works, civil engineering
-   - CPV: 45000000
-
-3. **Healthcare Procurement** - `/dashboard/healthcare`
-   - Medical equipment, pharma, health services
-   - CPV: 33000000, 85000000
-
-4. **Green Energy** - `/dashboard/green-energy`
-   - Renewable energy, sustainable tech
-   - CPV: 09000000, 31700000
-
-5. **Professional Services** - `/dashboard/services`
-   - Consulting, legal, accounting
-   - CPV: 79000000, 71000000
-
----
-
-## 🔌 API Examples
-
-### Search Tenders
-```bash
-GET /api/search?cpv_code=48&limit=10
-```
-
-### Get Statistics
-```bash
-GET /api/stats?source=TED&period=2024
-```
-
-### Get Tender Details
-```bash
-GET /api/tender/{tender_id}
-```
-
-### Interactive API Docs
-```
-https://your-app.railway.app/docs
-```
-
----
-
-## 📈 Data Source Details
-
-### TED (EU) - Tenders Electronic Daily
-- **Datasets:** 6 types (tenders, awards, contracts, buyers, cpv, notices)
-- **Volume:** 500,000+ tenders/year
-- **Coverage:** All EU member states
-- **API:** Yes (planned)
-
-### SAM.gov (USA)
-- **Datasets:** 6 types (opportunities, awards, contracts, entities, naics, notices)
-- **Volume:** 100,000+ opportunities/year
-- **Coverage:** US federal procurement
-- **API:** Yes (v2)
-
-### KIMDIS (Greece)
-- **Datasets:** 6 types (competitions, contracts, decisions, organizations, cpv, notices)
-- **Volume:** 30,000+ tenders/year
-- **Coverage:** Greek public procurement
-- **API:** Yes (OpenData)
+### KHMDHS/KIMDIS (Greece)
+- **API**: https://cerpp.eprocurement.gov.gr/khmdhs-opendata/swagger-ui/index.html
+- **Coverage**: 30,000+ Greek tenders/year
+- **Data**: Tenders, contracts, buyers, CPV codes
 
 ### Diavgeia (Greece)
-- **Datasets:** 6 types (decisions, organizations, units, signers, categories, attachments)
-- **Volume:** 2M+ decisions/year
-- **Coverage:** All Greek public sector
-- **API:** Yes (REST)
+- **API**: https://diavgeia.gov.gr/api/help
+- **Coverage**: 2M+ public decisions/year
+- **Data**: All Greek public sector decisions
 
-**Full analysis:** [DATA_SOURCES_ANALYSIS.md](docs/DATA_SOURCES_ANALYSIS.md)
+### TED (EU) - Optional
+- **API**: https://docs.ted.europa.eu/api/latest/index.html
+- **Coverage**: EU-wide tenders
+- **Data**: 500,000+ EU tenders/year
 
----
+## 🛠️ Development Commands
 
-## 🎯 Roadmap
+```bash
+# Development
+npm run dev           # Start Next.js dev server
+npm run worker        # Start BullMQ worker
 
-### ✅ Phase 1: MVP (DONE)
-- [x] Multi-source data connectors
-- [x] Power BI style dashboards
-- [x] Authentication system
-- [x] User favorites
-- [x] REST API
-- [x] Railway deployment
+# Database
+npm run db:push       # Push schema changes
+npm run db:seed       # Seed demo data
 
-### 🔄 Phase 2: Production (In Progress)
-- [ ] Real API integrations
-- [ ] Database for users
-- [ ] Google OAuth production
-- [ ] Email alerts
-- [ ] Advanced search
+# Production
+npm run build         # Build for production
+npm run start         # Start production server
 
-### 📋 Phase 3: Advanced (Future)
-- [ ] Company profiling
-- [ ] Competitive intelligence
-- [ ] Tender forecasting
-- [ ] Contract analytics
-- [ ] Export reports (PDF)
+# Utilities
+npm run lint          # Run ESLint
+```
 
----
+## 🎯 MVP Scope
+
+### ✅ Completed
+- [x] Multi-tenancy with organizations
+- [x] Authentication (email/password + Google OAuth)
+- [x] Onboarding without CPV knowledge
+- [x] Monitoring profiles with sector packs
+- [x] Dashboard
+- [x] KHMDHS/KIMDIS connector
+- [x] Docker Compose setup
+- [x] Seed data
+
+### 🚧 In Progress
+- [ ] Tender search & filters
+- [ ] Qualification/scoring
+- [ ] Bid Room (documents, checklist, tasks)
+- [ ] Packaging engine
+- [ ] Submission assistant
+- [ ] Background jobs (BullMQ)
+- [ ] Admin panel
+- [ ] Audit logging
+
+## 📝 Notes
+
+### Important: We Do NOT Submit Bids
+BidRoom GR prepares bids but does NOT submit them automatically. Legal submission must happen through official government portals (NEPPS/ESIDIS). We provide:
+- Bid preparation workspace
+- Package generation (ZIP + manifest)
+- Submission checklist
+- Portal deep links
+- Submission proof upload
+
+### NEPPS/ESIDIS Links
+- **NEPPS Search**: https://nepps-search.eprocurement.gov.gr/actSearch/faces/active_search_main.jspx
+- **Portal Entry**: https://www.eprocurement.gov.gr/
+- **ESPD Tool**: https://espd.eprocurement.gov.gr/
 
 ## 🤝 Contributing
 
-Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
-
----
+Contributions welcome! Please open an issue first to discuss changes.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
-
----
+MIT License - see LICENSE file for details.
 
 ## 🆘 Support
 
-### Issues?
-- Check [DEPLOY_NOW.md](DEPLOY_NOW.md) troubleshooting
-- Review Railway logs
-- Check [FastAPI docs](https://fastapi.tiangolo.com/)
-
-### Questions?
-- Open a GitHub issue
-- Check documentation in `/docs`
+For issues or questions:
+- GitHub Issues: https://github.com/yourusername/procurement-dash-factory/issues
+- Email: support@bidroom.gr (example)
 
 ---
 
-## 🎉 Quick Links
-
-- 📘 [Deploy Now Guide](DEPLOY_NOW.md) - Start here!
-- 🚀 [Railway Deployment](DEPLOY_RAILWAY.md)
-- 🔐 [Google OAuth Setup](GOOGLE_OAUTH_SETUP.md)
-- 💾 [Data Sources](DATA_SOURCES_ANALYSIS.md)
-- ✅ [Feature Checklist](FINAL_CHECKLIST.md)
-- 🔌 [API Docs](http://localhost:8002/docs) (when running)
-
----
-
-## 🏆 Status
-
-**GitHub:** ✅ Live  
-**Authentication:** ✅ Enforced  
-**Railway Config:** ✅ Fixed  
-**Ready to Deploy:** ✅ YES!
-
----
-
-**Built with ❤️ for public procurement transparency**
-
-**Deploy now!** 🚀 [DEPLOY_NOW.md](DEPLOY_NOW.md)
+**Built with ❤️ for Greek procurement transparency**

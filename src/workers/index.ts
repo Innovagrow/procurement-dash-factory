@@ -1,20 +1,21 @@
 import { Queue, Worker, Job } from 'bullmq';
-import IORedis from 'ioredis';
 import { prisma } from '../lib/prisma';
 import { kimdisConnector } from '../lib/connectors/kimdis';
 
-// Redis connection
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+// Redis connection configuration
+const connectionOptions = {
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
   maxRetriesPerRequest: null,
-});
+};
 
 // ============================================
 // QUEUES
 // ============================================
 
-export const tenderIngestionQueue = new Queue('tender-ingestion', { connection });
-export const dailyDigestQueue = new Queue('daily-digest', { connection });
-export const deadlineReminderQueue = new Queue('deadline-reminder', { connection });
+export const tenderIngestionQueue = new Queue('tender-ingestion', { connection: connectionOptions });
+export const dailyDigestQueue = new Queue('daily-digest', { connection: connectionOptions });
+export const deadlineReminderQueue = new Queue('deadline-reminder', { connection: connectionOptions });
 
 // ============================================
 // TENDER INGESTION WORKER
@@ -119,7 +120,7 @@ const tenderIngestionWorker = new Worker(
       throw error;
     }
   },
-  { connection }
+  { connection: connectionOptions }
 );
 
 // ============================================
@@ -208,7 +209,7 @@ const dailyDigestWorker = new Worker(
       throw error;
     }
   },
-  { connection }
+  { connection: connectionOptions }
 );
 
 // ============================================
@@ -285,7 +286,7 @@ const deadlineReminderWorker = new Worker(
       throw error;
     }
   },
-  { connection }
+  { connection: connectionOptions }
 );
 
 // ============================================
@@ -350,7 +351,6 @@ process.on('SIGINT', async () => {
   await tenderIngestionWorker.close();
   await dailyDigestWorker.close();
   await deadlineReminderWorker.close();
-  await connection.quit();
   process.exit(0);
 });
 

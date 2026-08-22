@@ -31,37 +31,54 @@ DEFAULT_USER_AGENT = (
 
 DEFAULT_CACHE_DIR = os.path.join(".cache", "damasol")
 
+# Names a site may use to address this agent specifically. A rule written for
+# one of these is aimed at us and overrides anything the wildcard group says -
+# in either direction. Sites do use both: xe.gr disallows `ClaudeBot` outright
+# while granting `Claude-User` a narrow allow-list, and remax.gr disallows
+# `ClaudeBot` across the whole site. Reading only the `*` group, as this gate
+# originally did, would have walked straight past both.
+SELF_AGENT_NAMES = (
+    "claudebot", "claude-web", "claude-user", "claude-searchbot", "anthropic-ai",
+)
+
 
 class FetchError(RuntimeError):
     """Raised when a URL could not be retrieved after all retries."""
 
 
 class RobotsGate:
-    """robots.txt evaluator for the `User-agent: *` group.
+    """robots.txt evaluator honouring both the wildcard and our own agent names.
 
-    Implements the standard precedence rule: when several rules match a path,
-    the longest one wins, and `Allow` beats `Disallow` on an exact tie. That
-    matters here because portals routinely carve specific pages out of a broad
-    `Disallow` with an `Allow`.
+    Two precedence rules, both standard and both load-bearing here:
+
+    1. A group naming this agent wins outright over the `*` group. Sites
+       increasingly write rules addressed to AI agents by name, and a gate that
+       reads only `*` would ignore an explicit refusal aimed at us.
+    2. Within the winning group, the longest matching rule wins, and `Allow`
+       beats `Disallow` on an exact tie - portals routinely carve specific pages
+       out of a broad `Disallow`.
     """
 
     def __init__(self, fetcher: "PoliteFetcher"):
         self._fetcher = fetcher
         self._rules: Dict[str, list] = {}
+        self._named: Dict[str, str] = {}
 
     def _load(self, origin: str) -> list:
+        """Parse robots.txt into groups, then return the group that applies to us."""
         if origin in self._rules:
             return self._rules[origin]
 
-        rules: list = []
         try:
             body = self._fetcher.get(origin + "/robots.txt", respect_robots=False)
         except FetchError:
             # No robots.txt reachable -> treat as "no restrictions stated".
-            self._rules[origin] = rules
-            return rules
+            self._rules[origin] = []
+            self._named[origin] = ""
+            return []
 
-        in_star_group = False
+        groups: list = []          # [(agent_names, rules)]
+        current = None
         for line in body.splitlines():
             line = line.split("#", 1)[0].strip()
             if not line or ":" not in line:
@@ -70,11 +87,33 @@ class RobotsGate:
             field = field.strip().lower()
             value = value.strip()
             if field == "user-agent":
-                in_star_group = value == "*"
-            elif field in ("disallow", "allow") and in_star_group and value:
-                rules.append((self._compile(value), len(value), field == "allow"))
-        self._rules[origin] = rules
-        return rules
+                # Consecutive User-agent lines share one group of rules.
+                if current is None or current[1]:
+                    current = ([], [])
+                    groups.append(current)
+                current[0].append(value.lower())
+            elif field in ("disallow", "allow") and current is not None and value:
+                current[1].append((self._compile(value), len(value), field == "allow"))
+
+        named_match = ""
+        chosen: list = []
+        for agents, rules in groups:
+            for agent in agents:
+                if agent in SELF_AGENT_NAMES:
+                    named_match = agent
+                    chosen = rules
+                    break
+            if named_match:
+                break
+        if not named_match:
+            for agents, rules in groups:
+                if "*" in agents:
+                    chosen = rules
+                    break
+
+        self._rules[origin] = chosen
+        self._named[origin] = named_match
+        return chosen
 
     @staticmethod
     def _compile(rule: str):
@@ -100,9 +139,18 @@ class RobotsGate:
                 best_length, best_allows = length, is_allow
         return best_allows
 
+    def named_group(self, url: str) -> str:
+        """Which of our own agent names the site addressed, if any."""
+        parts = urllib.parse.urlsplit(url)
+        origin = f"{parts.scheme}://{parts.netloc}"
+        self._load(origin)
+        return self._named.get(origin, "")
+
     def explain(self, url: str) -> str:
         verdict = "ALLOWED" if self.allows(url) else "DISALLOWED"
-        return f"{verdict} by robots.txt: {url}"
+        named = self.named_group(url)
+        via = f" [κανόνας για «{named}»]" if named else " [ομάδα *]"
+        return f"{verdict} by robots.txt{via}: {url}"
 
 
 class PoliteFetcher:

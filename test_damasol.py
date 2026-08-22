@@ -7,7 +7,9 @@ end to end, deterministically.
 
     python test_damasol.py
 """
+import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -17,11 +19,21 @@ from damasol.http import PoliteFetcher
 from damasol.models import Listing, parse_age_days, parse_area, parse_money
 from damasol.outreach.templates import available_templates, render
 from damasol.report import write_html_report
-from damasol.screener import enrich_market_context, export_csv, export_json
+from damasol.screener import (
+    analyse_shortlist, enrich_market_context, export_csv, export_json,
+)
 from damasol.scoring import MarketIndex, grade_for, score_all
 from damasol.sources.base import SearchQuery
 
 PASSED, FAILED = [], []
+
+
+def _raises(fn):
+    try:
+        fn()
+    except Exception:  # noqa: BLE001 - the test only cares that it refused
+        return True
+    return False
 
 
 def check(label, condition, detail=""):
@@ -540,6 +552,155 @@ check("Nominative and genitive share a stem", _stems("Ρόδος") & _stems("Δ�
 check("Larisa declension handled", _stems("Λάρισα") & _stems("ΔΗΜΟΣ ΛΑΡΙΣΑΙΩΝ"))
 check("Generic modifiers ignored",
       not (_stems("Νέα Ερυθραία") & _stems("ΔΗΜΟΣ ΝΕΑΣ ΖΙΧΝΗΣ")))
+
+print("\n[11b] robots.txt rules addressed to us by name")
+ROBOTS = """
+User-agent: *
+Allow: /
+User-agent: ClaudeBot
+User-agent: Claude-Web
+Disallow: /
+User-agent: Claude-User
+Allow: /public
+Disallow: /
+"""
+
+
+class _Canned:
+    """A fetcher that serves one robots.txt, so the gate can be tested offline."""
+
+    def __init__(self, body):
+        self.body = body
+        self.user_agent = "test"
+        self.accept_language = "el"
+
+    def get(self, url, respect_robots=True):
+        return self.body
+
+
+from damasol.http import SELF_AGENT_NAMES, PoliteFetcher, RobotsGate
+
+gate = RobotsGate(_Canned(ROBOTS))
+check("A rule naming us beats a permissive wildcard",
+      not gate.allows("https://example.test/anything"))
+check("The gate reports which name matched",
+      gate.named_group("https://example.test/") in SELF_AGENT_NAMES,
+      gate.named_group("https://example.test/"))
+
+only_star = RobotsGate(_Canned("User-agent: *\nDisallow: /private\nAllow: /\n"))
+check("Falls back to the wildcard when we are not named",
+      only_star.allows("https://a.test/x") and not only_star.allows("https://a.test/private"))
+check("No named group is reported when none exists", only_star.named_group("https://a.test/") == "")
+
+narrow = RobotsGate(_Canned(
+    "User-agent: *\nAllow: /\nUser-agent: Claude-User\nAllow: /ok\nDisallow: /\n"))
+check("A named group's own allow-list still applies", narrow.allows("https://b.test/ok"))
+check("...and its disallow blocks everything else", not narrow.allows("https://b.test/other"))
+
+print("\n[11c] CSV source — data from anywhere")
+from damasol.sources.csvfile import CsvSource, map_columns, normalise_type
+from damasol.sources import ALL_ITEM_TYPES, REGISTRY
+
+check("CSV is a registered source", "csv" in REGISTRY)
+check("Four property types are declared", set(ALL_ITEM_TYPES) ==
+      {"residence", "prof", "land", "parking"})
+
+greek_headers = ["Κωδικός", "Ζητούμενη τιμή", "Εμβαδόν (τ.μ.)", "Περιοχή",
+                 "Κατηγορία", "Έτος κατασκευής", "Περιγραφή", "Link", "Ενοίκιο"]
+mapped = map_columns(greek_headers)
+# Final sigma folding is why this failed the first time: "Κωδικός" normalises
+# to "κωδικοσ" while the alias was typed "κωδικος".
+for field in ("price", "size", "area", "type", "year", "url", "notes", "id", "rent"):
+    check(f"Greek header mapped: {field}", field in mapped, str(sorted(mapped)))
+check("English headers map too",
+      {"price", "size", "area"} <= set(map_columns(["price", "sqm", "location"])))
+
+for value, expected in [("Μεζονέτα", "residence"), ("ΟΙΚΟΠΕΔΟ", "land"),
+                        ("Αγροτεμάχιο", "land"), ("Κατάστημα", "prof"),
+                        ("Warehouse", "prof"), ("Θέση στάθμευσης", "parking"),
+                        ("γκαράζ", "parking"), ("", "residence")]:
+    check(f"Type «{value or '(κενό)'}» → {expected}", normalise_type(value) == expected)
+
+import csv as _csv
+import tempfile as _tf
+
+_dir = _tf.mkdtemp()
+_path = os.path.join(_dir, "t.csv")
+with open(_path, "w", encoding="utf-8", newline="") as _h:
+    _w = _csv.writer(_h, delimiter=";")
+    _w.writerow(greek_headers)
+    _w.writerow(["A1", "45.000 €", "61", "Θεσσαλονίκη (Ξηροκρήνη)", "Διαμέρισμα",
+                 "1972", "χρήζει ανακαίνισης", "https://x/1", "430"])
+    _w.writerow(["A2", "120000", "1200", "Αρτεμίσιο", "Αγροτεμάχιο", "", "εκτός σχεδίου",
+                 "https://x/2", ""])
+    _w.writerow(["A3", "88.500", "95", "Πάτρα (Κέντρο)", "Κατάστημα", "1998",
+                 "ισόγειο", "https://x/3", "700"])
+    _w.writerow(["A4", "χωρίς τιμή", "40", "Αθήνα", "Διαμέρισμα", "", "", "", ""])
+
+source = CsvSource(None, _path)
+rows = list(source.search(SearchQuery(item_type="")))
+check("Semicolons and Greek money parsed", len(rows) == 3, str(len(rows)))
+check("Rows without a price are dropped", all(r.price for r in rows))
+check("Ids come from the file", rows[0].listing_id == "A1")
+check("Greek thousand separators survive", rows[0].price == 45000.0)
+check("Types are recognised per row",
+      [r.item_type for r in rows] == ["residence", "land", "prof"])
+check("Filtering by type works",
+      len(list(source.search(SearchQuery(item_type="land")))) == 1)
+check("Filtering by price works",
+      len(list(source.search(SearchQuery(item_type="", max_price=50000)))) == 1)
+
+rents = source.rent_listings()
+check("Rent comparables come out of a rent column", len(rents) == 2, str(len(rents)))
+check("Rent listings carry the RENT transaction",
+      all(r.transaction == "RENT" for r in rents))
+check("A file with no rent column yields no rents",
+      CsvSource(None, os.path.join(_dir, "t.csv")).rent_listings() is not None)
+check("A missing file fails loudly", _raises(lambda: list(
+    CsvSource(None, os.path.join(_dir, "nope.csv")).search(SearchQuery()))))
+shutil.rmtree(_dir, ignore_errors=True)
+
+print("\n[11d] Results dashboard")
+from damasol.webreport import write_dashboard
+
+_dir = _tf.mkdtemp()
+try:
+    dash_index = MarketIndex(min_comparables=3)
+    corpus = [Listing(source="t", listing_id=f"d{i}", url="https://x", item_type="residence",
+                      sub_area="Ζ", area_name="Ζ", address="Ζ", title="Διαμέρισμα",
+                      transaction="SALE", price=150000, size_sqm=100, lat=40.6, lng=22.9)
+              for i in range(6)]
+    cheap = Listing(source="t", listing_id="cheap", url="https://x/1", item_type="residence",
+                    sub_area="Ζ", area_name="Ζ", address="Ζ", title="Διαμέρισμα 60 τ.μ.",
+                    transaction="SALE", price=45000, size_sqm=60, lat=40.6, lng=22.9,
+                    construction_year=1980, description_hint="χρήζει ανακαίνισης")
+    dash_index.add_sale_comparables(corpus + [cheap])
+    dash_index.add_rent_comparables(
+        [Listing(source="t", listing_id=f"r{i}", url="", item_type="residence", sub_area="Ζ",
+                 area_name="Ζ", price=560, size_sqm=100, lat=40.6, lng=22.9) for i in range(6)])
+    dash_scored = score_all([cheap] + corpus, dash_index, budget=200000)
+    dash_analysis = analyse_shortlist(dash_scored, dash_index)
+    out = write_dashboard(dash_scored, dash_analysis, os.path.join(_dir, "d.html"),
+                          meta={"sources": ["test"], "item_types": list(ALL_ITEM_TYPES),
+                                "max_price": 200000, "scope": "Όλη η Ελλάδα",
+                                "scanned": 7, "shortlisted": 7},
+                          full_detail=2)
+    page = open(out, encoding="utf-8").read()
+    check("Dashboard written", os.path.getsize(out) > 4000)
+    check("No document-level tags", not any(t in page.lower()
+          for t in ("<!doctype", "<html", "<body")))
+    check("Carries its own title", "<title>" in page[:200])
+    payload = json.loads(re.search(r"const D = (\{.*?\});\n", page, re.S).group(1))
+    check("Every valued listing is in the page",
+          len(payload["items"]) == len(dash_analysis), str(len(payload["items"])))
+    check("Leaders carry full plan detail", "alts" in payload["items"][0])
+    check("The tail is summarised, not dropped",
+          all("rank" in i for i in payload["items"]))
+    check("Filters have property types to work with", bool(payload["typeLabels"]))
+    check("Indicator labels travel with the data",
+          set(payload["indicatorLabels"]) == set(payload["indicatorShort"]))
+finally:
+    shutil.rmtree(_dir, ignore_errors=True)
 
 print("\n[12] Registries")
 from damasol.registry import audit as registry_audit, load_ideas, load_mechanisms

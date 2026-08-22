@@ -33,7 +33,7 @@ from .http import PoliteFetcher
 from .indicators import DEFAULT_INDICATOR_WEIGHTS, INDICATOR_SHORT_EL
 from .models import Listing, ScoredListing
 from .scoring import DEFAULT_WEIGHTS, MarketIndex, score_all
-from .sources import REGISTRY, SearchQuery
+from .sources import ALL_ITEM_TYPES, ITEM_TYPE_LABELS_EL, REGISTRY, SearchQuery
 from .strategies import MarketInputs, best_plan, evaluate
 from .valuation import infer_facts, value_property
 
@@ -45,6 +45,45 @@ def _log(message: str) -> None:
 
 
 # ------------------------------------------------------------------- crawl
+
+
+def crawl_sources(
+    sources: Sequence,
+    item_types: Sequence[str],
+    transaction: str,
+    max_price: Optional[float],
+    min_price: Optional[float],
+    min_size: Optional[float],
+    bbox,
+    max_pages: Optional[int],
+) -> List[Listing]:
+    """Crawl every configured source and merge, keeping the cheapest duplicate.
+
+    Sources disagree and overlap: the same flat can sit on two portals at two
+    prices. Deduplicating on (area, size, rounded price) and keeping the lowest
+    asking price means a listing never counts twice and we always evaluate the
+    better of the two offers.
+    """
+    merged: Dict[tuple, Listing] = {}
+    for source in sources:
+        _log(f"\n  ── πηγή: {source.name}")
+        try:
+            found = crawl_candidates(source, item_types, transaction, max_price,
+                                     min_price, min_size, bbox, max_pages)
+        except Exception as exc:  # noqa: BLE001 - one dead source must not kill the run
+            _log(f"    ! η πηγή {source.name} απέτυχε: {exc}")
+            continue
+        for listing in found:
+            key = (
+                listing.item_type,
+                (listing.sub_area or listing.address or "").strip().lower(),
+                round(listing.size_sqm or 0),
+                round((listing.price or 0) / 500),
+            )
+            existing = merged.get(key)
+            if existing is None or (listing.price or 0) < (existing.price or 0):
+                merged[key] = listing
+    return list(merged.values())
 
 
 def crawl_candidates(
@@ -278,7 +317,16 @@ def build_parser() -> argparse.ArgumentParser:
         prog="damasol.screener",
         description="Εντοπισμός των καλύτερων επαγγελματικών ευκαιριών σε ακίνητα.",
     )
-    parser.add_argument("--source", default="xe", choices=sorted(REGISTRY))
+    parser.add_argument("--source", default="spitogatos", choices=sorted(REGISTRY),
+                        help="Μία πηγή. Για περισσότερες μαζί, δείτε --sources.")
+    parser.add_argument("--sources", default=None,
+                        help="Πηγές χωρισμένες με κόμμα, π.χ. spitogatos,csv. "
+                             "Τα αποτελέσματα συγχωνεύονται και αποδιπλασιάζονται.")
+    parser.add_argument("--csv-path", default="", help="Αρχείο για την πηγή csv")
+    parser.add_argument("--all-types", action="store_true",
+                        help="Όλοι οι τύποι ακινήτων: " + ", ".join(ALL_ITEM_TYPES))
+    parser.add_argument("--html-out", default=None,
+                        help="Αρχείο HTML με ΟΛΑ τα αποτελέσματα (προεπιλογή: <out>.html)")
     parser.add_argument("--transaction", default="buy", choices=["buy", "auction", "rent"])
     parser.add_argument("--item-types", default=",".join(DEFAULT_ITEM_TYPES))
     parser.add_argument("--max-price", type=float, default=50000)
@@ -350,8 +398,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             "!! --ignore-robots: παρακάμπτεται το robots.txt. Βεβαιωθείτε ότι έχετε "
             "δικαίωμα πρόσβασης στα δεδομένα αυτής της πηγής."
         )
-    source = REGISTRY[args.source](fetcher)
-    item_types = [t.strip() for t in args.item_types.split(",") if t.strip()]
+
+    names = [n.strip() for n in (args.sources or args.source).split(",") if n.strip()]
+    sources = []
+    for name in names:
+        if name not in REGISTRY:
+            _log(f"!! άγνωστη πηγή «{name}» — διαθέσιμες: {', '.join(sorted(REGISTRY))}")
+            return 2
+        sources.append(
+            REGISTRY[name](fetcher, args.csv_path) if name == "csv"
+            else REGISTRY[name](fetcher)
+        )
+    source = sources[0]
+
+    item_types = (list(ALL_ITEM_TYPES) if args.all_types
+                  else [t.strip() for t in args.item_types.split(",") if t.strip()])
 
     if args.probe:
         query = SearchQuery(
@@ -367,19 +428,32 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
 
     _log("=" * 74)
-    _log(f"DAMASOL LIMITED · Σάρωση ευκαιριών · πηγή: {source.name}")
+    _log(f"DAMASOL LIMITED · Σάρωση ευκαιριών")
+    _log(f"Πηγές: {', '.join(s.name for s in sources)}")
+    _log(f"Τύποι: {', '.join(ITEM_TYPE_LABELS_EL.get(t, t) for t in item_types)}")
     _log(
-        f"Φίλτρα: {args.transaction} · {', '.join(item_types)} · "
-        f"έως {args.max_price:,.0f} € · {'όλη η Ελλάδα' if not bbox else 'bbox ' + args.bbox}"
+        f"Φίλτρα: {args.transaction} · έως {args.max_price:,.0f} € · "
+        f"{'ΟΛΗ Η ΕΛΛΑΔΑ' if not bbox else 'bbox ' + args.bbox}"
     )
     _log("=" * 74)
 
     _log("\n[1/5] Συλλογή υποψηφίων")
-    candidates = crawl_candidates(
-        source, item_types, args.transaction, args.max_price,
+    candidates = crawl_sources(
+        sources, item_types, args.transaction, args.max_price,
         args.min_price, args.min_size, bbox, args.max_pages,
     )
     _log(f"  Σύνολο: {len(candidates)} αγγελίες")
+
+    # Rent comparables come from whichever source can supply them: a portal
+    # query, or a rent column in the file.
+    rent_listings: List[Listing] = []
+    for provider in sources:
+        collector = getattr(provider, "rent_listings", None)
+        if callable(collector):
+            rent_listings.extend(collector())
+    if rent_listings:
+        _log(f"  Συγκριτικά ενοικίων από τις πηγές: {len(rent_listings)}")
+
     if not candidates:
         _log("Καμία αγγελία. Χαλαρώστε τα φίλτρα.")
         return 1
@@ -394,19 +468,30 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if not args.no_enrich:
         _log("\n[3/5] Εμπλουτισμός με πραγματικά συγκριτικά αγοράς & ενοικίων")
         enrich_index = MarketIndex(cell_size=args.cell_size)
-        enrich_market_context(
-            source, enrich_index, shortlist, args.cell_size,
-            exclude_ids={c.listing_id for c in candidates},
-            comp_pages=args.comp_pages,
-            rent_pages=args.rent_pages,
-        )
+        for enriching in sources:
+            if not getattr(enriching, "supports_bbox", False):
+                # A file-based source has no wider market to reach for: the file
+                # IS the market. Excluding the candidates from their own
+                # comparables would leave nothing at all, which is exactly what
+                # happened before this check existed.
+                _log(f"  · {enriching.name}: χωρίς γεωγραφική αναζήτηση — "
+                     "τα ίδια τα δεδομένα χρησιμεύουν ως συγκριτικά")
+                continue
+            enrich_market_context(
+                enriching, enrich_index, shortlist, args.cell_size,
+                exclude_ids={c.listing_id for c in candidates},
+                comp_pages=args.comp_pages,
+                rent_pages=args.rent_pages,
+            )
+        # The corpus always underpins the index; enrichment adds the wider
+        # market on top where a source can supply it.
+        enrich_index.add_sale_comparables(candidates)
+        enrich_index.add_rent_comparables(rent_listings)
         _log(f"  Δείκτης αγοράς: {enrich_index.summary()}")
         index = enrich_index
-        index.add_sale_comparables(
-            [c for c in candidates if c.listing_id not in {s.listing.listing_id for s in shortlist}]
-        )
     else:
         _log("\n[3/5] Εμπλουτισμός παραλείφθηκε (--no-enrich)")
+        index.add_rent_comparables(rent_listings)
 
     _log("\n[4/5] Αποτίμηση & τιμολόγηση κάθε πλάνου αξιοποίησης")
     rescored = score_all([s.listing for s in shortlist], index,
@@ -429,28 +514,27 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     export_csv(final, args.out + ".csv", analysis)
     export_json(final, args.out + ".json", analysis)
-    try:
-        from .report import write_html_report
+    from .webreport import write_dashboard
 
-        write_html_report(
-            final,
-            args.out + ".html",
-            meta={
-                "source": source.name,
-                "transaction": args.transaction,
-                "item_types": item_types,
-                "max_price": args.max_price,
-                "bbox": args.bbox or "Όλη η Ελλάδα",
-                "candidates": len(candidates),
-                "weights": weights,
-            },
-        )
-    except ImportError:
-        pass
+    html_path = args.html_out or (args.out + ".html")
+    write_dashboard(
+        final, analysis, html_path,
+        meta={
+            "sources": [s.name for s in sources],
+            "transaction": args.transaction,
+            "item_types": item_types,
+            "max_price": args.max_price,
+            "scope": args.bbox or "Όλη η Ελλάδα",
+            "scanned": len(candidates),
+            "shortlisted": len(rescored),
+            "valued": len(analysis),
+            "indicator_weights": indicator_weights,
+        },
+    )
 
     _log(f"\n  ✓ {args.out}.csv")
     _log(f"  ✓ {args.out}.json")
-    _log(f"  ✓ {args.out}.html")
+    _log(f"  ✓ {html_path}")
     _log(f"  Δίκτυο: {fetcher.stats}")
 
     _log("\nΚΟΡΥΦΑΙΕΣ ΕΥΚΑΙΡΙΕΣ — κατάταξη κατά απόδοση, όχι κατά έκπτωση")

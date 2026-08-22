@@ -64,6 +64,7 @@ echo.
 echo    1  My own file  ^(akinita.csv in this folder^)          ^(default^)
 echo    2  Same, with a price limit I choose
 echo    3  Spitogatos - scan the portal directly
+echo    4  Where to look in Greece - open data map, no listings needed
 echo.
 echo    Note on option 3: Spitogatos Terms of Use article 2 allow saving their
 echo    content for PERSONAL use, and exclude COMMERCIAL use without their
@@ -72,7 +73,7 @@ echo    republishing or distributing the results is not allowed - keep them
 echo    on your own machine.
 echo.
 set CHOICE=1
-set /p CHOICE=Choose 1, 2 or 3 and press Enter: 
+set /p CHOICE=Choose 1, 2, 3 or 4 and press Enter: 
 
 set MAXPRICE=50000
 if "%CHOICE%"=="2" (
@@ -97,6 +98,7 @@ echo       because it is deliberately slow to avoid overloading the site.
 echo.
 
 if "%CHOICE%"=="3" goto portal
+if "%CHOICE%"=="4" goto map
 
 if not exist "akinita.csv" (
   echo [!] akinita.csv was not found in this folder.
@@ -125,6 +127,12 @@ echo.
      --max-price %MAXPRICE% --min-price 5000 --enrich-top 150 --top 500 ^
      --delay 2.5 --out "%OUTFILE%" --html-out "%HTMLFILE%"
 
+goto done
+
+:map
+set HTMLFILE=%OUTDIR%\chartis_%STAMP%.html
+%PY% -m akinita.ethniki --out "%HTMLFILE%" --json-out "%OUTFILE%_chartis.json"
+
 :done
 
 if errorlevel 1 (
@@ -141,8 +149,8 @@ echo.
 echo ===========================================================================
 echo   Done.
 echo     Results page : %HTMLFILE%
-echo     Spreadsheet  : %OUTFILE%.csv
-echo     Full data    : %OUTFILE%.json
+if not "%CHOICE%"=="4" echo     Spreadsheet  : %OUTFILE%.csv
+if not "%CHOICE%"=="4" echo     Full data    : %OUTFILE%.json
 echo ===========================================================================
 start "" "%HTMLFILE%"
 pause

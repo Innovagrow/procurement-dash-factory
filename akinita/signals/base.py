@@ -27,6 +27,9 @@ class SignalReading:
     as_of: str = ""
     evidence: List[str] = dataclasses.field(default_factory=list)
     notes: List[str] = dataclasses.field(default_factory=list)
+    # Figures a provider computes anyway and would otherwise bury in prose.
+    # Anything here is data: comparable, sortable, renderable.
+    detail: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         data = dataclasses.asdict(self)

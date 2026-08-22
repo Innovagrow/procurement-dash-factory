@@ -772,6 +772,56 @@ try:
 finally:
     shutil.rmtree(_dir, ignore_errors=True)
 
+print("\n[11e] National open-data map")
+from akinita.ethniki import render as render_map, MUNICIPALITIES
+
+map_data = {
+    "generated": "01/01/2026 09:00",
+    "regions": [
+        {"area": "Νότιο Αιγαίο", "code": "EL42", "intensity": 100.0, "momentum": 1.2,
+         "raw_value": 41500466.0, "as_of": "2024", "confidence": 78.0,
+         "evidence": ["2022: 1", "2023: 2", "2024: 3"], "notes": [],
+         "detail": {"versus_2019_pct": 6.0}},
+        {"area": "Δυτική Μακεδονία", "code": "EL53", "intensity": 0.0, "momentum": -0.7,
+         "raw_value": 342558.0, "as_of": "2024", "confidence": 78.0,
+         "evidence": ["2024: 3"], "notes": [], "detail": {}},
+    ],
+    "municipalities": [
+        {"asked_for": "Ρόδος", "area": "ΔΗΜΟΣ ΡΟΔΟΥ", "region": "Νότιο Αιγαίο",
+         "intensity": 97.5, "raw_value": 75.0, "region_tourism": 100.0,
+         "where_to_look": 98.8, "evidence": ["Απόφαση Α", "Απόφαση Α", "Απόφαση Β"],
+         "notes": [], "momentum": None, "confidence": 52.0},
+        {"asked_for": "Φλώρινα", "area": "ΔΗΜΟΣ ΦΛΩΡΙΝΑΣ", "region": "Δυτική Μακεδονία",
+         "intensity": 0.0, "raw_value": 3.0, "region_tourism": None,
+         "where_to_look": None, "evidence": [], "notes": [], "momentum": None,
+         "confidence": 52.0},
+    ],
+    "unmatched": ["Ηράκλειο", "Λάρισα"],
+}
+page = render_map(map_data)
+check("Map page carries its own title", "<title>" in page and "</title>" in page)
+check("Map page has no document-level tags",
+      not re.search(r"<(?:!doctype|html|head|body)\b", page, re.I))
+check("Every region reaches the page",
+      all(row["area"] in page for row in map_data["regions"]))
+check("Every municipality reaches the page",
+      all(row["asked_for"] in page for row in map_data["municipalities"]))
+check("Unmatched municipalities are shown, not hidden",
+      all(name in page for name in map_data["unmatched"]))
+check("A zero rank is explained, not left to be misread",
+      "342.558" in page and "0/100" in page)
+check("Missing figures render as a dash, not as zero",
+      page.count(">—<") >= 1 and "None" not in page)
+check("Absolute nights use Greek thousands separators", "41.500.466" in page)
+check("Pre-pandemic comparison comes from data, not prose", "+6.0%" in page)
+check("Repeated evidence lines are shown once",
+      page.count("Απόφαση Α") == 1)
+check("Every municipality in the national list has coordinates",
+      all(isinstance(lat, float) and isinstance(lng, float)
+          for _, lat, lng in MUNICIPALITIES))
+check("The run command starts from an empty machine",
+      "curl -L -o akinita.zip" in page and "akinita.screener" in page)
+
 print("\n[12] Registries")
 from akinita.registry import audit as registry_audit, load_ideas, load_mechanisms
 

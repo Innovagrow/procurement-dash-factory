@@ -18,7 +18,7 @@ import json
 import math
 import statistics
 import urllib.parse
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..http import FetchError
 from .base import SignalProvider, SignalReading
@@ -133,6 +133,8 @@ class TourismSignal(SignalProvider):
             for year in years[-3:]
         ]
         notes = []
+        detail: Dict[str, Any] = {"latest_year": years[-1] if years else None,
+                                  "nights_latest": series.get(years[-1]) if years else None}
         if momentum is not None and window:
             direction = "άνοδος" if momentum > 0 else "πτώση"
             notes.append(
@@ -141,6 +143,8 @@ class TourismSignal(SignalProvider):
             )
         if 2019 in series and years and series[years[-1]]:
             versus_2019 = (series[years[-1]] / series[2019] - 1) * 100
+            detail["versus_2019_pct"] = round(versus_2019, 1)
+            detail["nights_2019"] = series[2019]
             notes.append(
                 f"Έναντι 2019 (προ πανδημίας): {versus_2019:+.1f}% — "
                 "δείχνει αν η περιοχή απλώς ανέκαμψε ή πράγματι μεγάλωσε."
@@ -162,6 +166,7 @@ class TourismSignal(SignalProvider):
             as_of=str(self._latest_year or ""),
             evidence=evidence,
             notes=notes,
+            detail=detail,
         )
 
     def ranking(self) -> List[tuple]:

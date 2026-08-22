@@ -77,14 +77,16 @@ class SpitogatosSource(PropertySource):
     requires_consent = True
     terms_url = "https://www.spitogatos.gr/en/page/legalTerms"
     terms_notice = (
-        "Οι Όροι Χρήσης του Spitogatos (άρθρο 2) επιτρέπουν την ηλεκτρονική "
-        "αποθήκευση περιεχομένου ΜΟΝΟ για προσωπική χρήση και ρητά «by no means "
-        "for commercial use», ενώ κάθε αντιγραφή ή αναπαραγωγή απαιτεί "
-        "«prior consent of the owner». Η σάρωση για επενδυτικούς σκοπούς είναι "
-        "εμπορική χρήση.\n"
-        "  Νόμιμες διαδρομές: γραπτή άδεια στο info@spitogatos.gr, ή το επίσημο "
+        "Οι Όροι Χρήσης του Spitogatos (άρθρο 2) ορίζουν δύο διαφορετικά πράγματα:\n"
+        "   • ΠΡΟΣΩΠΙΚΗ ΧΡΗΣΗ — ρητά επιτρεπτή: «allowed to print and "
+        "electronically save the content of the website for personal use».\n"
+        "   • ΕΜΠΟΡΙΚΗ ΧΡΗΣΗ — ρητά εξαιρεμένη: «by no means for commercial use», "
+        "και κάθε αντιγραφή/αναπαραγωγή απαιτεί «prior consent of the owner». "
+        "Άδεια ζητείται στο info@spitogatos.gr· εναλλακτικά υπάρχει το επίσημο "
         "προϊόν δεδομένων Spitogatos Insights.\n"
-        "  Αν ΕΧΕΤΕ ήδη γραπτή άδεια, τρέξτε ξανά με --i-have-written-consent."
+        "  Σε ΚΑΘΕ περίπτωση απαγορεύεται η αναδημοσίευση ή διανομή: κρατήστε τα "
+        "αποτελέσματα τοπικά και μην τα δημοσιεύσετε.\n"
+        "  Δηλώστε τη βάση: --personal-use   ή   --i-have-written-consent"
     )
 
     def __init__(self, fetcher, headless: bool = True, page_wait_ms: int = 4000):

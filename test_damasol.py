@@ -705,6 +705,12 @@ output = buffer.getvalue()
 check("Screener refuses a consent-gated source", code == 3, f"exit={code}")
 check("The refusal explains itself", "εμπορικά" in output)
 check("The refusal offers the working alternative", "--csv-path" in output)
+check("Both bases from the terms are offered",
+      "--personal-use" in output and "--i-have-written-consent" in output)
+check("Personal use is named as expressly permitted",
+      "ΠΡΟΣΩΠΙΚΗ ΧΡΗΣΗ" in SpitogatosSource.terms_notice)
+check("Republication stays prohibited under either basis",
+      "αναδημοσίευση" in SpitogatosSource.terms_notice)
 
 print("\n[11d] Results dashboard")
 from damasol.webreport import write_dashboard

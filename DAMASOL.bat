@@ -63,11 +63,13 @@ echo [3/4] What do you want to analyse?
 echo.
 echo    1  My own file  ^(akinita.csv in this folder^)          ^(default^)
 echo    2  Same, with a price limit I choose
-echo    3  Spitogatos - REQUIRES WRITTEN PERMISSION from them
+echo    3  Spitogatos - scan the portal directly
 echo.
-echo    Note: Spitogatos Terms of Use allow saving content for personal use
-echo    only, "by no means for commercial use". Option 3 will explain and
-echo    stop unless you confirm you hold their written consent.
+echo    Note on option 3: Spitogatos Terms of Use article 2 allow saving their
+echo    content for PERSONAL use, and exclude COMMERCIAL use without their
+echo    written consent. You will be asked which basis applies. Either way,
+echo    republishing or distributing the results is not allowed - keep them
+echo    on your own machine.
 echo.
 set CHOICE=1
 set /p CHOICE=Choose 1, 2 or 3 and press Enter: 
@@ -110,7 +112,16 @@ if not exist "akinita.csv" (
 goto done
 
 :portal
-%PY% -m damasol.screener --sources spitogatos --all-types ^
+echo    On what basis are you using this data?
+echo       P  Personal, non-commercial use
+echo       W  I hold written consent from Spitogatos
+echo.
+set BASIS=P
+set /p BASIS=Type P or W and press Enter: 
+set BASISFLAG=--personal-use
+if /i "%BASIS%"=="W" set BASISFLAG=--i-have-written-consent
+echo.
+%PY% -m damasol.screener --sources spitogatos --all-types %BASISFLAG% ^
      --max-price %MAXPRICE% --min-price 5000 --enrich-top 150 --top 500 ^
      --delay 2.5 --out "%OUTFILE%" --html-out "%HTMLFILE%"
 

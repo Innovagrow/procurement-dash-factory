@@ -126,6 +126,7 @@ def write_dashboard(scored: Sequence[ScoredListing], analysis: Dict[str, dict],
             "shortlisted": meta.get("shortlisted", 0),
             "valued": meta.get("valued", len(rows)),
             "fullDetail": full_detail,
+            "basis": meta.get("basis", ""),
         },
         "typeLabels": ITEM_TYPE_LABELS_EL,
         "indicatorLabels": INDICATOR_LABELS_EL,
@@ -289,7 +290,7 @@ _TEMPLATE = r"""<title>Ευκαιρίες Ακινήτων</title>
 <div class="shell">
 <header class="mast">
   <div class="col">
-    <p class="kicker">Damasol Limited · Αποτελέσματα σάρωσης</p>
+    <p class="kicker" id="kicker">Αποτελέσματα σάρωσης</p>
     <h1 id="title">Ευκαιρίες ακινήτων</h1>
     <p class="lede" id="lede"></p>
   </div>
@@ -325,6 +326,9 @@ const pct = n => (n === null || n === undefined) ? "—" : (n > 0 ? "+" : "") + 
 const el = id => document.getElementById(id);
 
 document.title = "Ευκαιρίες Ακινήτων";
+el("kicker").textContent = D.meta.basis === "προσωπική, μη εμπορική χρήση"
+  ? "Αποτελέσματα σάρωσης · προσωπική χρήση"
+  : "Damasol Limited · Αποτελέσματα σάρωσης";
 el("title").textContent = D.meta.scope === "Όλη η Ελλάδα"
   ? "Ευκαιρίες σε όλη την Ελλάδα" : "Ευκαιρίες · " + D.meta.scope;
 el("lede").textContent =
@@ -491,9 +495,11 @@ el("f-positive").addEventListener("click", e => {
   state.positive = !state.positive; e.target.classList.toggle("on", state.positive); state.shown = 40; render();
 });
 
-el("foot").innerHTML = `Damasol Limited · Έξοδος μοντέλου, όχι εκτίμηση αξίας ούτε
-  επενδυτική συμβουλή. Πριν από κάθε δέσμευση: αυτοψία, έλεγχος τίτλων και βαρών,
-  πολεοδομικός έλεγχος, τεχνική αξιολόγηση.`;
+el("foot").innerHTML = `Έξοδος μοντέλου, όχι εκτίμηση αξίας ούτε επενδυτική
+  συμβουλή. Πριν από κάθε δέσμευση: αυτοψία, έλεγχος τίτλων και βαρών,
+  πολεοδομικός έλεγχος, τεχνική αξιολόγηση.`
+  + (D.meta.basis ? `<br>Βάση χρήσης δεδομένων: ${D.meta.basis}. Οι Όροι της πηγής
+     απαγορεύουν την αναδημοσίευση και διανομή — κρατήστε τη σελίδα τοπικά.` : "");
 
 render();
 </script>

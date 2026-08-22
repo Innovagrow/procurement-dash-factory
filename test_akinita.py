@@ -461,6 +461,24 @@ no_tourism = evaluate(wreck, wreck_facts, val, MarketInputs(monthly_rent=380))
 check("Short stay blocked without tourism",
       any(o.plan.exit == "rent_short" and not o.feasible for o in no_tourism))
 
+# An unmeasured signal and a measured zero are different claims. Reporting the
+# first as the second is exactly the "the number could be a lie" failure the
+# engine exists to avoid, so the blocker has to name which one it is.
+unmeasured = [o for o in no_tourism if o.plan.exit == "rent_short"][0]
+check("Unmeasured demand is not reported as zero",
+      "άγνωστη" in unmeasured.blockers[0] and "0/100" not in unmeasured.blockers[0],
+      unmeasured.blockers[0])
+measured_zero = evaluate(wreck, wreck_facts, val,
+                         MarketInputs(monthly_rent=380, tourism_intensity=0.0))
+zero_short = [o for o in measured_zero if o.plan.exit == "rent_short"][0]
+check("A measured zero still blocks, and says so as measured",
+      not zero_short.feasible and "0/100" in zero_short.blockers[0],
+      zero_short.blockers[0])
+check("Measured demand opens the plan the unmeasured case closes",
+      any(o.plan.exit == "rent_short" and o.feasible for o in
+          evaluate(wreck, wreck_facts, val,
+                   MarketInputs(monthly_rent=380, tourism_intensity=85.0))))
+
 print("\n[10b] Land, building and the two markets")
 land = Listing(source="t", listing_id="L1", url="", title="Οικόπεδο 1.200 τ.μ.",
                address="Αρτεμίσιο", area_name="Αρτεμίσιο", sub_area="Αρτεμίσιο",

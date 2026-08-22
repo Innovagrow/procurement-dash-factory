@@ -94,8 +94,8 @@ def gather_signals(fetcher, listing: Listing, use: Sequence[str]) -> Dict[str, o
 
 def report(listing: Listing, market_per_sqm: float, comparables: Sequence[float],
            monthly_rent: Optional[float], readings: Dict, weights: Dict[str, float],
-           liquidity: float, drift: float, student_demand: float,
-           commercial_demand: float, extra: Dict) -> int:
+           liquidity: float, drift: float, student_demand: Optional[float],
+           commercial_demand: Optional[float], extra: Dict) -> int:
     facts = infer_facts(listing)
     valuation = value_property(listing, market_per_sqm, comparables, facts, liquidity)
     if not valuation:
@@ -152,7 +152,7 @@ def report(listing: Listing, market_per_sqm: float, comparables: Sequence[float]
     # --------------------------------------------------------- strategies
     market = MarketInputs(
         monthly_rent=monthly_rent, annual_drift_pct=drift, liquidity_score=liquidity,
-        tourism_intensity=tourism.intensity if tourism else 0.0,
+        tourism_intensity=tourism.intensity if tourism else None,
         student_demand=student_demand, commercial_demand=commercial_demand,
         buildable_sqm=extra.get("buildable"), floor_area_ratio=extra.get("far"),
         built_price_per_sqm=extra.get("built_per_sqm"),
@@ -273,8 +273,10 @@ def build_parser() -> argparse.ArgumentParser:
     market.add_argument("--rent", type=float, help="Μηνιαίο μίσθωμα αναφοράς")
     market.add_argument("--drift", type=float, default=2.5, help="Ετήσια μεταβολή τιμών %%")
     market.add_argument("--liquidity", type=float, default=60.0)
-    market.add_argument("--student-demand", type=float, default=0.0)
-    market.add_argument("--commercial-demand", type=float, default=0.0)
+    market.add_argument("--student-demand", type=float, default=None,
+                    help="0-100. Χωρίς αυτό: αμέτρητη, όχι μηδενική.")
+    market.add_argument("--commercial-demand", type=float, default=None,
+                    help="0-100. Χωρίς αυτό: αμέτρητη, όχι μηδενική.")
     market.add_argument("--buildable", type=float, help="Δομήσιμα τ.μ. (για γη)")
 
     market.add_argument("--built-per-sqm", type=float,

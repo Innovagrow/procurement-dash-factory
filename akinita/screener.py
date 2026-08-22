@@ -213,7 +213,7 @@ def analyse_shortlist(
         market = MarketInputs(
             monthly_rent=(rent_per_sqm * listing.size_sqm) if rent_per_sqm else None,
             liquidity_score=scored.components.get("liquidity", 55.0),
-            tourism_intensity=tourism_by_area.get(listing.area_name, 0.0),
+            tourism_intensity=tourism_by_area.get(listing.area_name),
             built_price_per_sqm=built_per_sqm,
             rent_per_sqm_month=built_rent_per_sqm,
             capital_ceiling=capital_ceiling,

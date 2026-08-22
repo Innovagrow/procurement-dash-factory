@@ -152,9 +152,13 @@ class MarketInputs:
     monthly_rent: Optional[float] = None       # long-let for average-condition stock
     annual_drift_pct: float = 2.5
     liquidity_score: float = 60.0
-    tourism_intensity: float = 0.0
-    student_demand: float = 0.0
-    commercial_demand: float = 0.0
+    # None means the signal was never measured for this area. That is not the
+    # same as a measured zero, and the two must not be collapsed: blocking a
+    # short-let plan "because tourist demand is 0/100" when nobody ever looked
+    # it up states as fact something the run never established.
+    tourism_intensity: Optional[float] = None
+    student_demand: Optional[float] = None
+    commercial_demand: Optional[float] = None
     buildable_sqm: Optional[float] = None
     floor_area_ratio: Optional[float] = None
     build_cost_per_sqm: float = 1250.0
@@ -278,23 +282,32 @@ def _buildable(listing: Listing, market: MarketInputs) -> Tuple[Optional[float],
     return None, True
 
 
+def _measured(value: Optional[float]) -> float:
+    """Demand score for threshold tests; an unmeasured signal clears no threshold."""
+    return -1.0 if value is None else value
+
+
+def _demand_text(value: Optional[float]) -> str:
+    return "άγνωστη" if value is None else f"{value:.0f}/100"
+
+
 def _operating_concept(listing: Listing, facts: PropertyFacts, market: MarketInputs,
                        built: bool, built_area: float = 0.0
                        ) -> Optional[Tuple[str, float, float, float]]:
     """(concept, turnover multiple of residential rent, ease delta, risk delta)."""
     size = built_area if built else (facts.size_sqm or 0)
     effective_size = size
-    if built and market.tourism_intensity >= 50:
+    if built and _measured(market.tourism_intensity) >= 50:
         return ("τουριστικά καταλύματα", 3.2, 0.0, 8.0)
-    if listing.item_type == "residence" and market.tourism_intensity >= 55 and effective_size >= 120:
+    if listing.item_type == "residence" and _measured(market.tourism_intensity) >= 55 and effective_size >= 120:
         return ("μικρή ξενοδοχειακή μονάδα / ξενώνας", 3.4, -4.0, 10.0)
-    if listing.item_type == "residence" and market.student_demand >= 45 and effective_size >= 110:
+    if listing.item_type == "residence" and _measured(market.student_demand) >= 45 and effective_size >= 110:
         return ("co-living ανά δωμάτιο", 2.1, 14.0, -12.0)
-    if listing.item_type == "prof" and effective_size >= 150 and market.commercial_demand >= 45:
+    if listing.item_type == "prof" and effective_size >= 150 and _measured(market.commercial_demand) >= 45:
         return ("γραφεία / coworking", 2.0, 12.0, -8.0)
     if listing.item_type == "prof" and effective_size >= 80:
         return ("αποθηκευτικοί χώροι / self-storage", 2.3, 22.0, -16.0)
-    if built and effective_size >= 200 and market.commercial_demand >= 40:
+    if built and effective_size >= 200 and _measured(market.commercial_demand) >= 40:
         return ("γραφεία / coworking σε νέα κατασκευή", 2.0, 12.0, -6.0)
     return None
 
@@ -389,17 +402,21 @@ def price_plan(plan: Plan, listing: Listing, facts: PropertyFacts,
         out.blockers.append("Δεν υπάρχουν συγκριτικά ενοικίων για την περιοχή.")
         return out
 
-    if plan.exit == "rent_short" and market.tourism_intensity < 25:
+    if plan.exit == "rent_short" and _measured(market.tourism_intensity) < 25:
         out.feasible = False
         out.blockers.append(
-            f"Τουριστική ζήτηση {market.tourism_intensity:.0f}/100 — πολύ χαμηλή για "
-            "βραχυχρόνια μίσθωση."
+            f"Τουριστική ζήτηση {_demand_text(market.tourism_intensity)} — "
+            + ("δεν μετρήθηκε για την περιοχή, οπότε η βραχυχρόνια μίσθωση δεν "
+               "τιμολογείται." if market.tourism_intensity is None
+               else "πολύ χαμηλή για βραχυχρόνια μίσθωση.")
         )
         return out
-    if plan.exit == "rent_student" and market.student_demand < 30:
+    if plan.exit == "rent_student" and _measured(market.student_demand) < 30:
         out.feasible = False
         out.blockers.append(
-            f"Φοιτητική ζήτηση {market.student_demand:.0f}/100 — δεν υπάρχει κοντινό ίδρυμα."
+            f"Φοιτητική ζήτηση {_demand_text(market.student_demand)} — "
+            + ("δεν μετρήθηκε για την περιοχή." if market.student_demand is None
+               else "δεν υπάρχει κοντινό ίδρυμα.")
         )
         return out
     if plan.exit == "rent_commercial":
@@ -411,10 +428,12 @@ def price_plan(plan: Plan, listing: Listing, facts: PropertyFacts,
                 "χρήσης σπάνια εγκρίνεται."
             )
             return out
-        if market.commercial_demand < 30:
+        if _measured(market.commercial_demand) < 30:
             out.feasible = False
             out.blockers.append(
-                f"Επαγγελματική ζήτηση {market.commercial_demand:.0f}/100 — υψηλός κίνδυνος κενού."
+                f"Επαγγελματική ζήτηση {_demand_text(market.commercial_demand)} — "
+                + ("δεν μετρήθηκε για την περιοχή." if market.commercial_demand is None
+                   else "υψηλός κίνδυνος κενού.")
             )
             return out
 
@@ -427,9 +446,9 @@ def price_plan(plan: Plan, listing: Listing, facts: PropertyFacts,
             out.feasible = False
             out.blockers.append(
                 f"Δεν προκύπτει λειτουργικό μοντέλο (τύπος {listing.item_type}, "
-                f"{size:.0f} τ.μ., τουρισμός {market.tourism_intensity:.0f}/100, "
-                f"φοιτητές {market.student_demand:.0f}/100, επαγγελματική "
-                f"{market.commercial_demand:.0f}/100)."
+                f"{size:.0f} τ.μ., τουρισμός {_demand_text(market.tourism_intensity)}, "
+                f"φοιτητές {_demand_text(market.student_demand)}, επαγγελματική "
+                f"{_demand_text(market.commercial_demand)})."
             )
             return out
 
@@ -514,11 +533,11 @@ def price_plan(plan: Plan, listing: Listing, facts: PropertyFacts,
         if plan.exit == "rent_long":
             monthly_rent, void_pct, management_pct = base_rent, 8.0, 4.0
         elif plan.exit == "rent_student":
-            uplift = 1.10 + 0.20 * (market.student_demand / 100.0)
+            uplift = 1.10 + 0.20 * (max(0.0, _measured(market.student_demand)) / 100.0)
             monthly_rent, void_pct, management_pct = base_rent * uplift, 17.0, 8.0
             assumptions.append(f"Μίσθωμα +{(uplift - 1) * 100:.0f}% λόγω μίσθωσης ανά δωμάτιο.")
         elif plan.exit == "rent_commercial":
-            uplift = 1.15 + 0.35 * (market.commercial_demand / 100.0)
+            uplift = 1.15 + 0.35 * (max(0.0, _measured(market.commercial_demand)) / 100.0)
             monthly_rent, void_pct, management_pct = base_rent * uplift, 18.0, 5.0
             assumptions.append(
                 f"Επαγγελματικό μίσθωμα +{(uplift - 1) * 100:.0f}% έναντι κατοικίας. "
@@ -535,7 +554,7 @@ def price_plan(plan: Plan, listing: Listing, facts: PropertyFacts,
             )
         elif plan.exit == "rent_short":
             income_kind = "short_stay"
-            intensity = market.tourism_intensity / 100.0
+            intensity = max(0.0, _measured(market.tourism_intensity)) / 100.0
             adr_multiple = 2.4 + 2.9 * intensity
             occupancy = 0.32 + 0.36 * intensity
             nightly = (base_rent / 30.0) * adr_multiple

@@ -27,6 +27,7 @@ import time
 from email.message import EmailMessage
 from typing import Dict, List, Optional, Sequence, Set
 
+from ..console import ensure_utf8
 from .templates import DEFAULT_IDENTITY, available_templates, render
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
@@ -112,6 +113,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    ensure_utf8()
     args = build_parser().parse_args(argv)
 
     identity = {

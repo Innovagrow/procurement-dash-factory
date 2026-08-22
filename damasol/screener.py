@@ -27,6 +27,7 @@ import os
 import sys
 from typing import Dict, List, Optional, Sequence
 
+from .console import ensure_utf8
 from .costs import DEFAULT_COSTS
 from .geo import GREECE_BBOX, cell_bbox, geo_cell
 from .http import PoliteFetcher
@@ -346,6 +347,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cache-hours", type=float, default=24.0)
     parser.add_argument("--cell-size", type=float, default=0.02,
                         help="Μέγεθος κελιού συγκριτικών σε μοίρες (0.02 ≈ 2,2 χλμ)")
+    parser.add_argument("--min-comparables", type=int, default=0,
+                        help="Ελάχιστα συγκρίσιμα ανά περιοχή (0 = αυτόματα)")
     parser.add_argument("--comp-pages", type=int, default=3,
                         help="Σελίδες συγκριτικών πωλήσεων ανά κελί")
     parser.add_argument("--rent-pages", type=int, default=2,
@@ -368,6 +371,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    ensure_utf8()
     args = build_parser().parse_args(argv)
 
     bbox = None
@@ -459,7 +463,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 1
 
     _log("\n[2/5] Διαλογή — ποια αξίζουν πλήρη ανάλυση (ΟΧΙ ετυμηγορία)")
-    index = MarketIndex(cell_size=args.cell_size)
+
+    # A national crawl can spare four comparables per neighbourhood; a
+    # fifty-row spreadsheet cannot, and demanding them silently drops every
+    # property type with only three examples - which reads as "found nothing"
+    # rather than "your sample is small".
+    min_comparables = args.min_comparables
+    if not min_comparables:
+        min_comparables = 4 if len(candidates) >= 200 else 2
+        if len(candidates) < 200:
+            _log(f"  Μικρό δείγμα ({len(candidates)}) — τα ελάχιστα συγκρίσιμα "
+                 f"χαμηλώνουν σε {min_comparables}· η εμπιστοσύνη των εκτιμήσεων "
+                 "πέφτει ανάλογα και φαίνεται στη σελίδα.")
+    index = MarketIndex(cell_size=args.cell_size, min_comparables=min_comparables)
     index.add_sale_comparables(candidates)
     prescored = score_all(candidates, index, budget=args.max_price, weights=weights)
     shortlist = prescored[: args.enrich_top]
@@ -467,7 +483,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     if not args.no_enrich:
         _log("\n[3/5] Εμπλουτισμός με πραγματικά συγκριτικά αγοράς & ενοικίων")
-        enrich_index = MarketIndex(cell_size=args.cell_size)
+        enrich_index = MarketIndex(cell_size=args.cell_size,
+                                   min_comparables=min_comparables)
         for enriching in sources:
             if not getattr(enriching, "supports_bbox", False):
                 # A file-based source has no wider market to reach for: the file
@@ -510,6 +527,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     orphans = [s for s in rescored if s.listing.listing_id not in analysis]
     if orphans:
         _log(f"  ({len(orphans)} χωρίς επαρκή δεδομένα για αποτίμηση — εξαιρούνται)")
+        _log("   Χρειάζονται τουλάχιστον 3 συγκρίσιμα ακίνητα ίδιου τύπου και ")
+        _log("   γνωστό εμβαδόν. Αν το δείγμα σας είναι μικρό, προσθέστε κι άλλες ")
+        _log("   γραμμές — ή στήλη «Ενοίκιο» για να αποτιμηθούν τα πλάνα μίσθωσης.")
     final = ranked[: args.top]
 
     export_csv(final, args.out + ".csv", analysis)

@@ -20,6 +20,7 @@ import json
 import sys
 from typing import Dict, List, Optional, Sequence
 
+from .console import ensure_utf8
 from .costs import DEFAULT_COSTS
 from .http import PoliteFetcher
 from .models import Listing
@@ -296,6 +297,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    ensure_utf8()
     args = build_parser().parse_args(argv)
 
     comparables: List[float] = []

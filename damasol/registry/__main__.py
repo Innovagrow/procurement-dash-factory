@@ -6,6 +6,7 @@ import argparse
 import sys
 from typing import Optional, Sequence
 
+from ..console import ensure_utf8
 from . import (
     STATUS_LABEL_EL,
     add_idea,
@@ -145,6 +146,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    ensure_utf8()
     args = build_parser().parse_args(argv)
     return args.func(args)
 

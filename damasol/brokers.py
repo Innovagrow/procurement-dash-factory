@@ -21,6 +21,7 @@ import os
 import sys
 from typing import List, Optional, Sequence
 
+from .console import ensure_utf8
 from .http import PoliteFetcher
 from .models import Broker
 from .sources import REGISTRY
@@ -91,6 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    ensure_utf8()
     args = build_parser().parse_args(argv)
 
     fetcher = PoliteFetcher(

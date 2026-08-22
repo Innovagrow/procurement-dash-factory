@@ -118,6 +118,8 @@ class MarketIndex:
     def __init__(self, cell_size: float = 0.02, min_comparables: int = 4):
         self.cell_size = cell_size
         self.min_comparables = min_comparables
+        self._sale_all: Dict[str, List[float]] = {}
+        self._rent_all: Dict[str, List[float]] = {}
         self._sale_sub: Dict[tuple, List[float]] = {}
         self._sale_cell: Dict[tuple, List[float]] = {}
         self._sale_area: Dict[tuple, List[float]] = {}
@@ -130,13 +132,16 @@ class MarketIndex:
     # ------------------------------------------------------------- ingest
     def add_sale_comparables(self, listings: Iterable[Listing]) -> int:
         return self._add(
-            listings, self._sale_sub, self._sale_cell, self._sale_area, count_supply=True
+            listings, self._sale_sub, self._sale_cell, self._sale_area, self._sale_all,
+            count_supply=True,
         )
 
     def add_rent_comparables(self, listings: Iterable[Listing]) -> int:
-        return self._add(listings, self._rent_sub, self._rent_cell, self._rent_area)
+        return self._add(listings, self._rent_sub, self._rent_cell, self._rent_area,
+                         self._rent_all)
 
-    def _add(self, listings, sub_map, cell_map, area_map, count_supply: bool = False) -> int:
+    def _add(self, listings, sub_map, cell_map, area_map, all_map,
+             count_supply: bool = False) -> int:
         added = 0
         for listing in listings:
             ppsm = listing.price_per_sqm
@@ -152,11 +157,12 @@ class MarketIndex:
                     self._cell_supply[key] = self._cell_supply.get(key, 0) + 1
             if listing.area_name:
                 area_map.setdefault((listing.item_type, listing.area_name), []).append(ppsm)
+            all_map.setdefault(listing.item_type, []).append(ppsm)
             added += 1
         return added
 
     # ------------------------------------------------------------- lookup
-    def _lookup(self, listing: Listing, sub_map, cell_map, area_map):
+    def _lookup(self, listing: Listing, sub_map, cell_map, area_map, all_map=None):
         """Most specific baseline first.
 
         A 5 km cell in central Thessaloniki spans neighbourhoods whose prices
@@ -177,15 +183,25 @@ class MarketIndex:
             values = area_map.get((listing.item_type, listing.area_name), [])
             if len(values) >= self.min_comparables:
                 return _median(values), "δήμος"
+        # Last resort: every comparable of this property type in the run. Crude,
+        # and labelled as such - but a small file would otherwise produce no
+        # valuation at all, which reads as "nothing found" rather than "not
+        # enough local data". The confidence band already widens accordingly.
+        if all_map is not None:
+            values = all_map.get(listing.item_type, [])
+            if len(values) >= self.min_comparables:
+                return _median(values), "όλο το δείγμα"
         return None, ""
 
     def sale_price_per_sqm(self, listing: Listing) -> Optional[float]:
-        value, basis = self._lookup(listing, self._sale_sub, self._sale_cell, self._sale_area)
+        value, basis = self._lookup(listing, self._sale_sub, self._sale_cell,
+                                    self._sale_area, self._sale_all)
         self.last_basis = basis
         return value
 
     def rent_price_per_sqm(self, listing: Listing) -> Optional[float]:
-        value, _ = self._lookup(listing, self._rent_sub, self._rent_cell, self._rent_area)
+        value, _ = self._lookup(listing, self._rent_sub, self._rent_cell,
+                                self._rent_area, self._rent_all)
         return value
 
     def _as_residence(self, listing: Listing) -> Listing:
@@ -202,13 +218,13 @@ class MarketIndex:
     def built_price_per_sqm(self, listing: Listing) -> Optional[float]:
         """Sale EUR/sqm of finished residential space at this location."""
         value, _ = self._lookup(self._as_residence(listing), self._sale_sub,
-                                self._sale_cell, self._sale_area)
+                                self._sale_cell, self._sale_area, self._sale_all)
         return value
 
     def built_rent_per_sqm(self, listing: Listing) -> Optional[float]:
         """Rent EUR/sqm/month of finished residential space at this location."""
         value, _ = self._lookup(self._as_residence(listing), self._rent_sub,
-                                self._rent_cell, self._rent_area)
+                                self._rent_cell, self._rent_area, self._rent_all)
         return value
 
     def comparables_for(self, listing: Listing) -> List[float]:
@@ -226,7 +242,8 @@ class MarketIndex:
             values = self._sale_area.get((listing.item_type, listing.area_name), [])
             if len(values) >= self.min_comparables:
                 return list(values)
-        return []
+        values = self._sale_all.get(listing.item_type, [])
+        return list(values) if len(values) >= self.min_comparables else []
 
     def supply(self, listing: Listing) -> int:
         cell = geo_cell(listing.lat, listing.lng, self.cell_size)

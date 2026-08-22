@@ -677,6 +677,35 @@ check("A missing file fails loudly", _raises(lambda: list(
     CsvSource(None, os.path.join(_dir, "nope.csv")).search(SearchQuery()))))
 shutil.rmtree(_dir, ignore_errors=True)
 
+print("\n[11c2] Terms of use gate")
+from damasol.sources.spitogatos import SpitogatosSource
+from damasol.sources.base import PropertySource
+
+check("Sources declare whether their terms reserve the content",
+      hasattr(PropertySource, "requires_consent"))
+check("Spitogatos is gated on its terms, not on robots.txt",
+      SpitogatosSource.requires_consent is True)
+check("The gate cites the actual clause",
+      "commercial use" in SpitogatosSource.terms_notice)
+check("...and links the terms", SpitogatosSource.terms_url.endswith("legalTerms"))
+check("It names a lawful route", "info@spitogatos.gr" in SpitogatosSource.terms_notice)
+check("A file of your own data is not gated", CsvSource.requires_consent is False)
+
+# The screener must refuse rather than run, and say why.
+import io
+import contextlib
+
+from damasol import screener as _screener
+
+buffer = io.StringIO()
+with contextlib.redirect_stdout(buffer):
+    code = _screener.main(["--sources", "spitogatos", "--max-price", "50000",
+                           "--out", os.path.join(tempfile.gettempdir(), "gated")])
+output = buffer.getvalue()
+check("Screener refuses a consent-gated source", code == 3, f"exit={code}")
+check("The refusal explains itself", "εμπορικά" in output)
+check("The refusal offers the working alternative", "--csv-path" in output)
+
 print("\n[11d] Results dashboard")
 from damasol.webreport import write_dashboard
 

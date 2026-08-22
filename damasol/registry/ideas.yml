@@ -462,6 +462,34 @@ ideas:
       όποιος συνεργάτης στέλνει λίστα, μπαίνει κατευθείαν στη μηχανή χωρίς καμία
       σάρωση.
 
+  - id: SIG-023
+    title: Οι Όροι Χρήσης υπερισχύουν του robots.txt
+    hypothesis: >-
+      Το robots.txt είναι η πολιτική μιας πύλης για crawlers· οι Όροι Χρήσης
+      είναι η σύμβαση. Όταν διαφωνούν, υπερισχύει η σύμβαση. Το Spitogatos
+      επιτρέπει τις σελίδες αναζήτησης στο robots.txt και δεν μας ονομάζει —
+      αλλά το άρθρο 2 των Όρων του επιτρέπει ηλεκτρονική αποθήκευση «for
+      personal use, but by no means for commercial use». Αν κρίναμε μόνο από
+      το robots.txt, θα τρέχαμε κάτι που η σύμβαση απαγορεύει.
+    category: ρυθμιστικό
+    horizon: immediate
+    affects: [sources, feasibility]
+    source:
+      name: Όροι Χρήσης κάθε πύλης
+      url: https://www.spitogatos.gr/en/page/legalTerms
+      access: manual — απαιτεί ανάγνωση από άνθρωπο
+      licence: —
+    feasibility: proven
+    effort: μικρή ανά πηγή, αλλά μη αυτοματοποιήσιμη
+    expected_lift: κρίσιμο, όχι «όφελος»
+    status: implemented
+    implemented_by: MECH-206
+    notes: >-
+      Η σελίδα των Όρων του Spitogatos είναι η ίδια πίσω από το σύστημα
+      ανίχνευσης bot — δεν μπόρεσε να διαβαστεί αυτόματα και χρειάστηκε άνθρωπος
+      να την ανοίξει. Αυτό είναι κανόνας, όχι εξαίρεση: πριν προστεθεί
+      οποιαδήποτε νέα πηγή, κάποιος πρέπει να διαβάσει τους Όρους της.
+
   - id: SIG-019
     title: Αναζητήσεις Google Trends ανά περιοχή
     hypothesis: >-

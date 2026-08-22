@@ -361,6 +361,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--capital-ceiling", type=float, default=250000.0,
                         help="Κεφάλαιο που θεωρείται «πολύ» — βαθμονομεί τον δείκτη κεφαλαίου")
     parser.add_argument(
+        "--i-have-written-consent",
+        action="store_true",
+        help="Δηλώνετε ότι έχετε γραπτή άδεια του ιδιοκτήτη της πηγής για "
+             "εμπορική χρήση των δεδομένων της. Χωρίς αυτήν, οι πηγές των "
+             "οποίων οι Όροι Χρήσης επιφυλάσσουν το περιεχόμενο δεν τρέχουν.",
+    )
+    parser.add_argument(
         "--ignore-robots",
         action="store_true",
         help="Αγνόησε το robots.txt της πηγής. Ορισμένες πύλες (π.χ. xe.gr) απαγορεύουν "
@@ -413,6 +420,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             REGISTRY[name](fetcher, args.csv_path) if name == "csv"
             else REGISTRY[name](fetcher)
         )
+    gated = [s for s in sources if getattr(s, "requires_consent", False)]
+    if gated and not args.i_have_written_consent:
+        for blocked_source in gated:
+            _log("")
+            _log("=" * 74)
+            _log(f"  Η πηγή «{blocked_source.name}» δεν μπορεί να χρησιμοποιηθεί εμπορικά")
+            _log("  χωρίς άδεια του ιδιοκτήτη της.")
+            _log("=" * 74)
+            _log(f"  {blocked_source.terms_notice}")
+            if blocked_source.terms_url:
+                _log(f"  Όροι: {blocked_source.terms_url}")
+        _log("")
+        _log("  Στο μεταξύ δουλεύει πλήρως η πηγή «csv» με δικά σας δεδομένα:")
+        _log("    python -m damasol.screener --sources csv --csv-path akinita.csv --all-types")
+        return 3
+
     source = sources[0]
 
     item_types = (list(ALL_ITEM_TYPES) if args.all_types

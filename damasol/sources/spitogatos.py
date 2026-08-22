@@ -61,6 +61,32 @@ class SpitogatosSource(PropertySource):
     name = "spitogatos.gr"
     supports_bbox = False
 
+    # robots.txt permits the search pages and does not name Claude agents. The
+    # Terms of Use are what actually governs, and they are explicit:
+    #
+    #   "The content of the website cannot be copied, reproduced, distributed
+    #    and republished in any form without the prior consent of the owner of
+    #    the website. Users/visitors/subscribers are allowed to print and
+    #    electronically save the content of the website for personal use, but
+    #    by no means for commercial use."
+    #
+    # Saving listings into a database to source investments is electronic
+    # saving for commercial use - the exact act the sentence excludes. So this
+    # adapter stays written, tested and ready, and refuses to run until the
+    # operator confirms they hold the owner's prior consent.
+    requires_consent = True
+    terms_url = "https://www.spitogatos.gr/en/page/legalTerms"
+    terms_notice = (
+        "Οι Όροι Χρήσης του Spitogatos (άρθρο 2) επιτρέπουν την ηλεκτρονική "
+        "αποθήκευση περιεχομένου ΜΟΝΟ για προσωπική χρήση και ρητά «by no means "
+        "for commercial use», ενώ κάθε αντιγραφή ή αναπαραγωγή απαιτεί "
+        "«prior consent of the owner». Η σάρωση για επενδυτικούς σκοπούς είναι "
+        "εμπορική χρήση.\n"
+        "  Νόμιμες διαδρομές: γραπτή άδεια στο info@spitogatos.gr, ή το επίσημο "
+        "προϊόν δεδομένων Spitogatos Insights.\n"
+        "  Αν ΕΧΕΤΕ ήδη γραπτή άδεια, τρέξτε ξανά με --i-have-written-consent."
+    )
+
     def __init__(self, fetcher, headless: bool = True, page_wait_ms: int = 4000):
         super().__init__(fetcher)
         self.headless = headless

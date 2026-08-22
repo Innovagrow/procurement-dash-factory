@@ -59,17 +59,21 @@ if errorlevel 1 (
 
 REM ---- 3. what to run ------------------------------------------------------
 echo.
-echo [3/4] What do you want to scan?
+echo [3/4] What do you want to analyse?
 echo.
-echo    1  All of Greece, every property type, up to 50.000 EUR   ^(default^)
-echo    2  My own file  ^(akinita.csv in this folder^)
-echo    3  All of Greece, up to a price I choose
+echo    1  My own file  ^(akinita.csv in this folder^)          ^(default^)
+echo    2  Same, with a price limit I choose
+echo    3  Spitogatos - REQUIRES WRITTEN PERMISSION from them
+echo.
+echo    Note: Spitogatos Terms of Use allow saving content for personal use
+echo    only, "by no means for commercial use". Option 3 will explain and
+echo    stop unless you confirm you hold their written consent.
 echo.
 set CHOICE=1
 set /p CHOICE=Choose 1, 2 or 3 and press Enter: 
 
 set MAXPRICE=50000
-if "%CHOICE%"=="3" (
+if "%CHOICE%"=="2" (
   REM Parentheses inside an if-block terminate it early, so the prompt is
   REM written without them.
   set /p MAXPRICE=Maximum price in EUR, digits only - then Enter: 
@@ -86,26 +90,31 @@ set OUTFILE=%OUTDIR%\eukairies_%STAMP%
 set HTMLFILE=%OUTDIR%\apotelesmata_%STAMP%.html
 
 echo.
-echo [4/4] Scanning. This takes a while - it is deliberately polite to the
-echo       portal. Leave it running; progress is printed below.
+echo [4/4] Analysing. A file takes seconds. A portal scan takes hours,
+echo       because it is deliberately slow to avoid overloading the site.
 echo.
 
-if "%CHOICE%"=="2" (
-  if not exist "akinita.csv" (
-    echo [!] akinita.csv was not found in this folder.
-    echo     Put your file next to this launcher and name it akinita.csv
-    echo     Columns it understands: Timi, Emvadon, Perioxi, Katigoria, Enoikio
-    echo     ^(Greek or English headers both work^)
-    pause
-    exit /b 1
-  )
-  %PY% -m damasol.screener --sources csv --csv-path akinita.csv --all-types ^
-       --max-price %MAXPRICE% --top 500 --out "%OUTFILE%" --html-out "%HTMLFILE%"
-) else (
-  %PY% -m damasol.screener --sources spitogatos --all-types ^
-       --max-price %MAXPRICE% --min-price 5000 --enrich-top 150 --top 500 ^
-       --delay 2.5 --out "%OUTFILE%" --html-out "%HTMLFILE%"
+if "%CHOICE%"=="3" goto portal
+
+if not exist "akinita.csv" (
+  echo [!] akinita.csv was not found in this folder.
+  echo     Copy akinita_deigma.csv to akinita.csv and edit it, or export
+  echo     your own from Excel as CSV UTF-8.
+  echo     Columns understood: Timi, Emvadon, Perioxi, Katigoria, Enoikio
+  echo     ^(Greek or English headers both work^)
+  pause
+  exit /b 1
 )
+%PY% -m damasol.screener --sources csv --csv-path akinita.csv --all-types ^
+     --max-price %MAXPRICE% --top 500 --out "%OUTFILE%" --html-out "%HTMLFILE%"
+goto done
+
+:portal
+%PY% -m damasol.screener --sources spitogatos --all-types ^
+     --max-price %MAXPRICE% --min-price 5000 --enrich-top 150 --top 500 ^
+     --delay 2.5 --out "%OUTFILE%" --html-out "%HTMLFILE%"
+
+:done
 
 if errorlevel 1 (
   echo.

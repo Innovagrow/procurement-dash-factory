@@ -38,10 +38,21 @@ class SearchQuery:
 
 
 class PropertySource(ABC):
-    """A portal we can pull listings from."""
+    """A portal we can pull listings from.
+
+    `robots.txt` is a portal's policy for crawlers. Its Terms of Use are the
+    contract, and where the two disagree the contract wins. A source whose terms
+    reserve the content sets `requires_consent`, and the screener then refuses
+    to run it until the operator states they hold written permission. The point
+    is not to lecture: it is that this distinction is easy to miss precisely
+    when a run is about to succeed.
+    """
 
     name: str = "abstract"
     supports_bbox: bool = False
+    requires_consent: bool = False
+    terms_notice: str = ""
+    terms_url: str = ""
 
     def __init__(self, fetcher):
         self.fetcher = fetcher

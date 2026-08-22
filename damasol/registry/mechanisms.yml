@@ -391,6 +391,24 @@ mechanisms:
     status: active
     since: 2026-08-22
 
+  - id: MECH-206
+    title: Φραγή πηγών των οποίων οι Όροι Χρήσης επιφυλάσσουν το περιεχόμενο
+    implements: SIG-023
+    module: damasol/sources/base.py
+    entrypoint: PropertySource
+    produces: [consent_gate]
+    feeds_score: "—"
+    weight: 0.0
+    validation: >-
+      Το Spitogatos σημαίνεται `requires_consent` και ο screener επιστρέφει
+      κωδικό 3 με εξήγηση αντί να τρέξει. Έλεγχος ότι η εξήγηση παραθέτει τη
+      ρήτρα, δίνει τον σύνδεσμο των Όρων και προτείνει τη νόμιμη διαδρομή.
+    known_limits: >-
+      Η σημαία δηλώνεται χειροκίνητα ανά πηγή μετά από ανάγνωση των Όρων — δεν
+      εξάγεται αυτόματα. Κάθε νέα πηγή απαιτεί να διαβαστούν οι Όροι της.
+    status: active
+    since: 2026-08-22
+
   - id: MECH-203
     title: Πηγή δεδομένων από αρχείο (CSV/TSV)
     implements: SIG-022

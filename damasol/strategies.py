@@ -574,17 +574,24 @@ def price_plan(plan: Plan, listing: Listing, facts: PropertyFacts,
     if listing.item_type == "land" and plan.transform == "none":
         holding_annual = (size or 0) * costs.enfia_per_sqm_eur * 0.25
     tax = costs.tax_on_rent(max(0.0, gross_annual - operating))
-    annual_net = gross_annual - operating - holding_annual - tax
 
+    # Holding costs are charged over the WHOLE period, not just the letting
+    # years. A flip still pays ENFIA, common charges and maintenance while the
+    # works run and the sale is marketed; leaving them out quietly favoured
+    # every sell plan over every rental plan, which is the opposite of what this
+    # engine is supposed to do.
     income_years = plan.hold_years if plan.exit not in ("sell", "hold") else 0.0
-    income_total = annual_net * income_years
+    operating_annual = gross_annual - operating - tax
+    income_total = operating_annual * income_years
+    holding_total = holding_annual * (months / 12.0)
+    annual_net = operating_annual - holding_annual
 
     terminal = 0.0
     if plan.exit != "hold" or listing.item_type == "land":
         terminal = value_at_horizon(post_value, months, market.annual_drift_pct)
     disposal = sum(costs.disposal_costs(terminal, price).values()) if terminal else 0.0
 
-    net_profit = income_total + terminal - disposal - capital
+    net_profit = income_total - holding_total + terminal - disposal - capital
     roi = net_profit / capital * 100.0
 
     # Re-price the whole plan assuming the portal data flattered us: sale
@@ -595,14 +602,14 @@ def price_plan(plan: Plan, listing: Listing, facts: PropertyFacts,
         sum(costs.disposal_costs(stressed_terminal, price).values()) if stressed_terminal else 0.0
     )
     stressed_gross = gross_annual * STRESS_RENT
-    stressed_annual_net = (
+    stressed_operating = (
         stressed_gross
         - stressed_gross * management_pct / 100.0
-        - holding_annual
         - costs.tax_on_rent(max(0.0, stressed_gross * (1 - management_pct / 100.0)))
     )
     stressed_profit = (
-        stressed_annual_net * income_years + stressed_terminal - stressed_disposal - capital
+        stressed_operating * income_years - holding_total
+        + stressed_terminal - stressed_disposal - capital
     )
     roi_stressed = stressed_profit / capital * 100.0
 
@@ -618,7 +625,7 @@ def price_plan(plan: Plan, listing: Listing, facts: PropertyFacts,
     annualised = _annualise(roi, months)
     annualised_stressed = _annualise(roi_stressed, months)
 
-    inflow = max(1.0, income_total + max(0.0, terminal - disposal))
+    inflow = max(1.0, max(0.0, income_total) + max(0.0, terminal - disposal))
     certainty, breakdown = score_certainty(
         profit_base=net_profit,
         profit_stressed=stressed_profit,
@@ -648,7 +655,7 @@ def price_plan(plan: Plan, listing: Listing, facts: PropertyFacts,
     out.annualised_roi_stressed_pct = round(annualised_stressed, 1)
     out.months_to_exit = months
     out.months_to_first_cash = months_to_first_cash
-    out.annual_net_income = round(annual_net, 0)
+    out.annual_net_income = round(annual_net if income_years else 0.0, 0)
     out.terminal_value = round(terminal, 0)
     out.indicators = indicators
     assumptions.insert(0, (
@@ -665,7 +672,8 @@ def price_plan(plan: Plan, listing: Listing, facts: PropertyFacts,
     out.assumptions = assumptions
     out.cashflow_note = (
         f"Καθαρή ροή ~{annual_net / 12:,.0f} €/μήνα από τον {months_to_first_cash}ο μήνα."
-        if income_years else "Καμία ταμειακή ροή μέχρι την έξοδο."
+        if income_years else
+        f"Καμία ταμειακή ροή μέχρι την έξοδο· έξοδα κατοχής {holding_total:,.0f} € στο ενδιάμεσο."
     )
     return out
 

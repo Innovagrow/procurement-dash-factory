@@ -40,13 +40,33 @@ DEFAULT_INDICATOR_WEIGHTS: Dict[str, float] = {
     "risk": 0.05,
 }
 
+# Two label sets. The long one is what a reader who has never seen this system
+# should be able to understand without a glossary; the short one exists only
+# because table columns have a width. Jargon like "certainty" or "ROI" was
+# replaced with the plain question each number actually answers.
 INDICATOR_LABELS_EL = {
-    "return": "Απόδοση",
-    "certainty": "Βεβαιότητα",
+    "return": "Πόσα βγάζεις τον χρόνο",
+    "certainty": "Πόσο κέρδος μένει αν οι τιμές είναι φουσκωμένες",
+    "speed": "Πόσο γρήγορα γυρίζουν τα λεφτά σου",
+    "capital": "Πόσο λίγα λεφτά χρειάζεσαι για να ξεκινήσεις",
+    "ease": "Πόσο λίγο θα σε απασχολεί",
+    "risk": "Πόσο λίγα πράγματα μπορούν να πάνε στραβά",
+}
+
+INDICATOR_SHORT_EL = {
+    "return": "Κέρδος",
+    "certainty": "Αντοχή",
     "speed": "Ταχύτητα",
-    "capital": "Κεφάλαιο",
-    "ease": "Ευκολία",
-    "risk": "Ασφάλεια",
+    "capital": "Λίγα λεφτά",
+    "ease": "Λίγος κόπος",
+    "risk": "Λίγο ρίσκο",
+}
+
+# The three numbers people ask about most, spelled out.
+MEASURE_LABELS_EL = {
+    "roi": "Απόδοση με τα νούμερα της αγγελίας",
+    "roi_stressed": "Απόδοση αν οι τιμές αποδειχθούν φουσκωμένες",
+    "certainty": "Πόσο κέρδος επιβιώνει στο κακό σενάριο",
 }
 
 # How much each input can be trusted. These are the heart of the certainty

@@ -24,7 +24,13 @@ from .costs import DEFAULT_COSTS
 from .http import PoliteFetcher
 from .models import Listing
 from .scoring import COMPONENT_LABELS_EL
-from .indicators import DEFAULT_INDICATOR_WEIGHTS, INDICATOR_LABELS_EL
+from .indicators import (
+    DEFAULT_INDICATOR_WEIGHTS,
+    INDICATOR_LABELS_EL,
+    INDICATOR_SHORT_EL,
+    STRESS_RENT,
+    STRESS_TERMINAL,
+)
 from .strategies import (
     MarketInputs,
     best_per_category,
@@ -160,21 +166,33 @@ def report(listing: Listing, market_per_sqm: float, comparables: Sequence[float]
     print(RULE)
     print(f"  {len(outcomes)} πλάνα (απόκτηση × μετασχηματισμός × έξοδος), "
           f"{len(viable)} εφικτά.")
-    print("  Η στήλη ΥΠΟ ΠΙΕΣΗ είναι η ίδια απόδοση αν τα συγκριτικά πώλησης ήταν")
-    print("  20% αισιόδοξα και τα ενοίκια 15%. Εκεί φαίνεται τι είναι πραγματικό.\n")
+    print()
+    print("  Οι δύο στήλες απόδοσης:")
+    print("    ΜΕ ΤΑ ΝΟΥΜΕΡΑ ΤΗΣ ΑΓΓΕΛΙΑΣ  — τι βγάζεις αν οι τιμές της περιοχής")
+    print("                                   είναι όντως αυτές που ζητάνε.")
+    print(f"    ΑΝ ΟΙ ΤΙΜΕΣ ΕΙΝΑΙ ΦΟΥΣΚΩΜΕΝΕΣ — το ίδιο πλάνο, με τις τιμές πώλησης")
+    print(f"                                   {(1 - STRESS_TERMINAL) * 100:.0f}% χαμηλότερα και τα ενοίκια "
+          f"{(1 - STRESS_RENT) * 100:.0f}% χαμηλότερα.")
+    print("  Η διαφορά των δύο δείχνει πόσο από το κέρδος είναι πραγματικό ακίνητο")
+    print("  και πόσο είναι απλώς η άποψή μας για την αγορά.\n")
+    print("  Οι έξι δείκτες, 0–100:")
+    for key, label in INDICATOR_LABELS_EL.items():
+        print(f"    {INDICATOR_SHORT_EL[key]:<12} {label}")
+    print()
 
-    header = (f"  {'#':>2} {'Πλάνο':<46} {'Κεφάλαιο':>9} {'Κέρδος':>9} {'ROI':>6} "
-              f"{'ΠΙΕΣΗ':>7} │ {'ΑΠΟ':>3} {'ΒΕΒ':>3} {'ΤΑΧ':>3} {'ΚΕΦ':>3} {'ΕΥΚ':>3} "
-              f"{'ΑΣΦ':>3} │ {'ΣΥΝ':>5}")
+    header = (f"  {'#':>2} {'Πλάνο':<46} {'Κεφάλαιο':>9} {'Κέρδος':>9} "
+              f"{'ΑΓΓΕΛΙΑ':>8} {'ΦΟΥΣΚΑ':>8} │ "
+              + " ".join(f"{INDICATOR_SHORT_EL[k][:4]:>4}" for k in INDICATOR_LABELS_EL)
+              + f" │ {'ΣΥΝΟΛΟ':>6}")
     print(header)
     print("  " + "─" * (len(header) - 2))
     for position, outcome in enumerate(viable[:12], 1):
         ind = outcome.indicators
         print(f"  {position:>2} {outcome.name[:46]:<46} {_gr(outcome.capital_required):>9} "
-              f"{_gr(outcome.net_profit):>9} {outcome.annualised_roi_pct:>5.1f}% "
-              f"{outcome.annualised_roi_stressed_pct:>6.1f}% │ {ind.ret:>3.0f} {ind.certainty:>3.0f} "
-              f"{ind.speed:>3.0f} {ind.capital:>3.0f} {ind.ease:>3.0f} {ind.risk:>3.0f} │ "
-              f"{ind.combined:>5.1f}")
+              f"{_gr(outcome.net_profit):>9} {outcome.annualised_roi_pct:>7.1f}% "
+              f"{outcome.annualised_roi_stressed_pct:>7.1f}% │ "
+              f"{ind.ret:>4.0f} {ind.certainty:>4.0f} {ind.speed:>4.0f} {ind.capital:>4.0f} "
+              f"{ind.ease:>4.0f} {ind.risk:>4.0f} │ {ind.combined:>6.1f}")
 
     blocked = [o for o in outcomes if not o.feasible]
     if blocked:
@@ -198,17 +216,18 @@ def report(listing: Listing, market_per_sqm: float, comparables: Sequence[float]
     print(f"  ΣΥΝΟΛΙΚΑ ΚΑΛΥΤΕΡΟ: {winner.name}")
     print(f"     Κεφάλαιο {_gr(winner.capital_required)} € → κέρδος {_gr(winner.net_profit)} € "
           f"σε {winner.months_to_exit} μήνες ({winner.annualised_roi_pct:.1f}%/έτος)")
-    print(f"     Υπό πίεση: κέρδος {_gr(winner.net_profit_stressed)} € "
+    print(f"     Αν οι τιμές είναι φουσκωμένες: κέρδος {_gr(winner.net_profit_stressed)} € "
           f"({winner.annualised_roi_stressed_pct:.1f}%/έτος)")
     if winner.cashflow_note:
         print(f"     {winner.cashflow_note}")
     for assumption in winner.assumptions:
         print(f"     · {assumption}")
 
-    print("\n  ΚΑΛΥΤΕΡΟ ΑΝΑ ΔΕΙΚΤΗ — ξεχωριστά, χωρίς σταθμίσεις:")
+    print("\n  ΚΑΛΥΤΕΡΟ ΣΕ ΚΑΘΕ ΕΡΩΤΗΜΑ ΞΕΧΩΡΙΣΤΑ:")
     for key, outcome in best_per_indicator(outcomes).items():
         value = getattr(outcome.indicators, "ret" if key == "return" else key)
-        print(f"     {INDICATOR_LABELS_EL[key]:<12} {value:>5.0f}/100  {outcome.name[:50]}")
+        print(f"     {INDICATOR_LABELS_EL[key]}")
+        print(f"        → {outcome.name[:56]}  ({value:.0f}/100)")
 
     print("\n  ΚΑΛΥΤΕΡΟ ΑΝΑ ΚΑΤΗΓΟΡΙΑ:")
     for category, outcome in best_per_category(outcomes).items():
@@ -217,11 +236,12 @@ def report(listing: Listing, market_per_sqm: float, comparables: Sequence[float]
 
     fragile = [o for o in viable[:5] if o.indicators.certainty < 30]
     if fragile:
-        print("\n  ⚠ ΕΥΘΡΑΥΣΤΑ ΣΤΗΝ ΚΟΡΥΦΗ: τα παρακάτω χάνουν σχεδόν όλο το κέρδος τους")
-        print("    αν τα συγκριτικά της πύλης είναι αισιόδοξα. Επαληθεύστε με πραγματικά")
-        print("    συμβόλαια της περιοχής πριν δεσμευτείτε:")
+        print("\n  ⚠ ΠΡΟΣΟΧΗ — τα παρακάτω βγάζουν καλά νούμερα μόνο επειδή εμπιστευόμαστε")
+        print("    τις τιμές της πύλης. Αν αυτές είναι φουσκωμένες, το κέρδος εξαφανίζεται.")
+        print("    Επαληθεύστε με πραγματικά συμβόλαια της περιοχής πριν δεσμευτείτε:")
         for outcome in fragile:
-            print(f"     · {outcome.name[:46]:<46} βεβαιότητα {outcome.indicators.certainty:.0f}/100")
+            print(f"     · {outcome.name[:44]:<44} μένει μόνο "
+                  f"{outcome.indicators.certainty:.0f}/100 αντοχή")
 
     print("\n  ΠΡΙΝ ΑΠΟ ΚΑΘΕ ΔΕΣΜΕΥΣΗ: αυτοψία, έλεγχος τίτλων και βαρών, πολεοδομικός")
     print("  έλεγχος, τεχνική αξιολόγηση. Οι παραπάνω αριθμοί είναι μοντέλο, όχι εκτίμηση.")

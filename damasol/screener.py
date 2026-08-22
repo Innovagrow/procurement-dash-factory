@@ -30,7 +30,7 @@ from typing import Dict, List, Optional, Sequence
 from .costs import DEFAULT_COSTS
 from .geo import GREECE_BBOX, cell_bbox, geo_cell
 from .http import PoliteFetcher
-from .indicators import DEFAULT_INDICATOR_WEIGHTS
+from .indicators import DEFAULT_INDICATOR_WEIGHTS, INDICATOR_SHORT_EL
 from .models import Listing, ScoredListing
 from .scoring import DEFAULT_WEIGHTS, MarketIndex, score_all
 from .sources import REGISTRY, SearchQuery
@@ -455,8 +455,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     _log("\nΚΟΡΥΦΑΙΕΣ ΕΥΚΑΙΡΙΕΣ — κατάταξη κατά απόδοση, όχι κατά έκπτωση")
     _log("-" * 78)
-    _log(f"{'#':>3}  {'Τιμή':>9}  {'Περιοχή':<24} {'ROI':>6} {'ΠΙΕΣΗ':>7} "
-         f"{'ΑΠΟ':>3} {'ΒΕΒ':>3} {'ΤΑΧ':>3} {'ΚΕΦ':>3} {'ΣΥΝ':>5}")
+    _log("Απόδοση ΑΓΓΕΛΙΑ = με τα νούμερα της αγγελίας · ΦΟΥΣΚΑ = αν οι τιμές "
+         "είναι φουσκωμένες")
+    _log(f"{'#':>3}  {'Τιμή':>9}  {'Περιοχή':<22} {'ΑΓΓΕΛΙΑ':>8} {'ΦΟΥΣΚΑ':>8} "
+         f"{'Κέρδος':>6} {'Αντοχή':>6} {'Ταχύτ':>6} {'Λίγα€':>6} {'ΣΥΝΟΛΟ':>7}")
     _log("-" * 78)
     for position, scored in enumerate(final[:15], 1):
         listing = scored.listing
@@ -464,10 +466,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         ind = best.indicators
         price = f"{listing.price:,.0f}".replace(",", ".") if listing.price else "-"
         _log(
-            f"{position:>3}. {price:>9} €  {(listing.sub_area or listing.address or '-')[:24]:<24} "
-            f"{best.annualised_roi_pct:>5.1f}% {best.annualised_roi_stressed_pct:>6.1f}% "
-            f"{ind.ret:>3.0f} {ind.certainty:>3.0f} {ind.speed:>3.0f} {ind.capital:>3.0f} "
-            f"{ind.combined:>5.1f}"
+            f"{position:>3}. {price:>9} €  {(listing.sub_area or listing.address or '-')[:22]:<22} "
+            f"{best.annualised_roi_pct:>7.1f}% {best.annualised_roi_stressed_pct:>7.1f}% "
+            f"{ind.ret:>6.0f} {ind.certainty:>6.0f} {ind.speed:>6.0f} {ind.capital:>6.0f} "
+            f"{ind.combined:>7.1f}"
         )
         _log(f"      → {best.name[:64]}")
         _log(f"        {listing.url}")

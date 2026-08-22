@@ -38,7 +38,7 @@ def _payload(scored: Sequence[ScoredListing], analysis: Dict[str, dict],
     A national run can return thousands of properties; embedding twelve fully
     annotated plans for every one of them would produce a file too big to open.
     The leaders carry everything, the tail carries its verdict, and the tail can
-    be re-analysed one property at a time with `damasol.analyse`.
+    be re-analysed one property at a time with `akinita.analyse`.
     """
     rows: List[dict] = []
     for position, item in enumerate(scored, 1):
@@ -328,7 +328,7 @@ const el = id => document.getElementById(id);
 document.title = "Ευκαιρίες Ακινήτων";
 el("kicker").textContent = D.meta.basis === "προσωπική, μη εμπορική χρήση"
   ? "Αποτελέσματα σάρωσης · προσωπική χρήση"
-  : "Damasol Limited · Αποτελέσματα σάρωσης";
+  : "Αποτελέσματα σάρωσης";
 el("title").textContent = D.meta.scope === "Όλη η Ελλάδα"
   ? "Ευκαιρίες σε όλη την Ελλάδα" : "Ευκαιρίες · " + D.meta.scope;
 el("lede").textContent =
@@ -447,7 +447,7 @@ function card(item, position) {
       ${item.url ? `<a class="open" href="${item.url}" target="_blank" rel="noopener">Άνοιγμα αγγελίας →</a>` : ""}
     </div>` : `<div class="detail"><p class="why">Πλήρης ανάλυση για τα πρώτα
       ${D.meta.fullDetail}. Για αυτό:
-      <code>python -m damasol.analyse --from-json &lt;αρχείο&gt;.json --rank ${item.rank}</code></p>
+      <code>python -m akinita.analyse --from-json &lt;αρχείο&gt;.json --rank ${item.rank}</code></p>
       ${item.url ? `<a class="open" href="${item.url}" target="_blank" rel="noopener">Άνοιγμα αγγελίας →</a>` : ""}</div>`;
 
   return `<details class="item${position === 1 ? " top" : ""}">

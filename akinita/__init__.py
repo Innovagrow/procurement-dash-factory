@@ -1,5 +1,5 @@
 """
-Damasol Limited - Real Estate Opportunity Engine
+Real Estate Opportunity Engine
 ================================================
 
 Two capabilities, one package:
@@ -10,7 +10,7 @@ Two capabilities, one package:
                  shortlist (CSV / JSON / HTML report).
 
 2. `brokers` + `outreach` - build a directory of Greek real estate
-                 professionals and render the Damasol outreach campaign
+                 professionals and render the  outreach campaign
                  (email / SMS / Viber / LinkedIn) personalised per recipient.
 
 Everything here is stdlib-only so it runs on a bare Python 3.9+ install.

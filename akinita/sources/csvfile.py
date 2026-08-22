@@ -22,7 +22,7 @@ Column names are matched loosely and case-insensitively, in Greek or English:
     url       url / link / σύνδεσμος
     notes     περιγραφή / description / σχόλια / κατάσταση
 
-    python -m damasol.screener --source csv --csv-path akinita.csv --all-types
+    python -m akinita.screener --source csv --csv-path akinita.csv --all-types
 """
 from __future__ import annotations
 

@@ -68,14 +68,14 @@ git push -u origin main
    - Click on your service
    - Go to "Variables" tab
    - Add these variables:
-   
+
    ```
    SECRET_KEY=your-generated-secret-key
    GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=GOCSPX-your-google-secret
    PORT=8080
    ```
-   
+
    Generate SECRET_KEY:
    ```bash
    python -c "import secrets; print(secrets.token_urlsafe(32))"
@@ -312,13 +312,13 @@ railway add
 
 Your Procurement Intelligence Platform is now live with:
 
-✅ Multi-source government procurement data  
-✅ Beautiful Power BI-style dashboards  
-✅ User authentication & personal dashboards  
-✅ Favorites & bookmarking  
-✅ Full REST API  
-✅ Google OAuth ready  
-✅ Production-grade deployment  
+✅ Multi-source government procurement data
+✅ Beautiful Power BI-style dashboards
+✅ User authentication & personal dashboards
+✅ Favorites & bookmarking
+✅ Full REST API
+✅ Google OAuth ready
+✅ Production-grade deployment
 
-**Share your deployment:**  
+**Share your deployment:**
 `https://your-app-name.up.railway.app`

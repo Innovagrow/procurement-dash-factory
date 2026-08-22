@@ -1,11 +1,11 @@
 """
-Offline test suite for the Damasol real estate opportunity engine.
+Offline test suite for the  real estate opportunity engine.
 
 Runs with no network access: a fake source replays recorded-shape payloads so
 the crawl -> pre-score -> enrich -> score -> export pipeline is exercised
 end to end, deterministically.
 
-    python test_damasol.py
+    python test_akinita.py
 """
 import json
 import os
@@ -14,16 +14,16 @@ import shutil
 import sys
 import tempfile
 
-from damasol.geo import cell_bbox, geo_cell, nearest_urban_centre, normalise_area
-from damasol.http import PoliteFetcher
-from damasol.models import Listing, parse_age_days, parse_area, parse_money
-from damasol.outreach.templates import available_templates, render
-from damasol.report import write_html_report
-from damasol.screener import (
+from akinita.geo import cell_bbox, geo_cell, nearest_urban_centre, normalise_area
+from akinita.http import PoliteFetcher
+from akinita.models import Listing, parse_age_days, parse_area, parse_money
+from akinita.outreach.templates import available_templates, render
+from akinita.report import write_html_report
+from akinita.screener import (
     analyse_shortlist, enrich_market_context, export_csv, export_json,
 )
-from damasol.scoring import MarketIndex, grade_for, score_all
-from damasol.sources.base import SearchQuery
+from akinita.scoring import MarketIndex, grade_for, score_all
+from akinita.sources.base import SearchQuery
 
 PASSED, FAILED = [], []
 
@@ -82,7 +82,7 @@ class FakeSource:
 
 
 print("=" * 62)
-print("DAMASOL ENGINE - OFFLINE TEST SUITE")
+print("SAROSI ENGINE - OFFLINE TEST SUITE")
 print("=" * 62)
 
 print("\n[1] Parsers")
@@ -222,7 +222,7 @@ check("Implausible yield is flagged", any("απόδοση" in f for f in verdict
 check("Implausible metrics do not produce a perfect score", verdict.score < 95,
       f"score={verdict.score}")
 
-from damasol.scoring import _quality_haircut
+from akinita.scoring import _quality_haircut
 at_market = Listing(source="t", listing_id="am", url="", item_type="residence",
                     price=100000, size_sqm=100)          # 1000/sqm
 way_below = Listing(source="t", listing_id="wb", url="", item_type="residence",
@@ -279,21 +279,21 @@ print("\n[7] Outreach copy")
 check("All channels present",
       set(available_templates()) == {"email", "email_en", "follow_up", "sms", "viber",
                                      "linkedin", "brief_form"})
-identity = {"sender_name": "Α. Β.", "reply_email": "deals@damasol.com", "phone": "+30 210 0000000"}
+identity = {"sender_name": "Α. Β.", "reply_email": "deals@akinita.com", "phone": "+30 210 0000000"}
 message = render("email", "ΑΒΓ Ακίνητα", identity)
 body = message["body"]
 check("Subject rendered", bool(message["subject"]))
 check("Recipient personalised", "ΑΒΓ Ακίνητα" in body)
 check("No unfilled placeholders", "{" not in body and "}" not in body)
 must_contain = {
-    "επενδυτικό οργανισμό": "identifies Damasol as an investment organisation",
+    "επενδυτικό οργανισμό": "identifies  as an investment organisation",
     "ευκαιρία": "asks for properties they consider an opportunity",
     "ΛΕΠΤΟΜΕΡΕΙΕΣ ΤΟΥ ΑΚΙΝΗΤΟΥ": "asks for property details",
     "ΓΙΑΤΙ ΤΟ ΘΕΩΡΕΙΤΕ ΕΥΚΑΙΡΙΑ": "asks why they consider it an opportunity",
     "ΑΝΟΙΧΤΟΙ ΣΕ ΠΡΟΤΑΣΕΙΣ ΣΥΝΕΡΓΑΣΙΑΣ": "states openness to partnership proposals",
     "ΕΥΕΛΙΚΤΑ ΕΠΙΧΕΙΡΗΜΑΤΙΚΑ ΜΟΝΤΕΛΑ": "states experience in flexible business models",
     "ΔΙΑΓΡΑΦΗ": "carries an opt-out",
-    "deals@damasol.com": "carries the reply address",
+    "deals@akinita.com": "carries the reply address",
 }
 for needle, description in must_contain.items():
     check(f"Email {description}", needle in body)
@@ -304,7 +304,7 @@ check("Anonymous greeting when name is unknown",
       "Αξιότιμοι συνεργάτες" in render("email", "", identity)["body"])
 
 print("\n[8] Cost model")
-from damasol.costs import DEFAULT_COSTS, CostModel
+from akinita.costs import DEFAULT_COSTS, CostModel
 
 acq = DEFAULT_COSTS.acquisition_costs(45000)
 check("Acquisition costs are material on cheap stock",
@@ -330,7 +330,7 @@ except ValueError:
     check("Unknown works level rejected", True)
 
 print("\n[9] Valuation")
-from damasol.valuation import (
+from akinita.valuation import (
     infer_facts, value_after_works, value_at_horizon, value_property,
 )
 
@@ -382,10 +382,10 @@ check("Fast sale costs more where stock sits",
       (illiquid.open_market - illiquid.immediate) > (val.open_market - val.immediate))
 
 print("\n[10] Plan matrix and indicators")
-from damasol.indicators import (
+from akinita.indicators import (
     STRESS_RENT, STRESS_TERMINAL, score_capital, score_certainty, score_return, score_speed,
 )
-from damasol.strategies import (
+from akinita.strategies import (
     MarketInputs, best_per_category, best_per_indicator, best_plan, evaluate, generate_plans,
 )
 
@@ -508,7 +508,7 @@ check("Buildable area is estimated when unknown, and flagged",
           if o.feasible and o.plan.transform == "build" for a in o.assumptions))
 
 print("\n[10c] Market index serves both markets")
-from damasol.scoring import MarketIndex as _MI
+from akinita.scoring import MarketIndex as _MI
 both = _MI()
 both.add_sale_comparables(
     [Listing(source="t", listing_id=f"p{i}", url="", item_type="land", sub_area="Ζ",
@@ -531,9 +531,9 @@ check("Comparables are exposed for the confidence band",
       len(both.comparables_for(plot)) >= 4)
 
 print("\n[11] Signals (offline logic)")
-from damasol.signals.news import NewsSignal
-from damasol.signals.public_investment import _stems
-from damasol.signals.regions import normalise_greek, region_for
+from akinita.signals.news import NewsSignal
+from akinita.signals.public_investment import _stems
+from akinita.signals.regions import normalise_greek, region_for
 
 check("Athens maps to Attica", region_for(37.98, 23.73)[0] == "EL30")
 check("Corfu maps to the Ionian, not Epirus", region_for(39.62, 19.92)[0] == "EL62")
@@ -578,7 +578,7 @@ class _Canned:
         return self.body
 
 
-from damasol.http import SELF_AGENT_NAMES, PoliteFetcher, RobotsGate
+from akinita.http import SELF_AGENT_NAMES, PoliteFetcher, RobotsGate
 
 gate = RobotsGate(_Canned(ROBOTS))
 check("A rule naming us beats a permissive wildcard",
@@ -615,8 +615,8 @@ check("A named group's own allow-list still applies", narrow.allows("https://b.t
 check("...and its disallow blocks everything else", not narrow.allows("https://b.test/other"))
 
 print("\n[11c] CSV source — data from anywhere")
-from damasol.sources.csvfile import CsvSource, map_columns, normalise_type
-from damasol.sources import ALL_ITEM_TYPES, REGISTRY
+from akinita.sources.csvfile import CsvSource, map_columns, normalise_type
+from akinita.sources import ALL_ITEM_TYPES, REGISTRY
 
 check("CSV is a registered source", "csv" in REGISTRY)
 check("Four property types are declared", set(ALL_ITEM_TYPES) ==
@@ -678,8 +678,8 @@ check("A missing file fails loudly", _raises(lambda: list(
 shutil.rmtree(_dir, ignore_errors=True)
 
 print("\n[11c2] Terms of use gate")
-from damasol.sources.spitogatos import SpitogatosSource
-from damasol.sources.base import PropertySource
+from akinita.sources.spitogatos import SpitogatosSource
+from akinita.sources.base import PropertySource
 
 check("Sources declare whether their terms reserve the content",
       hasattr(PropertySource, "requires_consent"))
@@ -695,7 +695,7 @@ check("A file of your own data is not gated", CsvSource.requires_consent is Fals
 import io
 import contextlib
 
-from damasol import screener as _screener
+from akinita import screener as _screener
 
 buffer = io.StringIO()
 with contextlib.redirect_stdout(buffer):
@@ -713,7 +713,7 @@ check("Republication stays prohibited under either basis",
       "αναδημοσίευση" in SpitogatosSource.terms_notice)
 
 print("\n[11d] Results dashboard")
-from damasol.webreport import write_dashboard
+from akinita.webreport import write_dashboard
 
 _dir = _tf.mkdtemp()
 try:
@@ -755,7 +755,7 @@ finally:
     shutil.rmtree(_dir, ignore_errors=True)
 
 print("\n[12] Registries")
-from damasol.registry import audit as registry_audit, load_ideas, load_mechanisms
+from akinita.registry import audit as registry_audit, load_ideas, load_mechanisms
 
 ideas = load_ideas()
 mechanisms = load_mechanisms()

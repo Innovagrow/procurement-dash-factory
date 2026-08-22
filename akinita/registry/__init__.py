@@ -13,11 +13,11 @@ implemented really has a mechanism, and - the one that catches real drift - that
 the weights written in the registry still match the weights in `scoring.py`.
 Documentation that cannot be wrong is documentation worth reading.
 
-    python -m damasol.registry audit
-    python -m damasol.registry list --status idea
-    python -m damasol.registry show SIG-008
-    python -m damasol.registry add-idea --title "..." --hypothesis "..."
-    python -m damasol.registry render > ΜΗΤΡΩΟ.md
+    python -m akinita.registry audit
+    python -m akinita.registry list --status idea
+    python -m akinita.registry show SIG-008
+    python -m akinita.registry add-idea --title "..." --hypothesis "..."
+    python -m akinita.registry render > ΜΗΤΡΩΟ.md
 """
 from __future__ import annotations
 

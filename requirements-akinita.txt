@@ -1,4 +1,4 @@
-# Damasol Real Estate Opportunity Engine
+# Real Estate Opportunity Engine
 #
 # The core package is stdlib-only: the screener, the scoring engine, the broker
 # directory and the whole outreach campaign run on a bare Python 3.9+ install
@@ -7,12 +7,12 @@
 # The single optional dependency drives a real browser, which the Spitogatos
 # adapter needs to get past that portal's bot protection:
 #
-#     pip install -r requirements-damasol.txt
+#     pip install -r requirements-akinita.txt
 #     playwright install chromium
 
 # Browser automation for the Spitogatos adapter:
 playwright>=1.40.0 ; python_version >= "3.9"
 
 # The two registries (ideas.yml / mechanisms.yml) are read with PyYAML. It is
-# already a dependency of the wider repo; listed here so `damasol` stands alone.
+# already a dependency of the wider repo; listed here so `akinita` stands alone.
 pyyaml>=6.0

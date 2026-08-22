@@ -3,10 +3,10 @@
 Single-property deep dive: valuation, signals, and what to do with it.
 
     # from a screener run
-    python -m damasol.analyse --from-json out/eukairies.json --rank 1
+    python -m akinita.analyse --from-json out/eukairies.json --rank 1
 
     # or straight from numbers
-    python -m damasol.analyse --price 40000 --size 61 --area "Θεσσαλονίκη (Ξηροκρήνη)" \
+    python -m akinita.analyse --price 40000 --size 61 --area "Θεσσαλονίκη (Ξηροκρήνη)" \
         --lat 40.65 --lng 22.92 --market-per-sqm 1500 --rent 380
 
 Prints four things: what it is worth now and later and why, what the outside
@@ -251,11 +251,11 @@ def report(listing: Listing, market_per_sqm: float, comparables: Sequence[float]
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="damasol.analyse",
+        prog="akinita.analyse",
         description="Πλήρης ανάλυση ενός ακινήτου: αξία, σήματα, τρόποι αξιοποίησης.",
     )
     source = parser.add_argument_group("από πού διαβάζεται το ακίνητο")
-    source.add_argument("--from-json", help="Αρχείο JSON από το damasol.screener")
+    source.add_argument("--from-json", help="Αρχείο JSON από το akinita.screener")
     source.add_argument("--rank", type=int, default=1, help="Ποιο ακίνητο της λίστας (1 = κορυφή)")
     source.add_argument("--price", type=float)
     source.add_argument("--size", type=float)

@@ -1,7 +1,7 @@
 """
 Opportunity screener CLI.
 
-    python -m damasol.screener --max-price 50000 --item-types residence,prof,land
+    python -m akinita.screener --max-price 50000 --item-types residence,prof,land
 
 Pipeline
 --------
@@ -315,7 +315,7 @@ def export_json(scored: Sequence[ScoredListing], path: str,
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="damasol.screener",
+        prog="akinita.screener",
         description="Εντοπισμός των καλύτερων επαγγελματικών ευκαιριών σε ακίνητα.",
     )
     parser.add_argument("--source", default="spitogatos", choices=sorted(REGISTRY),
@@ -443,7 +443,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 _log(f"  Όροι: {blocked_source.terms_url}")
         _log("")
         _log("  Στο μεταξύ δουλεύει πλήρως η πηγή «csv» με δικά σας δεδομένα:")
-        _log("    python -m damasol.screener --sources csv --csv-path akinita.csv --all-types")
+        _log("    python -m akinita.screener --sources csv --csv-path akinita.csv --all-types")
         return 3
 
     if gated and declared_basis:
@@ -474,7 +474,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # Branding the run as the company while a personal-use basis is declared
     # would put a contradiction in our own output.
     _log("Σάρωση ευκαιριών ακινήτων"
-         if args.personal_use else "DAMASOL LIMITED · Σάρωση ευκαιριών")
+         if args.personal_use else "Σάρωση ευκαιριών ακινήτων")
     _log(f"Πηγές: {', '.join(s.name for s in sources)}")
     _log(f"Τύποι: {', '.join(ITEM_TYPE_LABELS_EL.get(t, t) for t in item_types)}")
     _log(

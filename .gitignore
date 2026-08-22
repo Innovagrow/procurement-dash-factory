@@ -63,7 +63,7 @@ site/.quarto/
 # OS
 Thumbs.db
 
-# Damasol real estate engine
+# Real estate opportunity engine
 .cache/
 out/
-damasol/out/
+akinita/out/

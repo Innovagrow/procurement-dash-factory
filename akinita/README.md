@@ -1,21 +1,21 @@
-# Damasol Limited — Real Estate Opportunity Engine
+# [Επωνυμία] — Real Estate Opportunity Engine
 
 Δύο πράγματα, ένα πακέτο:
 
-1. **`damasol.screener`** — σαρώνει αγγελίες ακινήτων με σκληρά φίλτρα (π.χ.
+1. **`akinita.screener`** — σαρώνει αγγελίες ακινήτων με σκληρά φίλτρα (π.χ.
    *όλη η Ελλάδα, αγορά, έως 50.000 €*), βαθμολογεί κάθε ακίνητο ως προς το πόσο
    καλή **επαγγελματική ευκαιρία** είναι, και βγάζει καταταγμένη λίστα σε
    CSV / JSON / HTML.
-2. **`damasol.brokers` + `damasol.outreach`** — χτίζει κατάλογο επαγγελματιών
-   ακινήτων της Ελλάδας και παράγει την καμπάνια επικοινωνίας της Damasol
+2. **`akinita.brokers` + `akinita.outreach`** — χτίζει κατάλογο επαγγελματιών
+   ακινήτων της Ελλάδας και παράγει την καμπάνια επικοινωνίας της εταιρείας
    (email / SMS / Viber / LinkedIn), προσωποποιημένη ανά παραλήπτη.
 
-3. **`damasol.valuation` + `damasol.strategies` + `damasol.analyse`** — για ένα
+3. **`akinita.valuation` + `akinita.strategies` + `akinita.analyse`** — για ένα
    συγκεκριμένο ακίνητο: πόσο αξίζει τώρα, πόσο σε ορίζοντα, και ποιος τρόπος
    αξιοποίησης αποδίδει περισσότερα με λιγότερο κόπο και λιγότερο κεφάλαιο.
-4. **`damasol.signals`** — τι λέει ο έξω κόσμος για την περιοχή: τουριστικές
+4. **`akinita.signals`** — τι λέει ο έξω κόσμος για την περιοχή: τουριστικές
    ροές, δημόσια έργα, ειδήσεις ανάπτυξης.
-5. **`damasol.registry`** — δύο μητρώα: οι **ιδέες** σημάτων και οι
+5. **`akinita.registry`** — δύο μητρώα: οι **ιδέες** σημάτων και οι
    **υλοποιημένοι μηχανισμοί**, με έλεγχο συνέπειας μεταξύ τους και με τον κώδικα.
 
 Μόνο stdlib. Τρέχει σε σκέτο Python 3.9+ χωρίς `pip install`.
@@ -27,41 +27,41 @@
 
 ```bash
 # 1) ΟΛΗ Η ΕΛΛΑΔΑ, ΟΛΟΙ ΟΙ ΤΥΠΟΙ — μία εντολή
-python -m damasol.screener \
+python -m akinita.screener \
     --sources spitogatos --all-types \
     --max-price 50000 --min-price 5000 \
     --enrich-top 150 --top 500 \
     --out out/eukairies --html-out out/apotelesmata.html
 
 # 1β) Ή από δικό σας αρχείο, χωρίς καμία σάρωση
-python -m damasol.screener --sources csv --csv-path akinita.csv --all-types \
+python -m akinita.screener --sources csv --csv-path akinita.csv --all-types \
     --max-price 50000 --out out/eukairies
 
 # 1γ) Ή και τα δύο μαζί — συγχωνεύονται και αποδιπλασιάζονται
-python -m damasol.screener --sources spitogatos,csv --csv-path akinita.csv --all-types
+python -m akinita.screener --sources spitogatos,csv --csv-path akinita.csv --all-types
 
 # 2) Ο κατάλογος μεσιτών (μόνο μεσιτικά γραφεία, με emails)
-python -m damasol.brokers \
+python -m akinita.brokers \
     --categories "Μεσιτικό γραφείο" \
     --with-contacts --contactable-only \
     --out out/brokers
 
 # 3) Η καμπάνια — παράγει αρχεία, ΔΕΝ στέλνει τίποτα
-python -m damasol.outreach.merge \
+python -m akinita.outreach.merge \
     --brokers out/brokers.csv --channel email \
     --sender-name "Ονοματεπώνυμο" --sender-title "Investment Director" \
-    --reply-email deals@damasol.com --phone "+30 ..." \
+    --reply-email deals@akinita.com --phone "+30 ..." \
     --out out/campaign
 ```
 
 ```bash
 # 4) Πλήρης ανάλυση ενός ακινήτου από τη λίστα
-python -m damasol.analyse --from-json out/eukairies.json --rank 1
+python -m akinita.analyse --from-json out/eukairies.json --rank 1
 
 # 5) Τα μητρώα ιδεών και μηχανισμών
-python -m damasol.registry audit
-python -m damasol.registry list ideas --status idea
-python -m damasol.registry add-idea --title "..." --hypothesis "..."
+python -m akinita.registry audit
+python -m akinita.registry list ideas --status idea
+python -m akinita.registry add-idea --title "..." --hypothesis "..."
 ```
 
 Δείτε τα presets στο `config.yml` για έτοιμους συνδυασμούς παραμέτρων.
@@ -128,12 +128,12 @@ Spitogatos το δείχνει καθαρά: το robots.txt του επιτρέ
   Αν χρειάζεστε τα δεδομένα σε συνεχή βάση, το σωστό είναι εμπορική συμφωνία
   παροχής δεδομένων με την πύλη.
 - **Ο κατάλογος μεσιτών του xe.gr είναι επιτρεπτός** και είναι η πηγή του
-  `damasol.brokers`.
+  `akinita.brokers`.
 
 Ελέγξτε μόνοι σας οποιοδήποτε URL:
 
 ```python
-from damasol.http import PoliteFetcher
+from akinita.http import PoliteFetcher
 print(PoliteFetcher()._robots.explain("https://www.spitogatos.gr/pwliseis-katoikies/ellada"))
 ```
 
@@ -417,7 +417,7 @@ print(PoliteFetcher()._robots.explain("https://www.spitogatos.gr/pwliseis-katoik
 Το `audit` είναι που τα κρατά ειλικρινή — 42 έλεγχοι:
 
 ```
-$ python -m damasol.registry audit
+$ python -m akinita.registry audit
 ✓ Τα μητρώα είναι συνεπή (20 ιδέες, 20 μηχανισμοί)
 ```
 
@@ -504,20 +504,20 @@ $ python -m damasol.registry audit
 
 Έξι σημεία, σε κάθε κανάλι:
 
-1. Η Damasol Limited είναι **επενδυτικός οργανισμός**.
+1. Η [Επωνυμία] είναι **επενδυτικός οργανισμός**.
 2. Απευθύνεται σε **επαγγελματίες ακινήτων σε όλη την Ελλάδα**.
 3. Αν έχουν ακίνητο που **οι ίδιοι** θεωρούν πραγματική επαγγελματική ευκαιρία,
    να επικοινωνήσουν.
 4. Να στείλουν τις **λεπτομέρειες** του ακινήτου.
 5. Να εξηγήσουν **γιατί το θεωρούν ευκαιρία**.
-6. Η Damasol είναι **ανοιχτή** και **έμπειρη** τόσο σε **προτάσεις συνεργασίας**
+6. Η  είναι **ανοιχτή** και **έμπειρη** τόσο σε **προτάσεις συνεργασίας**
    όσο και σε **ευέλικτα επιχειρηματικά μοντέλα**.
 
 Κανάλια: `email`, `email_en`, `follow_up`, `sms`, `viber`, `linkedin`,
 `brief_form` (φόρμα υποβολής ακινήτου προς συμπλήρωση από τον μεσίτη).
 
 ```bash
-python -c "from damasol.outreach import render; print(render('viber','ΑΒΓ Ακίνητα',{'reply_email':'deals@damasol.com'})['body'])"
+python -c "from akinita.outreach import render; print(render('viber','ΑΒΓ Ακίνητα',{'reply_email':'deals@akinita.com'})['body'])"
 ```
 
 ### Αποστολή
@@ -536,7 +536,7 @@ python -c "from damasol.outreach import render; print(render('viber','ΑΒΓ Α�
 ## Δομή
 
 ```
-damasol/
+akinita/
 ├── http.py                    cache + rate limiting + robots.txt gate
 ├── geo.py                     κελιά περιοχής, bounding boxes, αστικά κέντρα
 ├── models.py                  Listing / Broker / ScoredListing + parsers

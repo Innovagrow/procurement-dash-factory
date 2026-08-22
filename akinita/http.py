@@ -29,7 +29,7 @@ DEFAULT_USER_AGENT = (
     "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
 
-DEFAULT_CACHE_DIR = os.path.join(".cache", "damasol")
+DEFAULT_CACHE_DIR = os.path.join(".cache", "akinita")
 
 # Names a site may use to address this agent specifically. A rule written for
 # one of these is aimed at us and overrides anything the wildcard group says -

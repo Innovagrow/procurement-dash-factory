@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
     """Generate enhanced dashboard with all high-value features"""
-    
+
     # Sample data (replace with real data from database)
     hot_deals = [
         {
@@ -45,19 +45,19 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
             "match_score": 95
         }
     ]
-    
+
     perfect_matches = [
         {"id": "PM-001", "title": "Database Migration Project", "match": 96, "value": 185000, "competition": "Low"},
         {"id": "PM-002", "title": "ERP System Implementation", "match": 94, "value": 420000, "competition": "Medium"},
         {"id": "PM-003", "title": "Mobile App Development", "match": 91, "value": 95000, "competition": "Low"},
     ]
-    
+
     competitors = [
         {"name": "TechCorp Solutions", "wins": 12, "total_value": "€2.4M", "avg_value": "€200K", "trend": "up"},
         {"name": "Global IT Services", "wins": 8, "total_value": "€1.8M", "avg_value": "€225K", "trend": "up"},
         {"name": "Digital Innovations Ltd", "wins": 15, "total_value": "€1.2M", "avg_value": "€80K", "trend": "stable"},
     ]
-    
+
     html = f'''
     <!DOCTYPE html>
     <html lang="en">
@@ -228,9 +228,9 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
                     <i class="fas fa-file-invoice"></i>
                     <span>My Bids</span>
                 </a>
-                
+
                 <div class="border-t border-gray-700 my-3"></div>
-                
+
                 <a href="#" class="sidebar-item" onclick="navigateWithToken('/user/alerts')">
                     <i class="fas fa-bell"></i>
                     <span>Alerts</span>
@@ -248,9 +248,9 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
                     <i class="fas fa-building"></i>
                     <span>Competitors</span>
                 </a>
-                
+
                 <div class="border-t border-gray-700 my-3"></div>
-                
+
                 <a href="#" class="sidebar-item" onclick="navigateWithToken('/user/settings')">
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
@@ -688,13 +688,13 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
                 document.querySelectorAll('.tab-content').forEach(tab => {{
                     tab.classList.remove('active');
                 }});
-                
+
                 // Show selected tab
                 const targetTab = document.getElementById(tabName + '-tab');
                 if (targetTab) {{
                     targetTab.classList.add('active');
                 }}
-                
+
                 // Update active sidebar item
                 document.querySelectorAll('.sidebar-item').forEach(item => {{
                     item.classList.remove('active');
@@ -702,7 +702,7 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
                 if (event && event.target) {{
                     event.target.closest('.sidebar-item')?.classList.add('active');
                 }}
-                
+
                 // Update page title
                 const titles = {{
                     'overview': 'Dashboard Overview',
@@ -744,7 +744,7 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
             function performSearch() {{
                 const resultsDiv = document.getElementById('searchResults');
                 resultsDiv.innerHTML = '<div class="text-center py-8"><div class="animate-pulse text-purple-600 mb-2"><i class="fas fa-spinner fa-spin text-3xl"></i></div><div>Searching...</div></div>';
-                
+
                 // Simulate search (replace with real API call)
                 setTimeout(() => {{
                     resultsDiv.innerHTML = `
@@ -796,7 +796,7 @@ def generate_enhanced_dashboard(user_email: str, username: str = "User") -> str:
     </body>
     </html>
     '''
-    
+
     return html
 
 
@@ -849,7 +849,7 @@ def generate_hot_deals_section(deals: List[Dict]) -> str:
             </div>
             <div class="mb-2 text-sm opacity-90">Tender ID: {deal['id']}</div>
             <h3 class="text-xl font-bold mb-3">{deal['title']}</h3>
-            
+
             <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
                     <div class="text-sm opacity-75">Tender Value</div>
@@ -860,12 +860,12 @@ def generate_hot_deals_section(deals: List[Dict]) -> str:
                     <div class="text-xl line-through opacity-75">€{deal['market_avg']:,}</div>
                 </div>
             </div>
-            
+
             <div class="bg-white bg-opacity-20 rounded-lg p-3 mb-4">
                 <div class="text-3xl font-bold">{deal['savings_pct']}% BELOW MARKET</div>
                 <div class="text-sm opacity-90">You save: €{savings:,}</div>
             </div>
-            
+
             <div class="grid grid-cols-4 gap-3 mb-4 text-center">
                 <div>
                     <div class="text-2xl">🎯</div>
@@ -884,7 +884,7 @@ def generate_hot_deals_section(deals: List[Dict]) -> str:
                     <div class="text-sm">{deal['bidders']} bidders</div>
                 </div>
             </div>
-            
+
             <div class="flex gap-2">
                 <button onclick="viewTenderDetails('{deal['id']}')" class="flex-1 bg-white text-red-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100">
                     View Details
@@ -917,7 +917,7 @@ def generate_matches_section(matches: List[Dict]) -> str:
                     <div class="text-xs text-gray-500">Match Score</div>
                 </div>
             </div>
-            
+
             <div class="grid grid-cols-3 gap-4 mb-3">
                 <div>
                     <div class="text-xs text-gray-500">Value</div>
@@ -932,14 +932,14 @@ def generate_matches_section(matches: List[Dict]) -> str:
                     <div class="text-green-600 font-semibold">Open</div>
                 </div>
             </div>
-            
+
             <div class="mb-3">
                 <div class="text-xs text-gray-500 mb-1">Match Strength</div>
                 <div class="progress-bar">
                     <div class="progress-fill" style="width: {match['match']}%"></div>
                 </div>
             </div>
-            
+
             <div class="flex gap-2">
                 <button onclick="viewTenderDetails('{match['id']}')" class="flex-1 gradient-bg text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90">
                     View Tender
@@ -970,11 +970,11 @@ def generate_competitors_section(competitors: List[Dict]) -> str:
         </thead>
         <tbody class="divide-y">
     '''
-    
+
     for comp in competitors:
         trend_icon = "📈" if comp['trend'] == "up" else "📊" if comp['trend'] == "stable" else "📉"
         trend_color = "green" if comp['trend'] == "up" else "gray" if comp['trend'] == "stable" else "red"
-        
+
         html += f'''
         <tr class="hover:bg-gray-50">
             <td class="px-6 py-4 font-semibold text-gray-800">{comp['name']}</td>
@@ -991,6 +991,6 @@ def generate_competitors_section(competitors: List[Dict]) -> str:
             </td>
         </tr>
         '''
-    
+
     html += '</tbody></table></div>'
     return html

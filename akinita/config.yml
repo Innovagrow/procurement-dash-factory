@@ -1,10 +1,10 @@
-# Damasol Limited - Real Estate Opportunity Engine
+# Real Estate Opportunity Engine
 # Presets for the screener and identity defaults for the outreach campaign.
 # Nothing here is read automatically; the CLIs take flags. Use this as the
 # single place to keep the numbers your team has agreed on.
 
 identity:
-  company: "Damasol Limited"
+  company: "[Επωνυμία]"
   sender_name: ""              # συμπληρώστε
   sender_title: "Επενδυτικός Οργανισμός"
   reply_email: ""              # συμπληρώστε - χρησιμοποιείται και ως διεύθυνση διαγραφής

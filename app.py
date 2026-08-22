@@ -85,7 +85,7 @@ templates = Jinja2Templates(directory="site")
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Homepage - redirect to dashboard if logged in, otherwise show landing page"""
-    
+
     # Check if user is already logged in
     auth_header = request.headers.get('Authorization')
     if auth_header and auth_header.startswith('Bearer '):
@@ -96,13 +96,13 @@ async def home(request: Request):
             return RedirectResponse(url="/user/dashboard", status_code=302)
         except:
             pass  # Invalid token, show landing page
-    
+
     # Serve the Quarto-rendered index.html
     index_path = Path(__file__).parent / "site" / "_site" / "index.html"
-    
+
     if index_path.exists():
         return HTMLResponse(content=index_path.read_text(), status_code=200)
-    
+
     # Fallback if Quarto not rendered yet
     return HTMLResponse(content="""
     <html>
@@ -150,31 +150,31 @@ async def login(request: Request):
         data = await request.json()
         email = data.get("email")
         password = data.get("password")
-        
+
         if not email or not password:
             return JSONResponse({
                 'success': False,
                 'error': 'Email and password are required'
             }, status_code=400)
-        
+
         # Check if user exists
         if email not in users_db:
             return JSONResponse({
                 'success': False,
                 'error': 'Invalid email or password'
             }, status_code=401)
-        
+
         user = users_db[email]
-        
+
         # Verify password - EXACT SAME AS EUROSTAT PROJECT
         import bcrypt as bcrypt_lib
-        
+
         if "hashed_password" not in user or not bcrypt_lib.checkpw(password.encode('utf-8'), user["hashed_password"].encode('utf-8')):
             return JSONResponse({
                 'success': False,
                 'error': 'Invalid email or password'
             }, status_code=401)
-        
+
         # Create JWT token
         token_payload = {
             "email": email,
@@ -182,7 +182,7 @@ async def login(request: Request):
             "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         }
         token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
-        
+
         return JSONResponse({
             'success': True,
             'token': token,
@@ -191,7 +191,7 @@ async def login(request: Request):
                 'username': user.get("username", email.split("@")[0])
             }
         })
-    
+
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
@@ -211,20 +211,20 @@ async def signup(request: Request):
         username = data.get("username")
         email = data.get("email")
         password = data.get("password")
-        
+
         if not email or not password or not username:
             return JSONResponse({
                 'success': False,
                 'error': 'Username, email and password are required'
             }, status_code=400)
-        
+
         # Strong password validation
         if len(password) < 12:
             return JSONResponse({
                 'success': False,
                 'error': 'Password must be at least 12 characters'
             }, status_code=400)
-        
+
         # Check for uppercase, lowercase, number, and special character
         import re
         if not re.search(r'[A-Z]', password):
@@ -232,37 +232,37 @@ async def signup(request: Request):
                 'success': False,
                 'error': 'Password must include at least one uppercase letter'
             }, status_code=400)
-        
+
         if not re.search(r'[a-z]', password):
             return JSONResponse({
                 'success': False,
                 'error': 'Password must include at least one lowercase letter'
             }, status_code=400)
-        
+
         if not re.search(r'[0-9]', password):
             return JSONResponse({
                 'success': False,
                 'error': 'Password must include at least one number'
             }, status_code=400)
-        
+
         if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
             return JSONResponse({
                 'success': False,
                 'error': 'Password must include at least one special character (!@#$%^&*...)'
             }, status_code=400)
-        
+
         # Check if user already exists
         if email in users_db:
             return JSONResponse({
                 'success': False,
                 'error': 'You already have an account! Please login instead.'
             }, status_code=400)
-        
+
         # Hash password - EXACT SAME AS EUROSTAT PROJECT
         import bcrypt as bcrypt_lib
         salt = bcrypt_lib.gensalt()
         hashed_password = bcrypt_lib.hashpw(password.encode('utf-8'), salt).decode('utf-8')
-        
+
         # Create user
         users_db[email] = {
             "email": email,
@@ -271,7 +271,7 @@ async def signup(request: Request):
             "provider": "email",
             "created_at": datetime.now().isoformat()
         }
-        
+
         # Create JWT token
         token_payload = {
             "email": email,
@@ -279,7 +279,7 @@ async def signup(request: Request):
             "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         }
         token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
-        
+
         return JSONResponse({
             'success': True,
             'token': token,
@@ -288,7 +288,7 @@ async def signup(request: Request):
                 'username': username
             }
         })
-    
+
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
@@ -309,7 +309,7 @@ async def search_tenders(
     limit: int = Query(100, description="Number of results (max 1000)")
 ):
     """Search for procurement tenders"""
-    
+
     filters = {}
     if country:
         filters['country'] = country
@@ -320,9 +320,9 @@ async def search_tenders(
     if max_value:
         filters['max_value'] = max_value
     filters['limit'] = min(limit, 1000)
-    
+
     tenders = ted_connector.search_tenders(filters)
-    
+
     return JSONResponse({
         'total': len(tenders),
         'filters': filters,
@@ -336,15 +336,15 @@ async def get_statistics(
     cpv_code: str = Query(None)
 ):
     """Get procurement statistics"""
-    
+
     filters = {}
     if country:
         filters['country'] = country
     if cpv_code:
         filters['cpv_code'] = cpv_code
-    
+
     stats = ted_connector.get_statistics(filters)
-    
+
     return JSONResponse(stats)
 
 
@@ -355,16 +355,16 @@ async def tender_dashboard(
     limit: int = Query(100)
 ):
     """Tender overview dashboard"""
-    
+
     filters = {'limit': limit}
     if country:
         filters['country'] = country
     if cpv_code:
         filters['cpv_code'] = cpv_code
-    
+
     tenders = ted_connector.search_tenders(filters)
     dashboard = dashboard_gen.create_tender_overview(tenders)
-    
+
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -421,7 +421,7 @@ async def tender_dashboard(
             <p>EU Procurement Intelligence</p>
             <a href="/user/dashboard" style="color: white;">← Back to My Dashboard</a>
         </div>
-        
+
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-value">{dashboard['kpis']['total_tenders']}</div>
@@ -436,36 +436,36 @@ async def tender_dashboard(
                 <div class="kpi-label">Average Value</div>
             </div>
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['timeline']}
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['geography']}
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['value_dist']}
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['categories']}
         </div>
     </body>
     </html>
     """
-    
+
     return html
 
 
 @app.get("/dashboard/it-tenders", response_class=HTMLResponse)
 async def it_dashboard():
     """IT-specific tender dashboard"""
-    
+
     tenders = ted_connector.search_tenders({'cpv_code': '48', 'limit': 100})
     dashboard = dashboard_gen.create_tender_overview(tenders)
-    
+
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -522,7 +522,7 @@ async def it_dashboard():
             <p>Software, Cloud Computing & IT Services</p>
             <a href="/user/dashboard" style="color: white;">← Back to My Dashboard</a>
         </div>
-        
+
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-value">{dashboard['kpis']['total_tenders']}</div>
@@ -537,22 +537,22 @@ async def it_dashboard():
                 <div class="kpi-label">Average Contract</div>
             </div>
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['timeline']}
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['geography']}
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['categories']}
         </div>
     </body>
     </html>
     """
-    
+
     return html
 
 
@@ -561,7 +561,7 @@ async def countries_dashboard():
     """Geographic analysis dashboard"""
     tenders = ted_connector.search_tenders({'limit': 100})
     dashboard = dashboard_gen.create_tender_overview(tenders)
-    
+
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -618,7 +618,7 @@ async def countries_dashboard():
             <p>Country & Regional Procurement Trends</p>
             <a href="/user/dashboard" style="color: white;">← Back to My Dashboard</a>
         </div>
-        
+
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-value">{dashboard['kpis']['total_tenders']}</div>
@@ -633,11 +633,11 @@ async def countries_dashboard():
                 <div class="kpi-label">Average Value</div>
             </div>
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['geography']}
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['categories']}
         </div>
@@ -652,7 +652,7 @@ async def value_dashboard():
     """Value analysis dashboard"""
     tenders = ted_connector.search_tenders({'limit': 100})
     dashboard = dashboard_gen.create_tender_overview(tenders)
-    
+
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -709,7 +709,7 @@ async def value_dashboard():
             <p>Contract Value Trends & Distribution</p>
             <a href="/user/dashboard" style="color: white;">← Back to My Dashboard</a>
         </div>
-        
+
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-value">{dashboard['kpis']['total_tenders']}</div>
@@ -724,11 +724,11 @@ async def value_dashboard():
                 <div class="kpi-label">Average Value</div>
             </div>
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['value_dist']}
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['timeline']}
         </div>
@@ -743,7 +743,7 @@ async def awards_dashboard():
     """Award analytics dashboard"""
     tenders = ted_connector.search_awards({'limit': 100})
     dashboard = dashboard_gen.create_tender_overview(tenders)
-    
+
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -800,7 +800,7 @@ async def awards_dashboard():
             <p>Contract Award Analysis & Winners</p>
             <a href="/user/dashboard" style="color: white;">← Back to My Dashboard</a>
         </div>
-        
+
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-value">{dashboard['kpis']['total_tenders']}</div>
@@ -815,11 +815,11 @@ async def awards_dashboard():
                 <div class="kpi-label">Average Award</div>
             </div>
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['timeline']}
         </div>
-        
+
         <div class="chart">
             {dashboard['charts']['categories']}
         </div>
@@ -841,16 +841,16 @@ async def tender_report_page(request: Request, tender_id: str, token: str = Quer
             auth_header = request.headers.get('Authorization')
             if auth_header and auth_header.startswith('Bearer '):
                 jwt_token = auth_header.replace('Bearer ', '')
-        
+
         if not jwt_token:
             return RedirectResponse(url="/login.html", status_code=302)
-        
+
         payload = jwt.decode(jwt_token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get('email')
-        
+
         if not email:
             return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
-        
+
         # Sample tender data (replace with real database lookup)
         tender_details = {
             'id': tender_id,
@@ -867,7 +867,7 @@ async def tender_report_page(request: Request, tender_id: str, token: str = Quer
             'procedure_type': 'Open Procedure',
             'documents': ['Technical Specifications.pdf', 'Terms and Conditions.pdf'],
         }
-        
+
         html = f"""
         <!DOCTYPE html>
         <html>
@@ -1025,9 +1025,9 @@ async def tender_report_page(request: Request, tender_id: str, token: str = Quer
         </body>
         </html>
         """
-        
+
         return HTMLResponse(content=html)
-    
+
     except jwt.ExpiredSignatureError:
         return RedirectResponse(url="/login.html?error=token_expired", status_code=302)
     except jwt.InvalidTokenError:
@@ -1043,7 +1043,7 @@ async def user_personal_dashboard(
     try:
         # Try to get token from query parameter (for OAuth redirects) or Authorization header
         jwt_token = None
-        
+
         if token:
             # Token from OAuth redirect URL
             jwt_token = token
@@ -1052,23 +1052,23 @@ async def user_personal_dashboard(
             auth_header = request.headers.get('Authorization')
             if auth_header and auth_header.startswith('Bearer '):
                 jwt_token = auth_header.replace('Bearer ', '')
-        
+
         if not jwt_token:
             # No token provided, redirect to login
             return RedirectResponse(url="/login.html", status_code=302)
-        
+
         # Decode and validate token
         payload = jwt.decode(jwt_token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get('email')
-        
+
         if not email:
             return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
-        
+
         username = payload.get('username', email.split('@')[0])
-        
+
         # Use enhanced dashboard with all high-value features
         return HTMLResponse(content=generate_enhanced_dashboard(email, username))
-    
+
     except jwt.ExpiredSignatureError:
         return RedirectResponse(url="/login.html?error=token_expired", status_code=302)
     except jwt.InvalidTokenError:
@@ -1091,17 +1091,17 @@ async def user_settings(request: Request, token: str = Query(None)):
             auth_header = request.headers.get('Authorization')
             if auth_header and auth_header.startswith('Bearer '):
                 jwt_token = auth_header.replace('Bearer ', '')
-        
+
         if not jwt_token:
             return RedirectResponse(url="/login.html", status_code=302)
-        
+
         payload = jwt.decode(jwt_token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get('email')
         username = payload.get('username', email.split('@')[0])
-        
+
         if not email:
             return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
-        
+
         # Settings page HTML
         html = f"""
         <!DOCTYPE html>
@@ -1209,7 +1209,7 @@ async def user_settings(request: Request, token: str = Query(None)):
         </html>
         """
         return HTMLResponse(content=html)
-    
+
     except jwt.ExpiredSignatureError:
         return RedirectResponse(url="/login.html?error=token_expired", status_code=302)
     except jwt.InvalidTokenError:
@@ -1228,16 +1228,16 @@ async def user_alerts(request: Request, token: str = Query(None)):
             auth_header = request.headers.get('Authorization')
             if auth_header and auth_header.startswith('Bearer '):
                 jwt_token = auth_header.replace('Bearer ', '')
-        
+
         if not jwt_token:
             return RedirectResponse(url="/login.html", status_code=302)
-        
+
         payload = jwt.decode(jwt_token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get('email')
-        
+
         if not email:
             return RedirectResponse(url="/login.html?error=invalid_token", status_code=302)
-        
+
         # Alerts page HTML
         html = """
         <!DOCTYPE html>
@@ -1316,7 +1316,7 @@ async def user_alerts(request: Request, token: str = Query(None)):
 
                     <!-- Active Alerts -->
                     <h2 class="text-xl font-bold mb-4">Active Alerts</h2>
-                    
+
                     <!-- Example Alert 1 -->
                     <div class="alert-card border-l-4 border-green-500">
                         <div class="flex justify-between items-start">
@@ -1367,7 +1367,7 @@ async def user_alerts(request: Request, token: str = Query(None)):
         </html>
         """
         return HTMLResponse(content=html)
-    
+
     except jwt.ExpiredSignatureError:
         return RedirectResponse(url="/login.html?error=token_expired", status_code=302)
     except jwt.InvalidTokenError:
@@ -1384,13 +1384,13 @@ async def add_to_favorites(
         token = credentials.credentials
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get('email')
-        
+
         if not email:
             return JSONResponse({'success': False, 'error': 'Invalid token'}, status_code=401)
-        
+
         success = add_favorite(email, tender_data)
         return JSONResponse({'success': success})
-    
+
     except jwt.JWTError:
         return JSONResponse({'success': False, 'error': 'Invalid token'}, status_code=401)
 
@@ -1405,13 +1405,13 @@ async def remove_from_favorites(
         token = credentials.credentials
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get('email')
-        
+
         if not email:
             return JSONResponse({'success': False, 'error': 'Invalid token'}, status_code=401)
-        
+
         success = remove_favorite(email, tender_id)
         return JSONResponse({'success': success})
-    
+
     except jwt.JWTError:
         return JSONResponse({'success': False, 'error': 'Invalid token'}, status_code=401)
 
@@ -1423,13 +1423,13 @@ async def get_user_favorites(credentials: HTTPAuthorizationCredentials = Depends
         token = credentials.credentials
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get('email')
-        
+
         if not email:
             return JSONResponse({'success': False, 'error': 'Invalid token'}, status_code=401)
-        
+
         favorites = get_favorites(email)
         return JSONResponse({'success': True, 'favorites': favorites})
-    
+
     except jwt.JWTError:
         return JSONResponse({'success': False, 'error': 'Invalid token'}, status_code=401)
 
@@ -1437,13 +1437,13 @@ async def get_user_favorites(credentials: HTTPAuthorizationCredentials = Depends
 @app.get("/auth/google/callback")
 async def google_oauth_callback(code: str = Query(None), state: str = Query(None)):
     """Handle Google OAuth callback"""
-    
+
     if not code:
         return RedirectResponse(url="/login.html?error=no_code")
-    
+
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         return RedirectResponse(url="/login.html?error=oauth_not_configured")
-    
+
     try:
         # Exchange code for access token
         async with httpx.AsyncClient() as client:
@@ -1457,30 +1457,30 @@ async def google_oauth_callback(code: str = Query(None), state: str = Query(None
                     "grant_type": "authorization_code",
                 }
             )
-            
+
             if token_response.status_code != 200:
                 error_body = token_response.text
                 print(f"Google token exchange failed. Status: {token_response.status_code}")
                 print(f"Response: {error_body}")
                 print(f"Redirect URI used: {GOOGLE_REDIRECT_URI}")
                 return RedirectResponse(url="/login.html?error=token_exchange_failed")
-            
+
             token_data = token_response.json()
             access_token = token_data.get("access_token")
-            
+
             # Get user info from Google
             user_response = await client.get(
                 "https://www.googleapis.com/oauth2/v2/userinfo",
                 headers={"Authorization": f"Bearer {access_token}"}
             )
-            
+
             if user_response.status_code != 200:
                 return RedirectResponse(url="/login.html?error=user_info_failed")
-            
+
             user_data = user_response.json()
             email = user_data.get("email")
             name = user_data.get("name", email.split("@")[0])
-            
+
             # Create or update user in database
             if email not in users_db:
                 users_db[email] = {
@@ -1489,7 +1489,7 @@ async def google_oauth_callback(code: str = Query(None), state: str = Query(None
                     "provider": "google",
                     "created_at": datetime.now().isoformat()
                 }
-            
+
             # Create JWT token
             token_payload = {
                 "email": email,
@@ -1497,10 +1497,10 @@ async def google_oauth_callback(code: str = Query(None), state: str = Query(None
                 "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
             }
             jwt_token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
-            
+
             # Redirect to user dashboard with token in URL (frontend will save to localStorage)
             return RedirectResponse(url=f"/user/dashboard?token={jwt_token}&login=success")
-    
+
     except Exception as e:
         print(f"Google OAuth error: {str(e)}")
         return RedirectResponse(url="/login.html?error=oauth_failed")
@@ -1520,5 +1520,5 @@ if __name__ == '__main__':
     print(f"Docs: http://localhost:{port}/docs")
     print("\nPress Ctrl+C to stop")
     print("="*60)
-    
+
     uvicorn.run(app, host="0.0.0.0", port=port)

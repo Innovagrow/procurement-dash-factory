@@ -83,15 +83,15 @@ async def signup(data: dict):
     username = data.get('username')
     email = data.get('email')
     password = data.get('password')
-    
+
     # Check if user exists
     if email in users_db:
         return JSONResponse({'success': False, 'error': 'Email already exists'})
-    
+
     # Hash password (use bcrypt in production!)
     import hashlib
     hashed_password = hashlib.sha256(password.encode()).hexdigest()
-    
+
     # Create user
     user = {
         'username': username,
@@ -100,13 +100,13 @@ async def signup(data: dict):
         'created_at': datetime.now().isoformat()
     }
     users_db[email] = user
-    
+
     # Generate token
     token = jwt.encode({
         'email': email,
         'exp': datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     }, SECRET_KEY, algorithm=ALGORITHM)
-    
+
     return JSONResponse({
         'success': True,
         'token': token,
@@ -117,26 +117,26 @@ async def signup(data: dict):
 async def login(data: dict):
     email = data.get('email')
     password = data.get('password')
-    
+
     # Check if user exists
     if email not in users_db:
         return JSONResponse({'success': False, 'error': 'Invalid credentials'})
-    
+
     user = users_db[email]
-    
+
     # Verify password
     import hashlib
     hashed_password = hashlib.sha256(password.encode()).hexdigest()
-    
+
     if user['password'] != hashed_password:
         return JSONResponse({'success': False, 'error': 'Invalid credentials'})
-    
+
     # Generate token
     token = jwt.encode({
         'email': email,
         'exp': datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     }, SECRET_KEY, algorithm=ALGORITHM)
-    
+
     return JSONResponse({
         'success': True,
         'token': token,
@@ -190,22 +190,22 @@ async def google_callback(code: str, request: Request):
         'redirect_uri': str(request.base_url) + 'auth/google/callback',
         'grant_type': 'authorization_code'
     }
-    
+
     async with httpx.AsyncClient() as client:
         token_response = await client.post(token_url, data=data)
         tokens = token_response.json()
-        
+
         # Get user info
         user_info_response = await client.get(
             'https://www.googleapis.com/oauth2/v2/userinfo',
             headers={'Authorization': f'Bearer {tokens["access_token"]}'}
         )
         user_info = user_info_response.json()
-    
+
     # Create or login user
     email = user_info['email']
     username = user_info.get('name', email.split('@')[0])
-    
+
     if email not in users_db:
         users_db[email] = {
             'username': username,
@@ -213,13 +213,13 @@ async def google_callback(code: str, request: Request):
             'google_id': user_info['id'],
             'created_at': datetime.now().isoformat()
         }
-    
+
     # Generate our token
     token = jwt.encode({
         'email': email,
         'exp': datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     }, SECRET_KEY, algorithm=ALGORITHM)
-    
+
     # Redirect to home with token
     return HTMLResponse(f"""
     <html>

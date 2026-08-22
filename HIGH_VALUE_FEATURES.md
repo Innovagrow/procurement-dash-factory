@@ -37,7 +37,7 @@ Deadline: 14 days | Competition: Low (3 bidders)
   - Top 20 suppliers by win rate
   - Recent contract awards
   - Average contract values
-  
+
 - **Competitor Monitoring**
   - Set alerts for specific companies
   - Track their bidding activity
@@ -236,7 +236,7 @@ AI: "I found 12 high-value IT tenders in Germany:
      - 5 have low competition (<5 bidders)
      - Best match: Cloud Services tender worth €340K
        (95% match to your profile, deadline in 18 days)
-     
+
      [See Full List]"
 ```
 

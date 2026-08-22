@@ -2,13 +2,13 @@
 Mail-merge CLI: turn a broker list into personalised, ready-to-send messages.
 
     # 1. render everything (safe, writes files only)
-    python -m damasol.outreach.merge --brokers out/brokers.csv \\
+    python -m akinita.outreach.merge --brokers out/brokers.csv \\
         --channel email --sender-name "..." --reply-email deals@example.com
 
     # 2. inspect out/campaign/merged.csv and a few .eml drafts
 
     # 3. only then, and only if you have decided the campaign is compliant:
-    python -m damasol.outreach.merge --brokers out/brokers.csv --channel email \\
+    python -m akinita.outreach.merge --brokers out/brokers.csv --channel email \\
         --send --confirm-send --max-send 50 ...
 
 Sending is off by default and needs two separate flags plus SMTP credentials in
@@ -78,10 +78,10 @@ def write_eml(path: str, to_address: str, subject: str, body: str, identity: Dic
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="damasol.outreach.merge",
-        description="Προσωποποιημένα μηνύματα καμπάνιας Damasol ανά μεσίτη.",
+        prog="akinita.outreach.merge",
+        description="Προσωποποιημένα μηνύματα καμπάνιας ανά μεσίτη.",
     )
-    parser.add_argument("--brokers", required=True, help="CSV από το damasol.brokers")
+    parser.add_argument("--brokers", required=True, help="CSV από το akinita.brokers")
     parser.add_argument("--channel", default="email", choices=available_templates())
     parser.add_argument("--out", default="out/campaign")
     parser.add_argument("--limit", type=int, default=None)

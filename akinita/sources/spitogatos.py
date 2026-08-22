@@ -17,7 +17,7 @@ changes, so three strategies are tried in order:
 IMPORTANT - verification status: this adapter is written against Spitogatos'
 published URL scheme and page structure but has NOT been executed against the
 live site, because the container this package was built in cannot open outbound
-browser connections. Run `python -m damasol.screener --source spitogatos
+browser connections. Run `python -m akinita.screener --source spitogatos
 --probe` on a normal machine first; it prints exactly which strategy matched and
 how many listings were parsed, so you can adjust before trusting the numbers.
 Until then `--source xe` is the verified path.

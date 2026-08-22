@@ -1,9 +1,9 @@
 """
 Broker directory CLI.
 
-    python -m damasol.brokers --categories "Μεσιτικό γραφείο" --with-contacts --limit 500
+    python -m akinita.brokers --categories "Μεσιτικό γραφείο" --with-contacts --limit 500
 
-Builds the recipient list for the Damasol outreach campaign from xe.gr's public
+Builds the recipient list for the  outreach campaign from xe.gr's public
 professionals directory (`/property/pros`), which robots.txt permits - unlike
 the results pages. The index gives name + profile URL for every professional;
 `--with-contacts` then opens each profile for phone, e-mail and address.
@@ -68,8 +68,8 @@ def deduplicate(brokers: Sequence[Broker]) -> List[Broker]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="damasol.brokers",
-        description="Κατάλογος μεσιτών/επαγγελματιών ακινήτων για την καμπάνια Damasol.",
+        prog="akinita.brokers",
+        description="Κατάλογος μεσιτών/επαγγελματιών ακινήτων για την καμπάνια.",
     )
     parser.add_argument("--source", default="xe", choices=sorted(REGISTRY))
     parser.add_argument(
@@ -103,7 +103,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     source = REGISTRY[args.source](fetcher)
 
     _log("=" * 74)
-    _log(f"DAMASOL LIMITED · Κατάλογος επαγγελματιών ακινήτων · πηγή: {source.name}")
+    _log(f"SAROSI LIMITED · Κατάλογος επαγγελματιών ακινήτων · πηγή: {source.name}")
     _log("=" * 74)
 
     _log("\n[1/3] Ανάγνωση δημόσιου καταλόγου")

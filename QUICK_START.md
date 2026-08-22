@@ -224,5 +224,5 @@ Everything is built and tested. Just deploy to Railway and you have a **live pro
 
 ---
 
-**Platform running at:** http://localhost:8001  
+**Platform running at:** http://localhost:8001
 **Ready to deploy!** 🚀

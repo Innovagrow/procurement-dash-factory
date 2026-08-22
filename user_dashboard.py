@@ -12,14 +12,14 @@ user_preferences = {}
 
 class UserDashboard:
     """Manage user personal dashboards and favorites"""
-    
+
     @staticmethod
     def get_user_dashboard_html(user_email: str):
         """Generate personalized dashboard for logged-in user"""
-        
+
         favorites = user_favorites.get(user_email, [])
         prefs = user_preferences.get(user_email, {})
-        
+
         html = f'''
         <!DOCTYPE html>
         <html>
@@ -34,7 +34,7 @@ class UserDashboard:
                     background: #f5f7fa; 
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
                 }}
-                
+
                 /* Header with Profile */
                 .top-header {{
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -62,7 +62,7 @@ class UserDashboard:
                     transform: scale(1.05);
                     opacity: 0.9;
                 }}
-                
+
                 /* Profile Dropdown */
                 .profile-dropdown {{
                     position: relative;
@@ -104,14 +104,14 @@ class UserDashboard:
                 .profile-menu a:hover {{ background: #f5f7fa; }}
                 .profile-menu a:first-child {{ border-radius: 10px 10px 0 0; }}
                 .profile-menu a:last-child {{ border-radius: 0 0 10px 10px; border-top: 1px solid #e2e8f0; }}
-                
+
                 /* Main Container - Full Width */
                 .main-container {{
                     max-width: 1400px;
                     margin: 2rem auto;
                     padding: 0 2rem;
                 }}
-                
+
                 /* Stats Grid */
                 .stats-grid {{
                     display: grid;
@@ -139,7 +139,7 @@ class UserDashboard:
                 }}
                 .stat-value {{ font-size: 2rem; font-weight: bold; color: #2d3748; }}
                 .stat-label {{ color: #718096; font-size: 0.875rem; margin-top: 0.25rem; }}
-                
+
                 /* Report Cards */
                 .report-card {{
                     background: white;
@@ -165,7 +165,7 @@ class UserDashboard:
                 .badge-trending {{ background: #fed7d7; color: #c53030; }}
                 .badge-new {{ background: #c6f6d5; color: #2f855a; }}
                 .badge-popular {{ background: #feebc8; color: #c05621; }}
-                
+
                 .section-title {{
                     font-size: 1.5rem;
                     font-weight: 700;
@@ -175,7 +175,7 @@ class UserDashboard:
                     align-items: center;
                     gap: 0.5rem;
                 }}
-                
+
                 .btn-primary {{
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     border: none;
@@ -233,7 +233,7 @@ class UserDashboard:
                     </div>
                 </div>
             </div>
-            
+
             <!-- Main Content -->
             <div class="main-container">
                 <!-- Quick Stats -->
@@ -267,7 +267,7 @@ class UserDashboard:
                         <div class="stat-label">Recent Views</div>
                     </div>
                 </div>
-                
+
                 <!-- Trending Reports -->
                 <div style="margin-bottom: 3rem;">
                     <h2 class="section-title">
@@ -308,7 +308,7 @@ class UserDashboard:
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Report Gallery -->
                 <div style="margin-bottom: 3rem;">
                     <h2 class="section-title">
@@ -345,7 +345,7 @@ class UserDashboard:
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- My Favorites & Quick Actions -->
                 <div class="row">
                     <div class="col-md-8">
@@ -355,7 +355,7 @@ class UserDashboard:
                         </h2>
                         {UserDashboard._render_favorites(favorites)}
                     </div>
-                    
+
                     <div class="col-md-4">
                         <h2 class="section-title">
                             <i class="fas fa-bolt" style="color: #805ad5;"></i>
@@ -376,26 +376,26 @@ class UserDashboard:
                     </div>
                 </div>
             </div>
-            
+
             <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
             <script>
                 // Handle OAuth callback token from URL
                 const urlParams = new URLSearchParams(window.location.search);
                 const token = urlParams.get('token');
                 const loginStatus = urlParams.get('login');
-                
+
                 if (token && loginStatus === 'success') {{
                     localStorage.setItem('auth_token', token);
                     // Clean URL
                     window.history.replaceState({{}}, document.title, window.location.pathname);
                 }}
-                
+
                 // Profile dropdown toggle
                 function toggleProfile() {{
                     const menu = document.getElementById('profileMenu');
                     menu.classList.toggle('show');
                 }}
-                
+
                 // Close dropdown when clicking outside
                 window.onclick = function(event) {{
                     if (!event.target.matches('.profile-btn') && !event.target.closest('.profile-btn')) {{
@@ -405,7 +405,7 @@ class UserDashboard:
                         }}
                     }}
                 }}
-                
+
                 // Logout function
                 function logout(event) {{
                     event.preventDefault();
@@ -413,7 +413,7 @@ class UserDashboard:
                     localStorage.removeItem('user');
                     window.location.href = '/';
                 }}
-                
+
                 function removeFavorite(tenderId) {{
                     fetch(`/api/favorites/${{tenderId}}`, {{
                         method: 'DELETE',
@@ -432,9 +432,9 @@ class UserDashboard:
         </body>
         </html>
         '''
-        
+
         return html
-    
+
     @staticmethod
     def _render_favorites(favorites):
         """Render user's favorite tenders"""
@@ -444,7 +444,7 @@ class UserDashboard:
                 <p class="text-muted">No favorites yet. Click the star icon on any tender to save it here.</p>
             </div>
             '''
-        
+
         html = ''
         for fav in favorites:
             html += f'''
@@ -460,7 +460,7 @@ class UserDashboard:
                 </div>
             </div>
             '''
-        
+
         return html
 
 # API endpoints for favorites
@@ -468,7 +468,7 @@ def add_favorite(user_email: str, tender_data: dict):
     """Add tender to user favorites"""
     if user_email not in user_favorites:
         user_favorites[user_email] = []
-    
+
     # Check if already exists
     if not any(f['id'] == tender_data['id'] for f in user_favorites[user_email]):
         user_favorites[user_email].append(tender_data)

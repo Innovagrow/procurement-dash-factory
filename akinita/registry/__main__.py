@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""CLI for the two registries: python -m damasol.registry <command>"""
+"""CLI for the two registries: python -m akinita.registry <command>"""
 from __future__ import annotations
 
 import argparse
@@ -109,7 +109,7 @@ def cmd_render(args) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="damasol.registry",
+        prog="akinita.registry",
         description="Μητρώα ιδεών σημάτων και υλοποιημένων μηχανισμών.",
     )
     sub = parser.add_subparsers(dest="command", required=True)

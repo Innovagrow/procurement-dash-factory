@@ -8,7 +8,7 @@ import pandas as pd
 
 class PowerBIDashboard:
     """Generate Power BI style dashboards with tabs and KPIs"""
-    
+
     def __init__(self):
         self.colors = {
             'primary': '#667eea',
@@ -18,15 +18,15 @@ class PowerBIDashboard:
             'danger': '#f56565',
             'info': '#4299e1'
         }
-    
+
     def create_kpi_cards(self, kpis):
         """Generate KPI cards HTML"""
         cards_html = '<div class="kpi-grid">'
-        
+
         for kpi in kpis:
             icon = kpi.get('icon', 'fa-chart-line')
             color = kpi.get('color', 'primary')
-            
+
             cards_html += f'''
             <div class="kpi-card">
                 <div class="kpi-icon" style="color: {self.colors[color]};">
@@ -37,13 +37,13 @@ class PowerBIDashboard:
                 {f'<div class="kpi-change {kpi["change_class"]}">{kpi["change"]}</div>' if 'change' in kpi else ''}
             </div>
             '''
-        
+
         cards_html += '</div>'
         return cards_html
-    
+
     def create_tab_dashboard(self, data, title="Dashboard"):
         """Create tabbed dashboard with minimal scrolling"""
-        
+
         # Calculate KPIs
         kpis = [
             {
@@ -73,7 +73,7 @@ class PowerBIDashboard:
                 'color': 'warning'
             }
         ]
-        
+
         # Tab contents
         tabs = {
             'overview': self._create_overview_tab(data),
@@ -82,7 +82,7 @@ class PowerBIDashboard:
             'value': self._create_value_tab(data),
             'timeline': self._create_timeline_tab(data)
         }
-        
+
         # Build HTML
         html = f'''
         <!DOCTYPE html>
@@ -186,9 +186,9 @@ class PowerBIDashboard:
                 <h1><i class="fas fa-chart-line"></i> {title}</h1>
                 <div class="breadcrumb">Procurement Intelligence / Dashboard</div>
             </div>
-            
+
             {self.create_kpi_cards(kpis)}
-            
+
             <div class="tabs">
                 <div class="tab active" onclick="showTab('overview')">
                     <i class="fas fa-home"></i> Overview
@@ -206,7 +206,7 @@ class PowerBIDashboard:
                     <i class="fas fa-clock"></i> Timeline
                 </div>
             </div>
-            
+
             <div id="overview" class="tab-content active">
                 {tabs['overview']}
             </div>
@@ -222,7 +222,7 @@ class PowerBIDashboard:
             <div id="timeline" class="tab-content">
                 {tabs['timeline']}
             </div>
-            
+
             <script>
                 function showTab(tabName) {{
                     // Hide all tabs
@@ -232,7 +232,7 @@ class PowerBIDashboard:
                     document.querySelectorAll('.tab').forEach(tab => {{
                         tab.classList.remove('active');
                     }});
-                    
+
                     // Show selected tab
                     document.getElementById(tabName).classList.add('active');
                     event.target.closest('.tab').classList.add('active');
@@ -241,9 +241,9 @@ class PowerBIDashboard:
         </body>
         </html>
         '''
-        
+
         return html
-    
+
     def _create_overview_tab(self, data):
         """Overview tab with 4 key charts"""
         # Implementation here
@@ -255,15 +255,15 @@ class PowerBIDashboard:
             <div class="chart" id="overview-4"></div>
         </div>
         '''
-    
+
     def _create_category_tab(self, data):
         return '<div class="chart-grid"><div class="chart">Category charts here</div></div>'
-    
+
     def _create_geography_tab(self, data):
         return '<div class="chart-grid"><div class="chart">Geography charts here</div></div>'
-    
+
     def _create_value_tab(self, data):
         return '<div class="chart-grid"><div class="chart">Value charts here</div></div>'
-    
+
     def _create_timeline_tab(self, data):
         return '<div class="chart-grid"><div class="chart">Timeline charts here</div></div>'

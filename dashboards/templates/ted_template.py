@@ -8,7 +8,7 @@ from typing import Dict
 def generate_ted_dashboard(tenders: pd.DataFrame, user_email: str = "user") -> str:
     """
     Generate TED-specific dashboard with EU procurement insights
-    
+
     Tabs:
     1. Overview - KPIs and trends
     2. Hot Deals - Below-market opportunities
@@ -17,18 +17,18 @@ def generate_ted_dashboard(tenders: pd.DataFrame, user_email: str = "user") -> s
     5. Competitors - Top suppliers
     6. Opportunities - Open tenders
     """
-    
+
     # Calculate insights
     total_tenders = len(tenders)
     total_value = tenders['value_eur'].sum() if len(tenders) > 0 else 0
     avg_value = tenders['value_eur'].mean() if len(tenders) > 0 else 0
-    
+
     # Hot deals (sample - need real benchmarking)
     hot_deals_count = max(1, int(total_tenders * 0.05))  # 5% are deals
-    
+
     # Countries
     top_countries = tenders.groupby('country_name').size().sort_values(ascending=False).head(5).to_dict() if len(tenders) > 0 else {}
-    
+
     # CPV Categories (EU-specific)
     cpv_categories = {
         '48': 'IT Services & Software',
@@ -37,7 +37,7 @@ def generate_ted_dashboard(tenders: pd.DataFrame, user_email: str = "user") -> s
         '72': 'IT Services',
         '79': 'Business Services'
     }
-    
+
     html = f'''
     <!DOCTYPE html>
     <html>
@@ -251,7 +251,7 @@ def generate_ted_dashboard(tenders: pd.DataFrame, user_email: str = "user") -> s
                 document.querySelectorAll('.tab-button').forEach(btn => {{
                     btn.classList.remove('active');
                 }});
-                
+
                 // Show selected tab
                 document.getElementById(tabName + '-tab').classList.add('active');
                 event.target.classList.add('active');
@@ -260,7 +260,7 @@ def generate_ted_dashboard(tenders: pd.DataFrame, user_email: str = "user") -> s
     </body>
     </html>
     '''
-    
+
     return html
 
 
@@ -271,7 +271,7 @@ def generate_sample_hot_deals() -> str:
         {"title": "Software Development - France", "value": 125000, "market": 195000, "cpv": "72", "deadline": 24},
         {"title": "IT Security Audit - Netherlands", "value": 68000, "market": 105000, "cpv": "72", "deadline": 12},
     ]
-    
+
     html = ""
     for deal in deals:
         savings = deal['market'] - deal['value']
@@ -317,13 +317,13 @@ def generate_country_table(countries: Dict) -> str:
     """Generate country breakdown table"""
     if not countries:
         return "<div class='text-gray-500 text-center py-4'>No data available</div>"
-    
+
     html = "<table class='w-full'><thead class='bg-gray-50 border-b'><tr>"
     html += "<th class='px-4 py-2 text-left'>Country</th><th class='px-4 py-2 text-right'>Tenders</th></tr></thead><tbody>"
-    
+
     for country, count in list(countries.items())[:10]:
         html += f"<tr class='border-b hover:bg-gray-50'><td class='px-4 py-3 font-semibold'>{country}</td><td class='px-4 py-3 text-right'>{count}</td></tr>"
-    
+
     html += "</tbody></table>"
     return html
 
@@ -352,12 +352,12 @@ def generate_competitor_table() -> str:
         {"name": "Capgemini", "country": "France", "wins": 18, "value": "€3.8M", "trend": "up"},
         {"name": "IBM", "country": "Germany", "wins": 15, "value": "€5.1M", "trend": "stable"},
     ]
-    
+
     html = "<table class='w-full'><thead class='bg-gray-50'><tr>"
     html += "<th class='px-4 py-3 text-left'>Company</th><th class='px-4 py-3'>Country</th>"
     html += "<th class='px-4 py-3 text-right'>Wins</th><th class='px-4 py-3 text-right'>Total Value</th>"
     html += "<th class='px-4 py-3'>Trend</th></tr></thead><tbody>"
-    
+
     for comp in competitors:
         trend_icon = "📈" if comp['trend'] == "up" else "📊"
         html += f'''
@@ -369,6 +369,6 @@ def generate_competitor_table() -> str:
             <td class='px-4 py-3 text-center'>{trend_icon}</td>
         </tr>
         '''
-    
+
     html += "</tbody></table>"
     return html

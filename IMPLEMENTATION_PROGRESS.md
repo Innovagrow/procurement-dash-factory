@@ -26,7 +26,7 @@
   - All insights: Bargains, trends, competitors, price analysis
   - Beautiful gradient design
   - Sample data for all sections
-  
+
 - ⏳ SAM.gov (US) Template - CREATING NOW
 - ⏳ KIMDIS (Greece) Template - CREATING NOW
 - ⏳ Diavgeia (Greece) Template - CREATING NOW

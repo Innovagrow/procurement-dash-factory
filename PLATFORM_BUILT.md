@@ -13,7 +13,7 @@ Your **multi-source government procurement analytics platform** is **fully opera
 ### **Local (Running Now):**
 - **🏠 Homepage:** http://localhost:8000
 - **📊 Tender Dashboard:** http://localhost:8000/dashboard/tenders
-- **💻 IT Tenders:** http://localhost:8000/dashboard/it-tenders  
+- **💻 IT Tenders:** http://localhost:8000/dashboard/it-tenders
 - **🔍 API Search:** http://localhost:8000/api/search?limit=10
 - **📖 Interactive Docs:** http://localhost:8000/docs
 
@@ -302,8 +302,8 @@ You built a **professional-grade procurement intelligence platform** in **under 
 
 ---
 
-**Built with:** Python, FastAPI, Plotly, Pandas  
-**Powered by:** TED (EU) procurement data  
+**Built with:** Python, FastAPI, Plotly, Pandas
+**Powered by:** TED (EU) procurement data
 **Ready for:** SAM.gov (US), Greece, and more!
 
 🚀 **LET'S GO!** 🚀

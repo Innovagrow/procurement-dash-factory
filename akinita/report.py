@@ -110,7 +110,7 @@ def write_html_report(
     document = f"""<!doctype html>
 <html lang="el"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Damasol Limited · Ευκαιρίες Ακινήτων</title>
+<title>Ευκαιρίες Ακινήτων</title>
 <style>
   :root {{
     --bg:#f6f7f9; --panel:#ffffff; --ink:#16181d; --muted:#5f6672;
@@ -170,7 +170,7 @@ def write_html_report(
     background:var(--panel); color:var(--muted); font-size:13px; border-radius:0 8px 8px 0; }}
 </style></head><body><div class="wrap">
 <header class="top">
-  <h1>Damasol Limited · Ευκαιρίες Ακινήτων</h1>
+  <h1>Ευκαιρίες Ακινήτων</h1>
   <p>Πηγή: {_esc(meta.get('source', '—'))} · Φίλτρα: {_esc(meta.get('transaction', ''))} ·
      {_esc(', '.join(ITEM_TYPE_EL.get(t, t) for t in meta.get('item_types', [])))} ·
      έως {_gr(meta.get('max_price'), 0, ' €')} · {_esc(meta.get('bbox', ''))}</p>

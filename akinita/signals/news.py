@@ -84,7 +84,7 @@ class NewsSignal(SignalProvider):
     cadence = "συνεχής· απαιτεί συσσώρευση για να γίνει χρήσιμο"
 
     def __init__(self, fetcher, feeds: Iterable[str] = DEFAULT_FEEDS,
-                 archive_path: str = os.path.join(".cache", "damasol", "news_archive.jsonl"),
+                 archive_path: str = os.path.join(".cache", "akinita", "news_archive.jsonl"),
                  place_names: Optional[Iterable[str]] = None):
         super().__init__(fetcher)
         self.feeds = list(feeds)

@@ -2,7 +2,7 @@
 # ΜΗΤΡΩΟ ΥΛΟΠΟΙΗΜΕΝΩΝ ΜΗΧΑΝΙΣΜΩΝ
 # ============================================================================
 # Ό,τι πραγματικά τρέχει στο σύστημα. Κάθε εγγραφή δείχνει σε αρχείο και
-# συνάρτηση που υπάρχουν — το `python -m damasol.registry audit` το ελέγχει
+# συνάρτηση που υπάρχουν — το `python -m akinita.registry audit` το ελέγχει
 # και σπάει αν κάτι δεν στέκει.
 #
 # Κανόνας: μηχανισμός χωρίς `validation` είναι υπόθεση, όχι μηχανισμός.
@@ -16,7 +16,7 @@ mechanisms:
   - id: MECH-001
     title: Συγκριτικά γειτονιάς → απόκλιση τιμής (ΔΙΑΛΟΓΗ ΜΟΝΟ)
     implements: SIG-015
-    module: damasol/scoring.py
+    module: akinita/scoring.py
     entrypoint: MarketIndex.sale_price_per_sqm
     produces: [market_price_per_sqm, discount_pct]
     feeds_score: value_gap
@@ -35,7 +35,7 @@ mechanisms:
   - id: MECH-002
     title: Συγκριτικά ενοικίων → μεικτή απόδοση
     implements: SIG-015
-    module: damasol/scoring.py
+    module: akinita/scoring.py
     entrypoint: MarketIndex.rent_price_per_sqm
     produces: [est_monthly_rent, gross_yield_pct]
     feeds_score: rental_yield
@@ -50,7 +50,7 @@ mechanisms:
   - id: MECH-003
     title: Ρευστότητα από εγγύτητα σε αστικό κέντρο
     implements: SIG-003
-    module: damasol/scoring.py
+    module: akinita/scoring.py
     entrypoint: _score_liquidity
     produces: [liquidity_score]
     feeds_score: liquidity
@@ -65,7 +65,7 @@ mechanisms:
   - id: MECH-004
     title: Καταλληλότητα εισιτηρίου έναντι προϋπολογισμού
     implements: SIG-015
-    module: damasol/scoring.py
+    module: akinita/scoring.py
     entrypoint: _score_ticket_fit
     produces: [ticket_fit]
     feeds_score: ticket_fit
@@ -78,7 +78,7 @@ mechanisms:
   - id: MECH-005
     title: Κατάσταση & περιθώριο υπεραξίας από κείμενο αγγελίας
     implements: SIG-018
-    module: damasol/scoring.py
+    module: akinita/scoring.py
     entrypoint: _score_upside
     produces: [upside]
     feeds_score: upside
@@ -93,7 +93,7 @@ mechanisms:
   - id: MECH-006
     title: Χρόνος στην αγορά
     implements: SIG-008
-    module: damasol/scoring.py
+    module: akinita/scoring.py
     entrypoint: _score_freshness
     produces: [freshness]
     feeds_score: freshness
@@ -109,7 +109,7 @@ mechanisms:
   - id: MECH-007
     title: Οροφές αληθοφάνειας σε έκπτωση και απόδοση
     implements: SIG-015
-    module: damasol/scoring.py
+    module: akinita/scoring.py
     entrypoint: score_listing
     produces: [flags]
     feeds_score: "—"
@@ -122,7 +122,7 @@ mechanisms:
   - id: MECH-008
     title: Διάμεσος με περικοπή άκρων
     implements: SIG-015
-    module: damasol/scoring.py
+    module: akinita/scoring.py
     entrypoint: _median
     produces: [market_price_per_sqm]
     feeds_score: "—"
@@ -135,7 +135,7 @@ mechanisms:
   - id: MECH-009
     title: Κούρεμα εκτίμησης ενοικίου κατά θέση τιμής
     implements: SIG-015
-    module: damasol/scoring.py
+    module: akinita/scoring.py
     entrypoint: _quality_haircut
     produces: [est_monthly_rent]
     feeds_score: rental_yield
@@ -151,7 +151,7 @@ mechanisms:
   - id: MECH-010
     title: Ηδονική αποτίμηση με αναλυμένους συντελεστές
     implements: SIG-015
-    module: damasol/valuation.py
+    module: akinita/valuation.py
     entrypoint: value_property
     produces: [open_market, immediate, low, high, confidence_pct, factor_table]
     feeds_score: "—"
@@ -168,7 +168,7 @@ mechanisms:
   - id: MECH-011
     title: Άμεση, ανοιχτής αγοράς και μελλοντική αξία
     implements: SIG-014
-    module: damasol/valuation.py
+    module: akinita/valuation.py
     entrypoint: value_at_horizon
     produces: [immediate, open_market, horizon_value]
     feeds_score: "—"
@@ -183,7 +183,7 @@ mechanisms:
   - id: MECH-012
     title: Μοντέλο κόστους ελληνικής συναλλαγής
     implements: SIG-012
-    module: damasol/costs.py
+    module: akinita/costs.py
     entrypoint: CostModel
     produces: [acquisition_costs, disposal_costs, holding_costs, works_cost, tax_on_rent]
     feeds_score: "—"
@@ -199,7 +199,7 @@ mechanisms:
   - id: MECH-013
     title: Πίνακας πλάνων — απόκτηση × μετασχηματισμός × έξοδος
     implements: SIG-015
-    module: damasol/strategies.py
+    module: akinita/strategies.py
     entrypoint: generate_plans
     produces: [plans]
     feeds_score: "—"
@@ -217,7 +217,7 @@ mechanisms:
   - id: MECH-016
     title: Έξι ξεχωριστοί δείκτες σε απόλυτη κλίμακα
     implements: SIG-021
-    module: damasol/indicators.py
+    module: akinita/indicators.py
     entrypoint: Indicators
     produces: [return, certainty, speed, capital, ease, risk, combined]
     feeds_score: "—"
@@ -235,7 +235,7 @@ mechanisms:
   - id: MECH-017
     title: Δοκιμή αντοχής — απόδοση αν τα δεδομένα της πύλης είναι ψέμα
     implements: SIG-021
-    module: damasol/strategies.py
+    module: akinita/strategies.py
     entrypoint: price_plan
     produces: [annualised_roi_stressed_pct, net_profit_stressed, certainty]
     feeds_score: "—"
@@ -254,7 +254,7 @@ mechanisms:
   - id: MECH-018
     title: Κατάταξη σε απόδοση υπό πίεση, όχι σε έκπτωση
     implements: SIG-021
-    module: damasol/indicators.py
+    module: akinita/indicators.py
     entrypoint: score_return
     produces: [return]
     feeds_score: "—"
@@ -270,7 +270,7 @@ mechanisms:
   - id: MECH-019
     title: Διαχωρισμός αγοράς γης από αγορά δομημένου χώρου
     implements: SIG-013
-    module: damasol/strategies.py
+    module: akinita/strategies.py
     entrypoint: MarketInputs
     produces: [built_price_per_sqm, rent_per_sqm_month]
     feeds_score: "—"
@@ -288,7 +288,7 @@ mechanisms:
   - id: MECH-014
     title: Κάθε επίπεδο εργασιών ως ξεχωριστό πλάνο
     implements: SIG-015
-    module: damasol/strategies.py
+    module: akinita/strategies.py
     entrypoint: price_plan
     produces: [works_level, works_cost]
     feeds_score: "—"
@@ -310,7 +310,7 @@ mechanisms:
   - id: MECH-015
     title: Συνδυαστική κατάταξη και νικητής ανά δείκτη
     implements: SIG-021
-    module: damasol/strategies.py
+    module: akinita/strategies.py
     entrypoint: best_per_indicator
     produces: [combined, best_per_indicator, best_per_category]
     feeds_score: "—"
@@ -326,7 +326,7 @@ mechanisms:
   - id: MECH-101
     title: Τουριστικές διανυκτερεύσεις ανά περιφέρεια
     implements: SIG-001
-    module: damasol/signals/tourism.py
+    module: akinita/signals/tourism.py
     entrypoint: TourismSignal.reading
     produces: [tourism_intensity, tourism_momentum]
     feeds_score: "στρατηγικές (RENT_SHORT, OPERATE_BUSINESS)"
@@ -344,7 +344,7 @@ mechanisms:
   - id: MECH-102
     title: Ένταση δημόσιων έργων ανά δήμο
     implements: SIG-004
-    module: damasol/signals/public_investment.py
+    module: akinita/signals/public_investment.py
     entrypoint: PublicInvestmentSignal.reading
     produces: [public_investment_intensity]
     feeds_score: "—"
@@ -361,7 +361,7 @@ mechanisms:
   - id: MECH-103
     title: Ειδήσεις ανάπτυξης ανά περιοχή
     implements: SIG-007
-    module: damasol/signals/news.py
+    module: akinita/signals/news.py
     entrypoint: NewsSignal.reading
     produces: [news_intensity, headlines]
     feeds_score: "—"
@@ -379,7 +379,7 @@ mechanisms:
   - id: MECH-201
     title: Κατάλογος επαγγελματιών ακινήτων
     implements: SIG-010
-    module: damasol/brokers.py
+    module: akinita/brokers.py
     entrypoint: main
     produces: [broker_directory]
     feeds_score: "—"
@@ -394,7 +394,7 @@ mechanisms:
   - id: MECH-206
     title: Φραγή πηγών των οποίων οι Όροι Χρήσης επιφυλάσσουν το περιεχόμενο
     implements: SIG-023
-    module: damasol/sources/base.py
+    module: akinita/sources/base.py
     entrypoint: PropertySource
     produces: [consent_gate]
     feeds_score: "—"
@@ -412,7 +412,7 @@ mechanisms:
   - id: MECH-203
     title: Πηγή δεδομένων από αρχείο (CSV/TSV)
     implements: SIG-022
-    module: damasol/sources/csvfile.py
+    module: akinita/sources/csvfile.py
     entrypoint: CsvSource
     produces: [listings, rent_listings]
     feeds_score: "—"
@@ -433,7 +433,7 @@ mechanisms:
   - id: MECH-204
     title: Συγχώνευση πολλαπλών πηγών με αποδιπλασιασμό
     implements: SIG-022
-    module: damasol/screener.py
+    module: akinita/screener.py
     entrypoint: crawl_sources
     produces: [candidates]
     feeds_score: "—"
@@ -451,7 +451,7 @@ mechanisms:
   - id: MECH-205
     title: Σελίδα αποτελεσμάτων με όλα τα ακίνητα
     implements: SIG-022
-    module: damasol/webreport.py
+    module: akinita/webreport.py
     entrypoint: write_dashboard
     produces: [html_dashboard]
     feeds_score: "—"
@@ -471,7 +471,7 @@ mechanisms:
   - id: MECH-202
     title: Φράγμα robots.txt με προτεραιότητα Allow
     implements: SIG-015
-    module: damasol/http.py
+    module: akinita/http.py
     entrypoint: RobotsGate.allows
     produces: [access_decision]
     feeds_score: "—"

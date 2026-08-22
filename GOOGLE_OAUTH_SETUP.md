@@ -20,7 +20,7 @@
 
 1. **Navigate to OAuth Consent**
    - In the left menu, go to: "APIs & Services" → "OAuth consent screen"
-   
+
 2. **Choose User Type**
    - Select "External" (for public use)
    - Click "Create"
@@ -156,22 +156,22 @@ async def signup(data: dict):
     username = data.get('username')
     email = data.get('email')
     password = data.get('password')
-    
+
     if not all([username, email, password]):
         return JSONResponse({
             'success': False,
             'error': 'Missing required fields'
         }, status_code=400)
-    
+
     if email in users_db:
         return JSONResponse({
             'success': False,
             'error': 'Email already registered'
         }, status_code=400)
-    
+
     # Hash password
     hashed_password = hash_password(password)
-    
+
     # Create user
     user = {
         'username': username,
@@ -181,10 +181,10 @@ async def signup(data: dict):
         'provider': 'email'
     }
     users_db[email] = user
-    
+
     # Generate token
     token = create_access_token({'email': email})
-    
+
     return JSONResponse({
         'success': True,
         'token': token,
@@ -196,30 +196,30 @@ async def signup(data: dict):
 async def login(data: dict):
     email = data.get('email')
     password = data.get('password')
-    
+
     if not all([email, password]):
         return JSONResponse({
             'success': False,
             'error': 'Missing email or password'
         }, status_code=400)
-    
+
     if email not in users_db:
         return JSONResponse({
             'success': False,
             'error': 'Invalid email or password'
         }, status_code=401)
-    
+
     user = users_db[email]
-    
+
     if not verify_password(password, user['password']):
         return JSONResponse({
             'success': False,
             'error': 'Invalid email or password'
         }, status_code=401)
-    
+
     # Generate token
     token = create_access_token({'email': email})
-    
+
     return JSONResponse({
         'success': True,
         'token': token,
@@ -230,7 +230,7 @@ async def login(data: dict):
 @app.get("/auth/google/callback")
 async def google_callback(code: str, request: Request):
     """Handle Google OAuth callback"""
-    
+
     try:
         # Exchange code for access token
         token_url = "https://oauth2.googleapis.com/token"
@@ -241,12 +241,12 @@ async def google_callback(code: str, request: Request):
             'redirect_uri': str(request.base_url).rstrip('/') + '/auth/google/callback',
             'grant_type': 'authorization_code'
         }
-        
+
         async with httpx.AsyncClient() as client:
             token_response = await client.post(token_url, data=data)
             token_response.raise_for_status()
             tokens = token_response.json()
-            
+
             # Get user info from Google
             user_info_response = await client.get(
                 'https://www.googleapis.com/oauth2/v2/userinfo',
@@ -254,12 +254,12 @@ async def google_callback(code: str, request: Request):
             )
             user_info_response.raise_for_status()
             user_info = user_info_response.json()
-        
+
         # Extract user details
         email = user_info.get('email')
         name = user_info.get('name', email.split('@')[0])
         google_id = user_info.get('id')
-        
+
         # Create or update user
         if email not in users_db:
             users_db[email] = {
@@ -269,10 +269,10 @@ async def google_callback(code: str, request: Request):
                 'provider': 'google',
                 'created_at': datetime.now().isoformat()
             }
-        
+
         # Generate our JWT token
         token = create_access_token({'email': email})
-        
+
         # Redirect to home with token (stored via JavaScript)
         return HTMLResponse(f"""
         <!DOCTYPE html>
@@ -321,11 +321,11 @@ async def google_callback(code: str, request: Request):
                     username: '{name}',
                     email: '{email}'
                 }}));
-                
+
                 // Check for pending report
                 const pendingReport = sessionStorage.getItem('pending_report');
                 sessionStorage.removeItem('pending_report');
-                
+
                 // Redirect
                 setTimeout(() => {{
                     if (pendingReport) {{
@@ -338,7 +338,7 @@ async def google_callback(code: str, request: Request):
         </body>
         </html>
         """)
-    
+
     except Exception as e:
         print(f"Google OAuth error: {e}")
         return HTMLResponse(f"""

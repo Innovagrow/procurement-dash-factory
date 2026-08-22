@@ -5,13 +5,13 @@
 1. **Κατεβάστε τον κώδικα.** Στο GitHub, στο branch
    `claude/greek-brokers-investment-outreach-gr5j9p`, πατήστε
    **Code → Download ZIP**. Κάντε εξαγωγή σε έναν φάκελο, π.χ.
-   `C:\Damasol`.
+   `C:\`.
 
 2. **Εγκαταστήστε Python**, αν δεν το έχετε: <https://www.python.org/downloads/>
    Στον installer, **τσεκάρετε «Add Python to PATH»**. Είναι το μόνο σημείο
    που μπερδεύει.
 
-3. **Διπλό κλικ στο `DAMASOL.bat`.**
+3. **Διπλό κλικ στο `SAROSI.bat`.**
 
 Αυτό είναι όλο. Το αρχείο ελέγχει τι λείπει, το εγκαθιστά, τρέχει τη σάρωση και
 ανοίγει τη σελίδα αποτελεσμάτων στον browser σας.
@@ -52,7 +52,7 @@
 
 ## Ο δρόμος που δουλεύει σήμερα
 
-Επιλογή **1**. Φτιάξτε ένα `akinita.csv` δίπλα στο `DAMASOL.bat` — από Excel,
+Επιλογή **1**. Φτιάξτε ένα `akinita.csv` δίπλα στο `SAROSI.bat` — από Excel,
 **Αρχείο → Αποθήκευση ως → CSV UTF-8**. Χρειάζεται μόνο τρεις στήλες:
 
 | Στήλη | Υποχρεωτική | Παράδειγμα |
@@ -82,7 +82,7 @@
 ## Ένα ακίνητο σε βάθος
 
 ```
-py -3 -m damasol.analyse --from-json out\eukairies_20260822.json --rank 1
+py -3 -m akinita.analyse --from-json out\eukairies_20260822.json --rank 1
 ```
 
 ## Αν κάτι πάει στραβά

@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Campaign copy for Damasol Limited's outreach to Greek real estate professionals.
+Campaign copy for the outreach to Greek real estate professionals.
 
 Every channel carries the same six points the campaign exists to make:
 
-  1. Damasol Limited is an investment organisation.
+  1. [Επωνυμία] is an investment organisation.
   2. It is addressing real estate professionals across Greece.
   3. If they hold a property they personally judge to be a genuine business
      opportunity, they should get in touch.
   4. They should send the property's details.
   5. They should explain *why* they consider it an opportunity.
-  6. Damasol is open to - and experienced in - both partnership proposals and
+  6.  is open to - and experienced in - both partnership proposals and
      flexible business models.
 
 Placeholders use `{}` formatting and are filled by `render()`. Anything the
@@ -21,7 +21,7 @@ from __future__ import annotations
 from typing import Dict, Optional
 
 DEFAULT_IDENTITY: Dict[str, str] = {
-    "company": "Damasol Limited",
+    "company": "[Επωνυμία]",
     "sender_name": "",
     "sender_title": "Επενδυτικός Οργανισμός",
     "reply_email": "",
@@ -56,7 +56,7 @@ UNSUBSCRIBE_EL = """Λαμβάνετε αυτό το μήνυμα ως επαγ�
 # ------------------------------------------------------------------ e-mail
 
 EMAIL_SUBJECTS = [
-    "Damasol Limited — αναζητούμε ακίνητα με πραγματικό επενδυτικό ενδιαφέρον",
+    "[Επωνυμία] — αναζητούμε ακίνητα με πραγματικό επενδυτικό ενδιαφέρον",
     "Έχετε ακίνητο που θεωρείτε πραγματική ευκαιρία; Θέλουμε να το δούμε",
     "Πρόταση συνεργασίας από επενδυτικό οργανισμό — ευέλικτα σχήματα αγοράς",
     "{broker_name}: συνεργασία με επενδυτικό οργανισμό για ακίνητα-ευκαιρίες",

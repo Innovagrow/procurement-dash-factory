@@ -62,3 +62,8 @@ site/.quarto/
 
 # OS
 Thumbs.db
+
+# Damasol real estate engine
+.cache/
+out/
+damasol/out/

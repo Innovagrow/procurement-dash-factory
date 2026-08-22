@@ -1,0 +1,59 @@
+# Damasol Limited - Real Estate Opportunity Engine
+# Presets for the screener and identity defaults for the outreach campaign.
+# Nothing here is read automatically; the CLIs take flags. Use this as the
+# single place to keep the numbers your team has agreed on.
+
+identity:
+  company: "Damasol Limited"
+  sender_name: ""              # συμπληρώστε
+  sender_title: "Επενδυτικός Οργανισμός"
+  reply_email: ""              # συμπληρώστε - χρησιμοποιείται και ως διεύθυνση διαγραφής
+  phone: ""
+  website: ""
+  privacy_policy_url: ""       # ΑΠΑΙΤΕΙΤΑΙ πριν την πρώτη μαζική αποστολή (άρθρο 14 ΓΚΠΔ)
+  ticket_min: "20.000 €"
+  ticket_max: "3.000.000 €"
+
+# Ready-made screener runs. Pass the flags shown under each preset.
+presets:
+
+  ellada_eos_50k:
+    description: "Όλη η Ελλάδα, αγορά, έως 50.000 € - το βασικό ερώτημα"
+    flags: >-
+      --transaction buy --item-types residence,prof,land
+      --max-price 50000 --min-price 5000 --enrich-top 120 --top 60
+
+  attiki_apodosi:
+    description: "Αττική, κατοικίες έως 80.000 €, έμφαση στην απόδοση ενοικίου"
+    flags: >-
+      --transaction buy --item-types residence --max-price 80000
+      --bbox 38.35,24.15,37.70,23.30
+      --weights '{"rental_yield":0.40,"value_gap":0.30,"liquidity":0.15,"ticket_fit":0.05,"upside":0.05,"freshness":0.05}'
+
+  pleistiriasmoi:
+    description: "Πλειστηριασμοί έως 50.000 € σε όλη την Ελλάδα"
+    flags: "--transaction auction --item-types residence,prof --max-price 50000"
+
+  thessaloniki_anakainisi:
+    description: "Θεσσαλονίκη, ακίνητα με περιθώριο ανακαίνισης έως 60.000 €"
+    flags: >-
+      --transaction buy --item-types residence --max-price 60000
+      --bbox 40.75,23.10,40.50,22.80
+      --weights '{"upside":0.30,"value_gap":0.35,"rental_yield":0.20,"liquidity":0.10,"ticket_fit":0.03,"freshness":0.02}'
+
+# Default scoring weights (must sum to 1.0; the CLI renormalises if they do not).
+scoring:
+  weights:
+    value_gap: 0.35        # τιμή/τ.μ. έναντι της διαμέσου της περιοχής
+    rental_yield: 0.25     # μεικτή απόδοση από τοπικά συγκριτικά ενοικίων
+    liquidity: 0.15        # βάθος αγοράς & απόσταση από αστικό κέντρο
+    ticket_fit: 0.10       # πόσο βολικό είναι το εισιτήριο για τον προϋπολογισμό
+    upside: 0.10           # περιθώριο ανακαίνισης/επανατοποθέτησης
+    freshness: 0.05        # χρόνος στην αγορά
+  cell_size_degrees: 0.02  # ~2,2 χλμ - το κελί συγκριτικών (μόνο ως εφεδρεία· προηγείται η γειτονιά)
+  min_comparables: 4       # κάτω από αυτό δεν υπολογίζεται διάμεσος
+
+crawl:
+  delay_seconds: 2.0
+  cache_hours: 24
+  obey_robots: true        # μην το αλλάξετε χωρίς να διαβάσετε το README

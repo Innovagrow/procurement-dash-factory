@@ -1,0 +1,13 @@
+# Damasol Real Estate Opportunity Engine
+#
+# The core package is stdlib-only: the screener, the scoring engine, the broker
+# directory and the whole outreach campaign run on a bare Python 3.9+ install
+# with nothing installed at all.
+#
+# The single optional dependency drives a real browser, which the Spitogatos
+# adapter needs to get past that portal's bot protection:
+#
+#     pip install -r requirements-damasol.txt
+#     playwright install chromium
+
+playwright>=1.40.0 ; python_version >= "3.9"

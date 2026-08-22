@@ -291,6 +291,196 @@ for channel in available_templates():
 check("Anonymous greeting when name is unknown",
       "Αξιότιμοι συνεργάτες" in render("email", "", identity)["body"])
 
+print("\n[8] Cost model")
+from damasol.costs import DEFAULT_COSTS, CostModel
+
+acq = DEFAULT_COSTS.acquisition_costs(45000)
+check("Acquisition costs are material on cheap stock",
+      0.07 < sum(acq.values()) / 45000 < 0.12,
+      f"{sum(acq.values()) / 45000:.1%}")
+check("Transfer tax is on the bill", any("μεταβίβασης" in k for k in acq))
+check("Rent tax is progressive",
+      DEFAULT_COSTS.tax_on_rent(12000) == 1800
+      and DEFAULT_COSTS.tax_on_rent(20000) == 1800 + 8000 * 0.35,
+      f"{DEFAULT_COSTS.tax_on_rent(20000)}")
+check("Works scale with level",
+      DEFAULT_COSTS.works_cost(60, "cosmetic")
+      < DEFAULT_COSTS.works_cost(60, "full")
+      < DEFAULT_COSTS.works_cost(60, "structural"))
+check("Contingency is included",
+      DEFAULT_COSTS.works_cost(100, "full") > 100 * DEFAULT_COSTS.works_full_per_sqm)
+check("Furnishing is additive",
+      DEFAULT_COSTS.works_cost(60, "full", furnish=True) > DEFAULT_COSTS.works_cost(60, "full"))
+try:
+    DEFAULT_COSTS.works_cost(60, "gold_plated")
+    check("Unknown works level rejected", False)
+except ValueError:
+    check("Unknown works level rejected", True)
+
+print("\n[9] Valuation")
+from damasol.valuation import (
+    infer_facts, value_after_works, value_at_horizon, value_property,
+)
+
+wreck = Listing(source="t", listing_id="v1", url="", title="Διαμέρισμα 61 τ.μ.",
+                address="Θεσσαλονίκη (Ξηροκρήνη)", area_name="Θεσσαλονίκη",
+                sub_area="Θεσσαλονίκη (Ξηροκρήνη)", item_type="residence",
+                transaction="SALE", price=40000, size_sqm=61, construction_year=1972,
+                description_hint="2ος όροφος, χρήζει ανακαίνισης, με ασανσέρ")
+wreck_facts = infer_facts(wreck)
+check("Condition read from text", wreck_facts.condition == "needs_work")
+check("Lift read from text", wreck_facts.has_lift is True)
+check("Floor read from text", wreck_facts.floor_band == "low")
+check("Unknowns recorded as assumptions", "ενεργειακή κλάση" in wreck_facts.assumed)
+check("Certainty falls with assumptions", wreck_facts.certainty < 1.0)
+
+basement = infer_facts(Listing(source="t", listing_id="v2", url="",
+                               title="Διαμέρισμα", description_hint="υπόγειο, ψιλή κυριότητα"))
+check("Basement detected", basement.floor_band == "basement")
+check("Bare ownership detected", basement.legal_status == "bare_ownership")
+
+comps = [1450, 1520, 1380, 1610, 1490, 1550, 1420, 1580, 1470, 1500]
+val = value_property(wreck, 1500.0, comps, wreck_facts, liquidity_score=72)
+check("Valuation produced", val is not None)
+check("Base is below asking comparables", val.base_per_sqm < 1500)
+check("Immediate below open market", val.immediate < val.open_market)
+check("Band brackets the estimate", val.low < val.open_market < val.high)
+check("Every factor is labelled data or assumption",
+      all(row[3] in ("δεδομένο", "παραδοχή") for row in val.factor_table()))
+check("Needs-work discount applied", val.total_multiplier < 1.0)
+
+renovated, _ = value_after_works(val, wreck_facts, "renovated")
+check("Renovation lifts value", renovated > val.open_market)
+check("Uplift is proportional to the neighbourhood base",
+      abs(renovated / val.open_market - 1.14 / 0.80) < 0.01)
+cheap_area = value_property(wreck, 300.0, comps, wreck_facts, 72)
+cheap_renovated, _ = value_after_works(cheap_area, wreck_facts, "renovated")
+check("Renovating a cheap street yields cheap-street prices",
+      cheap_renovated < renovated / 3)
+check("Already-renovated stock gains nothing from renovation",
+      value_after_works(val, infer_facts(Listing(
+          source="t", listing_id="v3", url="",
+          description_hint="πλήρως ανακαινισμένο")), "renovated")[1]
+      == "καμία αναβάθμιση κατάστασης")
+check("Horizon compounds", value_at_horizon(100000, 24, 3.0) > 100000)
+check("No comparables means no valuation", value_property(wreck, None, [], wreck_facts) is None)
+
+illiquid = value_property(wreck, 1500.0, comps, wreck_facts, liquidity_score=10)
+check("Fast sale costs more where stock sits",
+      (illiquid.open_market - illiquid.immediate) > (val.open_market - val.immediate))
+
+print("\n[10] Strategy engine")
+from damasol.strategies import (
+    CATEGORY_INCOME, CATEGORY_RESALE, MarketInputs, best_per_category, evaluate,
+)
+
+market = MarketInputs(monthly_rent=380, annual_drift_pct=3.0, liquidity_score=72,
+                      tourism_intensity=48, student_demand=55, commercial_demand=40)
+outcomes = evaluate(wreck, wreck_facts, val, market)
+viable = [o for o in outcomes if o.feasible]
+check("Several strategies are viable", len(viable) >= 4, str(len(viable)))
+check("Ranked by score", all(a.score >= b.score for a, b in zip(viable, viable[1:])))
+check("Land strategies blocked for a flat",
+      any(o.key == "LAND_DEVELOP" and not o.feasible for o in outcomes))
+check("Blocked strategies explain themselves",
+      all(o.blockers for o in outcomes if not o.feasible))
+check("Capital always exceeds the asking price",
+      all(o.capital_required > wreck.price for o in viable))
+check("Every viable strategy states its assumptions", all(o.assumptions for o in viable))
+check("Categories are split", len(best_per_category(outcomes)) >= 2)
+
+flip = next(o for o in viable if o.key == "FLIP_AS_IS")
+check("Flip has no cashflow before exit", flip.months_to_first_cash == flip.months_to_exit)
+rent = next((o for o in viable if o.key == "RENT_LONG"), None)
+check("Letting pays before exit", rent is not None and rent.months_to_first_cash < rent.months_to_exit)
+
+# The bug this guards: renovating a EUR 40k flat for EUR 49k to let it out.
+check("Works level is chosen, not assumed",
+      rent is not None and "χωρίς εργασίες" in rent.assumptions[0], rent.assumptions[0] if rent else "")
+
+no_tourism = evaluate(wreck, wreck_facts, val,
+                      MarketInputs(monthly_rent=380, tourism_intensity=5))
+check("Short-stay blocked without tourism",
+      any(o.key == "RENT_SHORT" and not o.feasible for o in no_tourism))
+
+capital_first = evaluate(wreck, wreck_facts, val, market,
+                         weights={"profit": 0.1, "ease": 0.1, "capital": 0.8})
+cheapest = min([o for o in capital_first if o.feasible], key=lambda o: o.capital_required)
+top = [o for o in capital_first if o.feasible][0]
+check("Weighting capital changes the winner", top.capital_required == cheapest.capital_required)
+
+land = Listing(source="t", listing_id="L1", url="", title="Οικόπεδο 1.200 τ.μ.",
+               address="Αρτεμίσιο", area_name="Αρτεμίσιο", sub_area="Αρτεμίσιο",
+               item_type="land", transaction="SALE", price=40000, size_sqm=1200,
+               lat=38.85, lng=23.25)
+land_facts = infer_facts(land)
+land_val = value_property(land, 50.0, [45, 48, 52, 55, 50], land_facts, 40)
+land_outcomes = evaluate(land, land_facts, land_val,
+                         MarketInputs(annual_drift_pct=2.0, buildable_sqm=400))
+check("Land hold is viable for land",
+      any(o.key == "LAND_HOLD" and o.feasible for o in land_outcomes))
+check("Antiparochi ties up no land capital",
+      any(o.key == "ANTIPAROCHI" and o.feasible for o in land_outcomes))
+check("Flat strategies blocked for land",
+      any(o.key == "LAND_DEVELOP" and o.feasible for o in land_outcomes))
+land_no_plot = evaluate(land, land_facts, land_val, MarketInputs(annual_drift_pct=2.0))
+check("Development blocked without buildable area",
+      any(o.key == "LAND_DEVELOP" and not o.feasible for o in land_no_plot))
+
+print("\n[11] Signals (offline logic)")
+from damasol.signals.news import NewsSignal
+from damasol.signals.public_investment import _stems
+from damasol.signals.regions import normalise_greek, region_for
+
+check("Athens maps to Attica", region_for(37.98, 23.73)[0] == "EL30")
+check("Corfu maps to the Ionian, not Epirus", region_for(39.62, 19.92)[0] == "EL62")
+check("Rhodes maps to the South Aegean", region_for(36.43, 28.22)[0] == "EL42")
+check("A point far outside Greece maps nowhere", region_for(48.85, 2.35) is None)
+check("Accents stripped", normalise_greek("Θεσσαλονίκης") == "ΘΕΣΣΑΛΟΝΙΚΗΣ")
+
+# Substring matching would score a US president as a tram extension.
+check("Word boundaries respected", NewsSignal.score_text("Ο Τραμπ και η ΕΕ")[0] == 0.0)
+check("Real term still matches", NewsSignal.score_text("Επέκταση του τραμ")[0] > 0)
+check("Stems match inflections", NewsSignal.score_text("νέο ξενοδοχείο στη Ρόδο")[0] > 0)
+check("Overlapping keywords do not double-count",
+      len(NewsSignal.score_text("Ανάπλαση παραλιακού μετώπου")[1]) == 1)
+
+check("Nominative and genitive share a stem", _stems("Ρόδος") & _stems("ΔΗΜΟΣ ΡΟΔΟΥ"))
+check("Larisa declension handled", _stems("Λάρισα") & _stems("ΔΗΜΟΣ ΛΑΡΙΣΑΙΩΝ"))
+check("Generic modifiers ignored",
+      not (_stems("Νέα Ερυθραία") & _stems("ΔΗΜΟΣ ΝΕΑΣ ΖΙΧΝΗΣ")))
+
+print("\n[12] Registries")
+from damasol.registry import audit as registry_audit, load_ideas, load_mechanisms
+
+ideas = load_ideas()
+mechanisms = load_mechanisms()
+check("Ideas registry is populated", len(ideas) >= 15, str(len(ideas)))
+check("Mechanisms registry is populated", len(mechanisms) >= 15, str(len(mechanisms)))
+check("Every idea states a hypothesis", all(i.get("hypothesis") for i in ideas))
+check("Every mechanism states its validation", all(m.get("validation") for m in mechanisms))
+check("Every mechanism names known limits", all(m.get("known_limits") for m in mechanisms))
+
+audit_result = registry_audit()
+check("Registry audit passes", audit_result.ok, "; ".join(audit_result.errors))
+check("Audit actually checks things", audit_result.checks_run >= 20)
+
+# The audit has to fail when the registry drifts from the code, or it is theatre.
+broken = [dict(m) for m in mechanisms]
+for entry in broken:
+    if entry.get("feeds_score") == "value_gap":
+        entry["weight"] = 0.99
+check("Audit catches a weight that drifted from the code",
+      not registry_audit(ideas, broken).ok)
+orphan = [dict(m) for m in mechanisms]
+orphan[0] = dict(orphan[0], implements="SIG-999")
+check("Audit catches a mechanism pointing at no idea",
+      not registry_audit(ideas, orphan).ok)
+ghost = [dict(m) for m in mechanisms]
+ghost[0] = dict(ghost[0], entrypoint="function_that_does_not_exist")
+check("Audit catches an entrypoint that is not in the code",
+      not registry_audit(ideas, ghost).ok)
+
 print("\n" + "=" * 62)
 print(f"PASSED {len(PASSED)}   FAILED {len(FAILED)}")
 if FAILED:

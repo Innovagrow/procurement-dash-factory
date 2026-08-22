@@ -10,4 +10,9 @@
 #     pip install -r requirements-damasol.txt
 #     playwright install chromium
 
+# Browser automation for the Spitogatos adapter:
 playwright>=1.40.0 ; python_version >= "3.9"
+
+# The two registries (ideas.yml / mechanisms.yml) are read with PyYAML. It is
+# already a dependency of the wider repo; listed here so `damasol` stands alone.
+pyyaml>=6.0

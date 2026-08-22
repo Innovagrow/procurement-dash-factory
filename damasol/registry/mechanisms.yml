@@ -1,0 +1,328 @@
+# ============================================================================
+# ΜΗΤΡΩΟ ΥΛΟΠΟΙΗΜΕΝΩΝ ΜΗΧΑΝΙΣΜΩΝ
+# ============================================================================
+# Ό,τι πραγματικά τρέχει στο σύστημα. Κάθε εγγραφή δείχνει σε αρχείο και
+# συνάρτηση που υπάρχουν — το `python -m damasol.registry audit` το ελέγχει
+# και σπάει αν κάτι δεν στέκει.
+#
+# Κανόνας: μηχανισμός χωρίς `validation` είναι υπόθεση, όχι μηχανισμός.
+#
+# status: active | experimental | deprecated
+# ============================================================================
+
+mechanisms:
+
+  # ------------------------------------------------- βαθμολόγηση ευκαιρίας
+  - id: MECH-001
+    title: Συγκριτικά γειτονιάς → απόκλιση τιμής
+    implements: SIG-015
+    module: damasol/scoring.py
+    entrypoint: MarketIndex.sale_price_per_sqm
+    produces: [market_price_per_sqm, discount_pct]
+    feeds_score: value_gap
+    weight: 0.35
+    validation: >-
+      Έλεγχος ότι η γειτονιά υπερισχύει του γεωγραφικού κελιού όταν και τα δύο
+      υπάρχουν, και ότι οι υποψήφιοι εξαιρούνται από τη δική τους βάση σύγκρισης.
+    known_limits: >-
+      Βάση είναι ζητούμενες τιμές, όχι συναλλαγές. Απαιτεί ≥4 συγκριτικά, αλλιώς
+      πέφτει σε ουδέτερο 50 και σημαίνεται.
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-002
+    title: Συγκριτικά ενοικίων → μεικτή απόδοση
+    implements: SIG-015
+    module: damasol/scoring.py
+    entrypoint: MarketIndex.rent_price_per_sqm
+    produces: [est_monthly_rent, gross_yield_pct]
+    feeds_score: rental_yield
+    weight: 0.25
+    validation: Έλεγχος υπολογισμού απόδοσης και ορίου αληθοφάνειας στο 14%.
+    known_limits: >-
+      Ζητούμενα ενοίκια. Δεν γνωρίζει κενά, καθυστερήσεις ή τοπικούς
+      περιορισμούς βραχυχρόνιας μίσθωσης (βλ. SIG-011).
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-003
+    title: Ρευστότητα από εγγύτητα σε αστικό κέντρο
+    implements: SIG-003
+    module: damasol/scoring.py
+    entrypoint: _score_liquidity
+    produces: [liquidity_score]
+    feeds_score: liquidity
+    weight: 0.15
+    validation: Έλεγχος αντιστοίχισης συντεταγμένων στο πλησιέστερο αστικό κέντρο.
+    known_limits: >-
+      Υποκατάστατο. Η απόσταση από την Αθήνα δεν είναι δημογραφική τάση· το
+      SIG-003 θα το αντικαταστήσει με πραγματικά στοιχεία πληθυσμού.
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-004
+    title: Καταλληλότητα εισιτηρίου έναντι προϋπολογισμού
+    implements: SIG-015
+    module: damasol/scoring.py
+    entrypoint: _score_ticket_fit
+    produces: [ticket_fit]
+    feeds_score: ticket_fit
+    weight: 0.10
+    validation: Έλεγχος ότι τιμές κάτω των 5.000 € σημαίνονται ως πιθανά ποσοστά.
+    known_limits: Το «γλυκό σημείο» 35–85% του ορίου είναι κρίση, όχι μέτρηση.
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-005
+    title: Κατάσταση & περιθώριο υπεραξίας από κείμενο αγγελίας
+    implements: SIG-018
+    module: damasol/scoring.py
+    entrypoint: _score_upside
+    produces: [upside]
+    feeds_score: upside
+    weight: 0.10
+    validation: Έλεγχος ότι «χρήζει ανακαίνισης» ανεβάζει και «ανακαινισμένο» κατεβάζει.
+    known_limits: >-
+      Λέξεις-κλειδιά σε ελεύθερο κείμενο. Ο πιο βαρύς συντελεστής της αποτίμησης
+      στηρίζεται στην πιο αδύναμη ένδειξη. Το SIG-018 (φωτογραφίες) το στοχεύει.
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-006
+    title: Χρόνος στην αγορά
+    implements: SIG-008
+    module: damasol/scoring.py
+    entrypoint: _score_freshness
+    produces: [freshness]
+    feeds_score: freshness
+    weight: 0.05
+    validation: Έλεγχος ότι νέες αγγελίες και πολύ παλιές βαθμολογούνται και οι δύο ψηλά.
+    known_limits: >-
+      Μερική υλοποίηση του SIG-008: βλέπει την ηλικία που δηλώνει η πύλη, όχι
+      τον πραγματικό χρόνο μέχρι την πώληση. Θέλει ιστορικό σαρώσεων.
+    status: active
+    since: 2026-08-22
+
+  # ----------------------------------------------------- δικλείδες ποιότητας
+  - id: MECH-007
+    title: Οροφές αληθοφάνειας σε έκπτωση και απόδοση
+    implements: SIG-015
+    module: damasol/scoring.py
+    entrypoint: score_listing
+    produces: [flags]
+    feeds_score: "—"
+    weight: 0.0
+    validation: Έλεγχος ότι έκπτωση >55% και απόδοση >14% σημαίνονται και δεν κερδίζουν βαθμούς.
+    known_limits: Τα κατώφλια είναι κρίση αγοράς, όχι στατιστική εκτίμηση.
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-008
+    title: Διάμεσος με περικοπή άκρων
+    implements: SIG-015
+    module: damasol/scoring.py
+    entrypoint: _median
+    produces: [market_price_per_sqm]
+    feeds_score: "—"
+    weight: 0.0
+    validation: Έλεγχος ότι ένα ακραίο συγκριτικό δεν μετακινεί τη βάση.
+    known_limits: Ενεργοποιείται μόνο με ≥8 συγκριτικά.
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-009
+    title: Κούρεμα εκτίμησης ενοικίου κατά θέση τιμής
+    implements: SIG-015
+    module: damasol/scoring.py
+    entrypoint: _quality_haircut
+    produces: [est_monthly_rent]
+    feeds_score: rental_yield
+    weight: 0.0
+    validation: Έλεγχος ότι ακίνητο στο 1/5 της τιμής γειτονιάς παίρνει το 60% του ενοικίου.
+    known_limits: >-
+      Ο συντελεστής 0,5 + 0,5 × θέση είναι εύλογη παραδοχή, όχι μετρημένη σχέση.
+      Πρώτος υποψήφιος για βαθμονόμηση από πραγματικά μισθωτήρια.
+    status: active
+    since: 2026-08-22
+
+  # --------------------------------------------------------------- αποτίμηση
+  - id: MECH-010
+    title: Ηδονική αποτίμηση με αναλυμένους συντελεστές
+    implements: SIG-015
+    module: damasol/valuation.py
+    entrypoint: value_property
+    produces: [open_market, immediate, low, high, confidence_pct, factor_table]
+    feeds_score: "—"
+    weight: 0.0
+    validation: >-
+      Έλεγχος ότι κάθε συντελεστής εμφανίζεται με τιμή, αιτιολογία και ένδειξη
+      «δεδομένο ή παραδοχή», και ότι το εύρος εμπιστοσύνης πλαταίνει με τις παραδοχές.
+    known_limits: >-
+      Το κούρεμα 7% από ζητούμενη σε συναλλαγή είναι παραδοχή. Οι πίνακες
+      συντελεστών (κατάσταση, όροφος, παλαιότητα) είναι κρίση αγοράς.
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-011
+    title: Άμεση, ανοιχτής αγοράς και μελλοντική αξία
+    implements: SIG-014
+    module: damasol/valuation.py
+    entrypoint: value_at_horizon
+    produces: [immediate, open_market, horizon_value]
+    feeds_score: "—"
+    weight: 0.0
+    validation: Έλεγχος ότι η έκπτωση ταχείας ρευστοποίησης βαθαίνει σε αγορές χαμηλής ρευστότητας.
+    known_limits: >-
+      Το `annual_drift_pct` δίνεται χειροκίνητα. Είναι η μεγαλύτερη μονή
+      παραδοχή του συστήματος — βλ. SIG-014.
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-012
+    title: Μοντέλο κόστους ελληνικής συναλλαγής
+    implements: SIG-012
+    module: damasol/costs.py
+    entrypoint: CostModel
+    produces: [acquisition_costs, disposal_costs, holding_costs, works_cost, tax_on_rent]
+    feeds_score: "—"
+    weight: 0.0
+    validation: Έλεγχος κλιμακωτού φόρου ενοικίου και υπολογισμού κόστους κτήσης.
+    known_limits: >-
+      Ο ΕΝΦΙΑ είναι σταθερά ανά τ.μ., όχι ανά ζώνη (SIG-012). Ο φόρος υπεραξίας
+      και ο ΦΠΑ νεόδμητων είναι σε αναστολή και δίνονται μηδενικοί — ελέγξτε ετησίως.
+    status: active
+    since: 2026-08-22
+
+  # ------------------------------------------------------------- στρατηγικές
+  - id: MECH-013
+    title: Μηχανή στρατηγικών αξιοποίησης
+    implements: SIG-015
+    module: damasol/strategies.py
+    entrypoint: evaluate
+    produces: [strategy_outcomes, score, blockers]
+    feeds_score: "—"
+    weight: 0.0
+    validation: >-
+      Έλεγχος ότι μη εφικτές στρατηγικές επιστρέφουν αιτία αντί για μηδέν, και
+      ότι η κατάταξη σέβεται τα βάρη κέρδους/ευκολίας/κεφαλαίου.
+    known_limits: >-
+      Οι βαθμοί `ease` και `risk` είναι κρίση, όχι μέτρηση. Η βραχυχρόνια
+      μίσθωση αγνοεί τοπικές απαγορεύσεις (SIG-011).
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-014
+    title: Επιλογή βέλτιστου επιπέδου εργασιών
+    implements: SIG-015
+    module: damasol/strategies.py
+    entrypoint: _best_works_level
+    produces: [works_level, works_cost]
+    feeds_score: "—"
+    weight: 0.0
+    validation: >-
+      Έλεγχος ότι δεν προτείνεται ανακαίνιση 49.000 € σε διαμέρισμα 40.000 €
+      όταν το «χωρίς εργασίες» αποδίδει περισσότερο. Είναι ο ΜΟΝΟΣ φραγμός
+      υπερ-ανακαίνισης: η παλαιότερη «οροφή γειτονιάς» στο valuation.py
+      αφαιρέθηκε όταν test έδειξε ότι δεν ενεργοποιούνταν ποτέ.
+    known_limits: Τα κόστη ανά τ.μ. είναι πανελλαδικοί μέσοι όροι· διαφέρουν ανά περιοχή.
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-015
+    title: Κατάταξη με τρία κριτήρια — κέρδος, ευκολία, κεφάλαιο
+    implements: SIG-015
+    module: damasol/strategies.py
+    entrypoint: evaluate
+    produces: [score]
+    feeds_score: "—"
+    weight: 0.0
+    validation: Έλεγχος ότι η αλλαγή βαρών αλλάζει την κατάταξη προς την αναμενόμενη κατεύθυνση.
+    known_limits: >-
+      Η κανονικοποίηση είναι σχετική εντός ενός ακινήτου· βαθμοί δεν συγκρίνονται
+      μεταξύ διαφορετικών ακινήτων.
+    status: active
+    since: 2026-08-22
+
+  # ---------------------------------------------------------------- σήματα
+  - id: MECH-101
+    title: Τουριστικές διανυκτερεύσεις ανά περιφέρεια
+    implements: SIG-001
+    module: damasol/signals/tourism.py
+    entrypoint: TourismSignal.reading
+    produces: [tourism_intensity, tourism_momentum]
+    feeds_score: "στρατηγικές (RENT_SHORT, OPERATE_BUSINESS)"
+    weight: 0.0
+    validation: >-
+      Έλεγχος σε ζωντανά δεδομένα: κατάταξη 13 περιφερειών, με Νότιο Αιγαίο και
+      Κρήτη στην κορυφή και Δυτική Μακεδονία στον πάτο. Τα έτη COVID εξαιρούνται
+      από τον ρυθμό μεταβολής.
+    known_limits: >-
+      NUTS 2 — πολύ χονδρικό. Η Μύκονος και η Σύρος μοιράζονται δείκτη.
+      Καθυστέρηση δημοσίευσης ~6 μήνες.
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-102
+    title: Ένταση δημόσιων έργων ανά δήμο
+    implements: SIG-004
+    module: damasol/signals/public_investment.py
+    entrypoint: PublicInvestmentSignal.reading
+    produces: [public_investment_intensity]
+    feeds_score: "—"
+    weight: 0.0
+    validation: >-
+      Έλεγχος αντιστοίχισης ονομάτων σε 12 πόλεις: 8 σωστές, 0 λανθασμένες,
+      4 χωρίς αντιστοίχιση. Οι διφορούμενες (Ηράκλειο/Ηράκλεια) απορρίπτονται.
+    known_limits: >-
+      Δείγμα λέξεων-κλειδιών, όχι απογραφή. Μετράει πλήθος αποφάσεων, όχι ευρώ.
+      Δεν τροφοδοτεί ακόμη τη βαθμολογία — μόνο πληροφόρηση.
+    status: experimental
+    since: 2026-08-22
+
+  - id: MECH-103
+    title: Ειδήσεις ανάπτυξης ανά περιοχή
+    implements: SIG-007
+    module: damasol/signals/news.py
+    entrypoint: NewsSignal.reading
+    produces: [news_intensity, headlines]
+    feeds_score: "—"
+    weight: 0.0
+    validation: >-
+      Έλεγχος ορίων λέξης: «Τραμπ» δεν ενεργοποιεί το «τραμ». Συσσώρευση σε
+      τοπικό αρχείο ώστε η κάλυψη να χτίζεται με τον χρόνο.
+    known_limits: >-
+      Μία ροή, ~30 άρθρα ανά εκτέλεση. Άχρηστο πριν από εβδομάδες συσσώρευσης.
+      Λίστα παρακολούθησης, όχι δείκτης.
+    status: experimental
+    since: 2026-08-22
+
+  # ---------------------------------------------------- εντοπισμός & επαφές
+  - id: MECH-201
+    title: Κατάλογος επαγγελματιών ακινήτων
+    implements: SIG-010
+    module: damasol/brokers.py
+    entrypoint: main
+    produces: [broker_directory]
+    feeds_score: "—"
+    weight: 0.0
+    validation: 5.070 προφίλ· σε δείγμα 14 προφίλ, 14/14 με έγκυρο email.
+    known_limits: >-
+      Τηλέφωνα δεν αντλούνται — το τηλέφωνο στη σελίδα προφίλ ανήκει στην πύλη,
+      όχι στον μεσίτη.
+    status: active
+    since: 2026-08-22
+
+  - id: MECH-202
+    title: Φράγμα robots.txt με προτεραιότητα Allow
+    implements: SIG-015
+    module: damasol/http.py
+    entrypoint: RobotsGate.allows
+    produces: [access_decision]
+    feeds_score: "—"
+    weight: 0.0
+    validation: >-
+      Έλεγχος ότι μεγαλύτερος κανόνας Allow υπερισχύει μικρότερου Disallow, και
+      ότι οι απαγορευμένες διαδρομές πράγματι φράσσονται.
+    known_limits: "Αξιολογεί μόνο την ομάδα `User-agent: *`."
+    status: active
+    since: 2026-08-22

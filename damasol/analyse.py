@@ -24,10 +24,11 @@ from .costs import DEFAULT_COSTS
 from .http import PoliteFetcher
 from .models import Listing
 from .scoring import COMPONENT_LABELS_EL
+from .indicators import DEFAULT_INDICATOR_WEIGHTS, INDICATOR_LABELS_EL
 from .strategies import (
-    DEFAULT_OBJECTIVE_WEIGHTS,
     MarketInputs,
     best_per_category,
+    best_per_indicator,
     evaluate,
 )
 from .valuation import infer_facts, value_after_works, value_at_horizon, value_property
@@ -87,7 +88,7 @@ def gather_signals(fetcher, listing: Listing, use: Sequence[str]) -> Dict[str, o
 def report(listing: Listing, market_per_sqm: float, comparables: Sequence[float],
            monthly_rent: Optional[float], readings: Dict, weights: Dict[str, float],
            liquidity: float, drift: float, student_demand: float,
-           commercial_demand: float, buildable: Optional[float]) -> int:
+           commercial_demand: float, extra: Dict) -> int:
     facts = infer_facts(listing)
     valuation = value_property(listing, market_per_sqm, comparables, facts, liquidity)
     if not valuation:
@@ -146,59 +147,82 @@ def report(listing: Listing, market_per_sqm: float, comparables: Sequence[float]
         monthly_rent=monthly_rent, annual_drift_pct=drift, liquidity_score=liquidity,
         tourism_intensity=tourism.intensity if tourism else 0.0,
         student_demand=student_demand, commercial_demand=commercial_demand,
-        buildable_sqm=buildable,
-    )
+        buildable_sqm=extra.get("buildable"), floor_area_ratio=extra.get("far"),
+        built_price_per_sqm=extra.get("built_per_sqm"),
+        rent_per_sqm_month=extra.get("rent_per_sqm"),
+        capital_ceiling=extra.get("capital_ceiling") or 250_000.0,
+    ).derive_from(listing)
+
     outcomes = evaluate(listing, facts, valuation, market, DEFAULT_COSTS, weights)
     viable = [o for o in outcomes if o.feasible]
 
     print("\n3 · ΤΡΟΠΟΙ ΑΞΙΟΠΟΙΗΣΗΣ")
     print(RULE)
-    print(f"  Κριτήρια κατάταξης: κέρδος {weights['profit']:.0%} · "
-          f"ευκολία {weights['ease']:.0%} · χαμηλό κεφάλαιο {weights['capital']:.0%}\n")
-    print(f"  {'#':>2} {'Στρατηγική':<40} {'Κεφάλαιο':>10} {'Κέρδος':>10} "
-          f"{'Ετ.ROI':>7} {'Μήν':>4} {'Ευκ':>4} {'Σκορ':>6}")
-    print("  " + "─" * 74)
-    for position, outcome in enumerate(viable, 1):
-        print(f"  {position:>2} {outcome.name[:40]:<40} {_gr(outcome.capital_required):>10} "
-              f"{_gr(outcome.net_profit):>10} {outcome.annualised_roi_pct:>6.1f}% "
-              f"{outcome.months_to_exit:>4} {outcome.ease:>4.0f} {outcome.score:>6.1f}")
+    print(f"  {len(outcomes)} πλάνα (απόκτηση × μετασχηματισμός × έξοδος), "
+          f"{len(viable)} εφικτά.")
+    print("  Η στήλη ΥΠΟ ΠΙΕΣΗ είναι η ίδια απόδοση αν τα συγκριτικά πώλησης ήταν")
+    print("  20% αισιόδοξα και τα ενοίκια 15%. Εκεί φαίνεται τι είναι πραγματικό.\n")
+
+    header = (f"  {'#':>2} {'Πλάνο':<46} {'Κεφάλαιο':>9} {'Κέρδος':>9} {'ROI':>6} "
+              f"{'ΠΙΕΣΗ':>7} │ {'ΑΠΟ':>3} {'ΒΕΒ':>3} {'ΤΑΧ':>3} {'ΚΕΦ':>3} {'ΕΥΚ':>3} "
+              f"{'ΑΣΦ':>3} │ {'ΣΥΝ':>5}")
+    print(header)
+    print("  " + "─" * (len(header) - 2))
+    for position, outcome in enumerate(viable[:12], 1):
+        ind = outcome.indicators
+        print(f"  {position:>2} {outcome.name[:46]:<46} {_gr(outcome.capital_required):>9} "
+              f"{_gr(outcome.net_profit):>9} {outcome.annualised_roi_pct:>5.1f}% "
+              f"{outcome.annualised_roi_stressed_pct:>6.1f}% │ {ind.ret:>3.0f} {ind.certainty:>3.0f} "
+              f"{ind.speed:>3.0f} {ind.capital:>3.0f} {ind.ease:>3.0f} {ind.risk:>3.0f} │ "
+              f"{ind.combined:>5.1f}")
 
     blocked = [o for o in outcomes if not o.feasible]
     if blocked:
-        print("\n  Μη εφικτές:")
+        print(f"\n  Μη εφικτά ({len(blocked)}):")
+        seen_reasons = set()
         for outcome in blocked:
             reason = outcome.blockers[0] if outcome.blockers else ""
-            print(f"    · {outcome.name[:34]:<34} → {reason[:60]}")
+            short = reason[:64]
+            if short in seen_reasons:
+                continue
+            seen_reasons.add(short)
+            print(f"    · {outcome.name[:38]:<38} → {short}")
 
     print("\n4 · ΤΙ ΝΑ ΚΑΝΕΤΕ")
     print(RULE)
-    if viable:
-        winner = viable[0]
-        print(f"  ΣΥΝΟΛΙΚΑ ΚΑΛΥΤΕΡΟ: {winner.name}")
-        print(f"     Κεφάλαιο {_gr(winner.capital_required)} € → κέρδος "
-              f"{_gr(winner.net_profit)} € σε {winner.months_to_exit} μήνες "
-              f"({winner.annualised_roi_pct:.1f}%/έτος)")
-        if winner.cashflow_note:
-            print(f"     {winner.cashflow_note}")
-        for assumption in winner.assumptions:
-            print(f"     · {assumption}")
+    if not viable:
+        print("  Κανένα πλάνο δεν βγαίνει με αυτά τα δεδομένα.")
+        return 0
 
-        print("\n  ΚΑΛΥΤΕΡΟ ΑΝΑ ΚΑΤΗΓΟΡΙΑ:")
-        for category, outcome in best_per_category(outcomes).items():
-            print(f"     {category:<24} {outcome.name[:38]:<38} "
-                  f"{outcome.annualised_roi_pct:>5.1f}%/έτος, {_gr(outcome.capital_required)} €")
+    winner = viable[0]
+    print(f"  ΣΥΝΟΛΙΚΑ ΚΑΛΥΤΕΡΟ: {winner.name}")
+    print(f"     Κεφάλαιο {_gr(winner.capital_required)} € → κέρδος {_gr(winner.net_profit)} € "
+          f"σε {winner.months_to_exit} μήνες ({winner.annualised_roi_pct:.1f}%/έτος)")
+    print(f"     Υπό πίεση: κέρδος {_gr(winner.net_profit_stressed)} € "
+          f"({winner.annualised_roi_stressed_pct:.1f}%/έτος)")
+    if winner.cashflow_note:
+        print(f"     {winner.cashflow_note}")
+    for assumption in winner.assumptions:
+        print(f"     · {assumption}")
 
-        cheapest = min(viable, key=lambda o: o.capital_required)
-        easiest = max(viable, key=lambda o: o.ease)
-        richest = max(viable, key=lambda o: o.annualised_roi_pct)
-        print("\n  ΑΝ ΑΛΛΑΞΕΤΕ ΠΡΟΤΕΡΑΙΟΤΗΤΑ:")
-        print(f"     Μόνο κέρδος          → {richest.name[:44]} ({richest.annualised_roi_pct:.1f}%/έτος)")
-        print(f"     Μόνο ευκολία         → {easiest.name[:44]} (ευκολία {easiest.ease:.0f}/100)")
-        print(f"     Μόνο λίγο κεφάλαιο   → {cheapest.name[:44]} ({_gr(cheapest.capital_required)} €)")
-    else:
-        print("  Καμία στρατηγική δεν βγαίνει με αυτά τα δεδομένα.")
+    print("\n  ΚΑΛΥΤΕΡΟ ΑΝΑ ΔΕΙΚΤΗ — ξεχωριστά, χωρίς σταθμίσεις:")
+    for key, outcome in best_per_indicator(outcomes).items():
+        value = getattr(outcome.indicators, "ret" if key == "return" else key)
+        print(f"     {INDICATOR_LABELS_EL[key]:<12} {value:>5.0f}/100  {outcome.name[:50]}")
 
-    flags = sorted({flag for outcome in outcomes for flag in outcome.blockers})
+    print("\n  ΚΑΛΥΤΕΡΟ ΑΝΑ ΚΑΤΗΓΟΡΙΑ:")
+    for category, outcome in best_per_category(outcomes).items():
+        print(f"     {category:<24} {outcome.name[:44]:<44} "
+              f"{outcome.annualised_roi_pct:>5.1f}%/έτος, {_gr(outcome.capital_required)} €")
+
+    fragile = [o for o in viable[:5] if o.indicators.certainty < 30]
+    if fragile:
+        print("\n  ⚠ ΕΥΘΡΑΥΣΤΑ ΣΤΗΝ ΚΟΡΥΦΗ: τα παρακάτω χάνουν σχεδόν όλο το κέρδος τους")
+        print("    αν τα συγκριτικά της πύλης είναι αισιόδοξα. Επαληθεύστε με πραγματικά")
+        print("    συμβόλαια της περιοχής πριν δεσμευτείτε:")
+        for outcome in fragile:
+            print(f"     · {outcome.name[:46]:<46} βεβαιότητα {outcome.indicators.certainty:.0f}/100")
+
     print("\n  ΠΡΙΝ ΑΠΟ ΚΑΘΕ ΔΕΣΜΕΥΣΗ: αυτοψία, έλεγχος τίτλων και βαρών, πολεοδομικός")
     print("  έλεγχος, τεχνική αξιολόγηση. Οι παραπάνω αριθμοί είναι μοντέλο, όχι εκτίμηση.")
     return 0
@@ -232,10 +256,18 @@ def build_parser() -> argparse.ArgumentParser:
     market.add_argument("--commercial-demand", type=float, default=0.0)
     market.add_argument("--buildable", type=float, help="Δομήσιμα τ.μ. (για γη)")
 
-    objectives = parser.add_argument_group("κριτήρια κατάταξης")
-    objectives.add_argument("--w-profit", type=float, default=DEFAULT_OBJECTIVE_WEIGHTS["profit"])
-    objectives.add_argument("--w-ease", type=float, default=DEFAULT_OBJECTIVE_WEIGHTS["ease"])
-    objectives.add_argument("--w-capital", type=float, default=DEFAULT_OBJECTIVE_WEIGHTS["capital"])
+    market.add_argument("--built-per-sqm", type=float,
+                        help="Τιμή πώλησης δομημένου χώρου €/τ.μ. — απαραίτητη για ανέγερση")
+    market.add_argument("--rent-per-sqm", type=float,
+                        help="Μίσθωμα δομημένου χώρου €/τ.μ./μήνα — για μίσθωση νέας κατασκευής")
+    market.add_argument("--far", type=float, help="Συντελεστής δόμησης (π.χ. 0.8)")
+    market.add_argument("--capital-ceiling", type=float, default=250000.0,
+                        help="Κεφάλαιο που θεωρείται «πολύ» — βαθμονομεί τον δείκτη κεφαλαίου")
+
+    objectives = parser.add_argument_group("βάρη δεικτών (αθροίζονται και κανονικοποιούνται)")
+    for key, default in DEFAULT_INDICATOR_WEIGHTS.items():
+        objectives.add_argument(f"--w-{key}", type=float, default=default,
+                                help=f"{INDICATOR_LABELS_EL[key]} (προεπιλογή {default})")
 
     parser.add_argument("--signals", default="tourism",
                         help="Σήματα προς χρήση, χωρισμένα με κόμμα, ή 'none'")
@@ -275,7 +307,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # thin stand-in so the report says "indicative" rather than overstating.
     comparables = comparables or [market_per_sqm] * 4
 
-    weights = {"profit": args.w_profit, "ease": args.w_ease, "capital": args.w_capital}
+    weights = {key: getattr(args, "w_" + key) for key in DEFAULT_INDICATOR_WEIGHTS}
     signal_keys = [] if args.signals == "none" else [
         s.strip() for s in args.signals.split(",") if s.strip()
     ]
@@ -284,10 +316,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         readings = gather_signals(PoliteFetcher(delay=args.delay, verbose=False),
                                   listing, signal_keys)
 
+    extra = {
+        "buildable": args.buildable, "far": args.far,
+        "built_per_sqm": args.built_per_sqm, "rent_per_sqm": args.rent_per_sqm,
+        "capital_ceiling": args.capital_ceiling,
+    }
     return report(
         listing, market_per_sqm, comparables, monthly_rent, readings, weights,
-        args.liquidity, args.drift, args.student_demand, args.commercial_demand,
-        args.buildable,
+        args.liquidity, args.drift, args.student_demand, args.commercial_demand, extra,
     )
 
 

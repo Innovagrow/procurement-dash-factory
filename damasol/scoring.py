@@ -1,9 +1,13 @@
 """
-Opportunity scoring.
+Triage scoring - which listings deserve the expensive analysis.
 
-A cheap listing is not the same thing as a good deal. This module turns raw
-listings into a ranked shortlist by asking six questions and weighting the
-answers:
+A cheap listing is not the same thing as a good deal, and neither is a listing
+that merely looks cheap next to its neighbours' asking prices. This module does
+not decide what is a good deal; `strategies.evaluate` does that, by pricing every
+way of using the property and ranking on stress-tested return.
+
+What this module does is cheap and useful: rank thousands of candidates so the
+few hundred worth a full workup rise to the top. Six questions, weighted:
 
   value_gap     Is it priced below what comparable stock in the same area asks?
   rental_yield  What gross yield would local rents produce against this price?
@@ -17,6 +21,7 @@ can be defended line by line rather than taken on faith.
 """
 from __future__ import annotations
 
+import dataclasses
 import re
 import statistics
 from typing import Dict, Iterable, List, Optional, Sequence
@@ -24,12 +29,20 @@ from typing import Dict, Iterable, List, Optional, Sequence
 from .geo import geo_cell, nearest_urban_centre
 from .models import Listing, ScoredListing
 
+# TRIAGE weights - not a verdict.
+#
+# This score decides which listings are worth the expensive full analysis, not
+# which are good deals. That distinction matters because its strongest input,
+# `value_gap`, is a comparison against ASKING prices, which are opinions and can
+# be fiction. It used to carry 35% and drive the final ranking; it now carries
+# 20% and drives nothing but the shortlist. The verdict comes from
+# `strategies.evaluate`, which ranks on stress-tested return.
 DEFAULT_WEIGHTS: Dict[str, float] = {
-    "value_gap": 0.35,
-    "rental_yield": 0.25,
+    "rental_yield": 0.30,   # the cheapest honest proxy for return
+    "value_gap": 0.20,      # useful as a hint, untrustworthy as a conclusion
     "liquidity": 0.15,
-    "ticket_fit": 0.10,
-    "upside": 0.10,
+    "ticket_fit": 0.15,
+    "upside": 0.15,
     "freshness": 0.05,
 }
 
@@ -174,6 +187,46 @@ class MarketIndex:
     def rent_price_per_sqm(self, listing: Listing) -> Optional[float]:
         value, _ = self._lookup(listing, self._rent_sub, self._rent_cell, self._rent_area)
         return value
+
+    def _as_residence(self, listing: Listing) -> Listing:
+        """A copy of the listing that looks up residential comparables.
+
+        Needed for land: what a plot is worth says nothing about what a building
+        on it would fetch, so the build plans have to ask the residential market.
+        """
+        if listing.item_type == "residence":
+            return listing
+        clone = dataclasses.replace(listing, item_type="residence")
+        return clone
+
+    def built_price_per_sqm(self, listing: Listing) -> Optional[float]:
+        """Sale EUR/sqm of finished residential space at this location."""
+        value, _ = self._lookup(self._as_residence(listing), self._sale_sub,
+                                self._sale_cell, self._sale_area)
+        return value
+
+    def built_rent_per_sqm(self, listing: Listing) -> Optional[float]:
+        """Rent EUR/sqm/month of finished residential space at this location."""
+        value, _ = self._lookup(self._as_residence(listing), self._rent_sub,
+                                self._rent_cell, self._rent_area)
+        return value
+
+    def comparables_for(self, listing: Listing) -> List[float]:
+        """The raw comparable values behind the sale lookup, for the confidence band."""
+        if listing.sub_area:
+            values = self._sale_sub.get((listing.item_type, listing.sub_area), [])
+            if len(values) >= self.min_comparables:
+                return list(values)
+        cell = geo_cell(listing.lat, listing.lng, self.cell_size)
+        if cell:
+            values = self._sale_cell.get((listing.item_type, cell), [])
+            if len(values) >= self.min_comparables:
+                return list(values)
+        if listing.area_name:
+            values = self._sale_area.get((listing.item_type, listing.area_name), [])
+            if len(values) >= self.min_comparables:
+                return list(values)
+        return []
 
     def supply(self, listing: Listing) -> int:
         cell = geo_cell(listing.lat, listing.lng, self.cell_size)

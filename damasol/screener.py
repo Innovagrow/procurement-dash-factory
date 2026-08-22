@@ -27,11 +27,15 @@ import os
 import sys
 from typing import Dict, List, Optional, Sequence
 
+from .costs import DEFAULT_COSTS
 from .geo import GREECE_BBOX, cell_bbox, geo_cell
 from .http import PoliteFetcher
+from .indicators import DEFAULT_INDICATOR_WEIGHTS
 from .models import Listing, ScoredListing
 from .scoring import DEFAULT_WEIGHTS, MarketIndex, score_all
 from .sources import REGISTRY, SearchQuery
+from .strategies import MarketInputs, best_plan, evaluate
+from .valuation import infer_facts, value_property
 
 DEFAULT_ITEM_TYPES = ("residence", "prof", "land")
 
@@ -95,6 +99,12 @@ def enrich_market_context(
 
     _log(f"  · {len(cells)} μοναδικά κελιά περιοχής προς εμπλουτισμό")
 
+    # A plot's own EUR/sqm says nothing about what a building on it would sell
+    # or let for, so land cells need residential comparables as well as land ones.
+    for item_type, cell in list(cells):
+        if item_type == "land":
+            cells.setdefault(("residence", cell), None)
+
     for position, (item_type, cell) in enumerate(cells, 1):
         bbox = cell_bbox(cell, cell_size)
         _log(f"    [{position}/{len(cells)}] {item_type} @ {cell}")
@@ -127,35 +137,135 @@ def enrich_market_context(
 # ------------------------------------------------------------------ export
 
 
-def export_csv(scored: Sequence[ScoredListing], path: str) -> None:
+def analyse_shortlist(
+    shortlist: Sequence[ScoredListing],
+    index: MarketIndex,
+    tourism_by_area: Optional[Dict[str, float]] = None,
+    weights: Optional[Dict[str, float]] = None,
+    capital_ceiling: float = 250_000.0,
+) -> Dict[str, dict]:
+    """Price every plan for every shortlisted listing and keep the best.
+
+    This is the step that makes the final ranking a return ranking rather than a
+    discount ranking: whatever the triage thought, a listing only rises here if
+    some concrete plan actually pays.
+    """
+    tourism_by_area = tourism_by_area or {}
+    results: Dict[str, dict] = {}
+
+    for scored in shortlist:
+        listing = scored.listing
+        market_per_sqm = index.sale_price_per_sqm(listing)
+        if not market_per_sqm or not listing.size_sqm:
+            continue
+        facts = infer_facts(listing)
+        valuation = value_property(
+            listing, market_per_sqm, index.comparables_for(listing),
+            facts, scored.components.get("liquidity", 55.0),
+        )
+        if not valuation:
+            continue
+
+        rent_per_sqm = index.rent_price_per_sqm(listing)
+        built_per_sqm = index.built_price_per_sqm(listing)
+        built_rent_per_sqm = index.built_rent_per_sqm(listing)
+
+        market = MarketInputs(
+            monthly_rent=(rent_per_sqm * listing.size_sqm) if rent_per_sqm else None,
+            liquidity_score=scored.components.get("liquidity", 55.0),
+            tourism_intensity=tourism_by_area.get(listing.area_name, 0.0),
+            built_price_per_sqm=built_per_sqm,
+            rent_per_sqm_month=built_rent_per_sqm,
+            capital_ceiling=capital_ceiling,
+        ).derive_from(listing)
+
+        outcomes = evaluate(listing, facts, valuation, market, DEFAULT_COSTS, weights)
+        winner = best_plan(outcomes)
+        if not winner:
+            continue
+        results[listing.listing_id] = {
+            "valuation": valuation,
+            "best": winner,
+            "outcomes": outcomes,
+            "viable": sum(1 for o in outcomes if o.feasible),
+        }
+    return results
+
+
+def _rows(scored: Sequence[ScoredListing], analysis: Optional[Dict[str, dict]]) -> List[dict]:
+    rows = []
+    for item in scored:
+        row = item.to_dict()
+        found = (analysis or {}).get(item.listing.listing_id)
+        if found:
+            best = found["best"]
+            row.update({
+                "best_plan": best.plan.key,
+                "best_plan_name": best.name,
+                "best_plan_category": best.category,
+                "capital_required": best.capital_required,
+                "net_profit": best.net_profit,
+                "annualised_roi_pct": best.annualised_roi_pct,
+                "annualised_roi_stressed_pct": best.annualised_roi_stressed_pct,
+                "months_to_exit": best.months_to_exit,
+                "viable_plans": found["viable"],
+                "open_market_value": found["valuation"].open_market,
+                "immediate_value": found["valuation"].immediate,
+                "valuation_confidence_pct": found["valuation"].confidence_pct,
+            })
+            row.update({f"ind_{k}": v for k, v in best.indicators.as_dict().items()})
+        rows.append(row)
+    return rows
+
+
+def export_csv(scored: Sequence[ScoredListing], path: str,
+               analysis: Optional[Dict[str, dict]] = None) -> None:
     if not scored:
         return
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    rows = [s.to_dict() for s in scored]
-    fieldnames = list(rows[0].keys())
+    rows = _rows(scored, analysis)
+    fieldnames = sorted({key for row in rows for key in row})
     with open(path, "w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
 
 
-def export_json(scored: Sequence[ScoredListing], path: str) -> None:
+def export_json(scored: Sequence[ScoredListing], path: str,
+                analysis: Optional[Dict[str, dict]] = None) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    payload = [
-        {
-            **s.listing.to_dict(),
-            "score": s.score,
-            "grade": s.grade,
-            "components": s.components,
-            "evidence": s.evidence,
-            "flags": s.flags,
-            "market_price_per_sqm": s.market_price_per_sqm,
-            "discount_pct": s.discount_pct,
-            "est_monthly_rent": s.est_monthly_rent,
-            "gross_yield_pct": s.gross_yield_pct,
+    payload = []
+    for item in scored:
+        row = {
+            **item.listing.to_dict(),
+            "triage_score": item.score,
+            "triage_components": item.components,
+            "evidence": item.evidence,
+            "flags": item.flags,
+            "market_price_per_sqm": item.market_price_per_sqm,
+            "discount_pct": item.discount_pct,
+            "est_monthly_rent": item.est_monthly_rent,
+            "gross_yield_pct": item.gross_yield_pct,
         }
-        for s in scored
-    ]
+        found = (analysis or {}).get(item.listing.listing_id)
+        if found:
+            best = found["best"]
+            row["valuation"] = {
+                "open_market": found["valuation"].open_market,
+                "immediate": found["valuation"].immediate,
+                "low": found["valuation"].low,
+                "high": found["valuation"].high,
+                "confidence_pct": found["valuation"].confidence_pct,
+                "factors": found["valuation"].factor_table(),
+            }
+            row["best_plan"] = best.to_dict()
+            row["indicators"] = best.indicators.as_dict()
+            row["plans"] = [o.to_dict() for o in found["outcomes"] if o.feasible][:12]
+            row["blocked"] = [
+                {"plan": o.name, "reason": o.blockers[0] if o.blockers else ""}
+                for o in found["outcomes"] if not o.feasible
+            ][:8]
+        payload.append(row)
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
 
@@ -193,7 +303,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--rent-pages", type=int, default=2,
                         help="Σελίδες συγκριτικών ενοικίων ανά κελί")
     parser.add_argument("--probe", action="store_true", help="Έλεγχος πηγής χωρίς πλήρη σάρωση")
-    parser.add_argument("--weights", default=None, help="JSON με βάρη, π.χ. '{\"rental_yield\":0.4}'")
+    parser.add_argument("--weights", default=None,
+                        help="JSON με βάρη triage, π.χ. '{\"rental_yield\":0.4}'")
+    parser.add_argument("--indicator-weights", default=None,
+                        help="JSON με βάρη δεικτών κατάταξης, π.χ. '{\"certainty\":0.35}'")
+    parser.add_argument("--capital-ceiling", type=float, default=250000.0,
+                        help="Κεφάλαιο που θεωρείται «πολύ» — βαθμονομεί τον δείκτη κεφαλαίου")
     parser.add_argument(
         "--ignore-robots",
         action="store_true",
@@ -220,6 +335,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         weights.update(json.loads(args.weights))
         total = sum(weights.values())
         weights = {k: v / total for k, v in weights.items()}
+
+    indicator_weights = dict(DEFAULT_INDICATOR_WEIGHTS)
+    if args.indicator_weights:
+        indicator_weights.update(json.loads(args.indicator_weights))
 
     fetcher = PoliteFetcher(
         delay=args.delay,
@@ -255,7 +374,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     _log("=" * 74)
 
-    _log("\n[1/4] Συλλογή υποψηφίων")
+    _log("\n[1/5] Συλλογή υποψηφίων")
     candidates = crawl_candidates(
         source, item_types, args.transaction, args.max_price,
         args.min_price, args.min_size, bbox, args.max_pages,
@@ -265,7 +384,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         _log("Καμία αγγελία. Χαλαρώστε τα φίλτρα.")
         return 1
 
-    _log("\n[2/4] Προκαταρκτική βαθμολόγηση (συγκριτικά εντός του δείγματος)")
+    _log("\n[2/5] Διαλογή — ποια αξίζουν πλήρη ανάλυση (ΟΧΙ ετυμηγορία)")
     index = MarketIndex(cell_size=args.cell_size)
     index.add_sale_comparables(candidates)
     prescored = score_all(candidates, index, budget=args.max_price, weights=weights)
@@ -273,7 +392,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     _log(f"  Shortlist προς εμπλουτισμό: {len(shortlist)}")
 
     if not args.no_enrich:
-        _log("\n[3/4] Εμπλουτισμός με πραγματικά συγκριτικά αγοράς & ενοικίων")
+        _log("\n[3/5] Εμπλουτισμός με πραγματικά συγκριτικά αγοράς & ενοικίων")
         enrich_index = MarketIndex(cell_size=args.cell_size)
         enrich_market_context(
             source, enrich_index, shortlist, args.cell_size,
@@ -287,14 +406,29 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             [c for c in candidates if c.listing_id not in {s.listing.listing_id for s in shortlist}]
         )
     else:
-        _log("\n[3/4] Εμπλουτισμός παραλείφθηκε (--no-enrich)")
+        _log("\n[3/5] Εμπλουτισμός παραλείφθηκε (--no-enrich)")
 
-    _log("\n[4/4] Τελική βαθμολόγηση & εξαγωγή")
-    final = score_all([s.listing for s in shortlist], index, budget=args.max_price, weights=weights)
-    final = final[: args.top]
+    _log("\n[4/5] Αποτίμηση & τιμολόγηση κάθε πλάνου αξιοποίησης")
+    rescored = score_all([s.listing for s in shortlist], index,
+                         budget=args.max_price, weights=weights)
+    analysis = analyse_shortlist(
+        rescored, index, weights=indicator_weights, capital_ceiling=args.capital_ceiling,
+    )
+    _log(f"  {len(analysis)}/{len(rescored)} ακίνητα με τουλάχιστον ένα εφικτό πλάνο")
 
-    export_csv(final, args.out + ".csv")
-    export_json(final, args.out + ".json")
+    _log("\n[5/5] Κατάταξη κατά απόδοση & εξαγωγή")
+    ranked = [s for s in rescored if s.listing.listing_id in analysis]
+    ranked.sort(
+        key=lambda s: analysis[s.listing.listing_id]["best"].indicators.combined,
+        reverse=True,
+    )
+    orphans = [s for s in rescored if s.listing.listing_id not in analysis]
+    if orphans:
+        _log(f"  ({len(orphans)} χωρίς επαρκή δεδομένα για αποτίμηση — εξαιρούνται)")
+    final = ranked[: args.top]
+
+    export_csv(final, args.out + ".csv", analysis)
+    export_json(final, args.out + ".json", analysis)
     try:
         from .report import write_html_report
 
@@ -319,20 +453,24 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     _log(f"  ✓ {args.out}.html")
     _log(f"  Δίκτυο: {fetcher.stats}")
 
-    _log("\nΚΟΡΥΦΑΙΕΣ ΕΥΚΑΙΡΙΕΣ")
-    _log("-" * 74)
+    _log("\nΚΟΡΥΦΑΙΕΣ ΕΥΚΑΙΡΙΕΣ — κατάταξη κατά απόδοση, όχι κατά έκπτωση")
+    _log("-" * 78)
+    _log(f"{'#':>3}  {'Τιμή':>9}  {'Περιοχή':<24} {'ROI':>6} {'ΠΙΕΣΗ':>7} "
+         f"{'ΑΠΟ':>3} {'ΒΕΒ':>3} {'ΤΑΧ':>3} {'ΚΕΦ':>3} {'ΣΥΝ':>5}")
+    _log("-" * 78)
     for position, scored in enumerate(final[:15], 1):
         listing = scored.listing
+        best = analysis[listing.listing_id]["best"]
+        ind = best.indicators
         price = f"{listing.price:,.0f}".replace(",", ".") if listing.price else "-"
         _log(
-            f"{position:>3}. [{scored.grade:>2}] {scored.score:>5.1f}  "
-            f"{price:>9} €  {(listing.address or '-')[:26]:<26} "
-            f"{(listing.title or '')[:34]}"
+            f"{position:>3}. {price:>9} €  {(listing.sub_area or listing.address or '-')[:24]:<24} "
+            f"{best.annualised_roi_pct:>5.1f}% {best.annualised_roi_stressed_pct:>6.1f}% "
+            f"{ind.ret:>3.0f} {ind.certainty:>3.0f} {ind.speed:>3.0f} {ind.capital:>3.0f} "
+            f"{ind.combined:>5.1f}"
         )
-        if scored.discount_pct is not None:
-            _log(f"       έκπτωση {scored.discount_pct:>5.1f}%  ·  απόδοση "
-                 f"{scored.gross_yield_pct if scored.gross_yield_pct is not None else '—'}%")
-        _log(f"       {listing.url}")
+        _log(f"      → {best.name[:64]}")
+        _log(f"        {listing.url}")
     return 0
 
 

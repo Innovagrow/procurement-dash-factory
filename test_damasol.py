@@ -369,63 +369,154 @@ illiquid = value_property(wreck, 1500.0, comps, wreck_facts, liquidity_score=10)
 check("Fast sale costs more where stock sits",
       (illiquid.open_market - illiquid.immediate) > (val.open_market - val.immediate))
 
-print("\n[10] Strategy engine")
+print("\n[10] Plan matrix and indicators")
+from damasol.indicators import (
+    STRESS_RENT, STRESS_TERMINAL, score_capital, score_certainty, score_return, score_speed,
+)
 from damasol.strategies import (
-    CATEGORY_INCOME, CATEGORY_RESALE, MarketInputs, best_per_category, evaluate,
+    MarketInputs, best_per_category, best_per_indicator, best_plan, evaluate, generate_plans,
 )
 
 market = MarketInputs(monthly_rent=380, annual_drift_pct=3.0, liquidity_score=72,
                       tourism_intensity=48, student_demand=55, commercial_demand=40)
 outcomes = evaluate(wreck, wreck_facts, val, market)
 viable = [o for o in outcomes if o.feasible]
-check("Several strategies are viable", len(viable) >= 4, str(len(viable)))
-check("Ranked by score", all(a.score >= b.score for a, b in zip(viable, viable[1:])))
-check("Land strategies blocked for a flat",
-      any(o.key == "LAND_DEVELOP" and not o.feasible for o in outcomes))
-check("Blocked strategies explain themselves",
-      all(o.blockers for o in outcomes if not o.feasible))
+check("The matrix generates many plans", len(outcomes) >= 25, str(len(outcomes)))
+check("Most are viable for a normal flat", len(viable) >= 12, str(len(viable)))
+check("Ranked by combined indicator",
+      all(a.indicators.combined >= b.indicators.combined for a, b in zip(viable, viable[1:])))
+check("Blocked plans explain themselves", all(o.blockers for o in outcomes if not o.feasible))
+check("Every viable plan states its assumptions", all(o.assumptions for o in viable))
 check("Capital always exceeds the asking price",
       all(o.capital_required > wreck.price for o in viable))
-check("Every viable strategy states its assumptions", all(o.assumptions for o in viable))
+
+plan_keys = {o.plan.key for o in outcomes}
+check("Renovate-then-sell is covered",
+      any(k.startswith("BUILDING_FULL") and k.endswith("SELL") for k in plan_keys))
+check("Renovate-then-let is covered",
+      any("FULL_RENT_LONG" in k for k in plan_keys))
+check("Commercial conversion is covered", any("RENT_COMMERCIAL" in k for k in plan_keys))
+check("Multiple holding horizons are offered",
+      len({o.plan.hold_years for o in outcomes if o.plan.exit == "rent_long"}) >= 3)
+check("No land plans for a flat", not any(o.plan.acquisition == "land" for o in outcomes))
+
+# Indicator scales are absolute, so numbers from different properties compare.
+check("Return scale is absolute", score_return(10) < score_return(25) < score_return(50))
+check("Speed rewards early cash", score_speed(60, 4) > score_speed(60, 60))
+check("Capital scale rewards small tickets", score_capital(40000) > score_capital(200000))
+
+# The point of the redesign: rank on what survives, not on the headline.
+flip = next(o for o in viable if o.plan.transform == "none" and o.plan.exit == "sell")
+long_let = max((o for o in viable if o.plan.exit == "rent_long"),
+               key=lambda o: o.plan.hold_years)
+check("A flip's return collapses under stress",
+      flip.annualised_roi_stressed_pct < flip.annualised_roi_pct / 2,
+      f"{flip.annualised_roi_pct} -> {flip.annualised_roi_stressed_pct}")
+check("A long let keeps most of its return under stress",
+      long_let.annualised_roi_stressed_pct > long_let.annualised_roi_pct / 3,
+      f"{long_let.annualised_roi_pct} -> {long_let.annualised_roi_stressed_pct}")
+check("Certainty separates the fragile from the durable",
+      long_let.indicators.certainty > flip.indicators.certainty + 8,
+      f"let {long_let.indicators.certainty} vs flip {flip.indicators.certainty}")
+check("Stressed return is reported, not hidden",
+      any("Υπό πίεση" in a for a in flip.assumptions))
+
+# Over-renovation must lose on the numbers, not be forbidden by a rule.
+no_works_let = next(o for o in viable
+                    if o.plan.transform == "none" and o.plan.exit == "rent_long"
+                    and o.plan.hold_years == 5)
+full_works_let = next((o for o in viable
+                       if o.plan.transform == "full" and o.plan.exit == "rent_long"
+                       and o.plan.hold_years == 5), None)
+check("Renovating a cheap flat to let it loses to doing nothing",
+      full_works_let is not None
+      and full_works_let.annualised_roi_pct < no_works_let.annualised_roi_pct,
+      f"{full_works_let.annualised_roi_pct if full_works_let else '?'} vs {no_works_let.annualised_roi_pct}")
+
+check("Every indicator names a winner", len(best_per_indicator(outcomes)) == 6)
 check("Categories are split", len(best_per_category(outcomes)) >= 2)
+check("Best plan is the top viable one", best_plan(outcomes) is viable[0])
 
-flip = next(o for o in viable if o.key == "FLIP_AS_IS")
-check("Flip has no cashflow before exit", flip.months_to_first_cash == flip.months_to_exit)
-rent = next((o for o in viable if o.key == "RENT_LONG"), None)
-check("Letting pays before exit", rent is not None and rent.months_to_first_cash < rent.months_to_exit)
+certainty_first = evaluate(wreck, wreck_facts, val, market,
+                           weights={"return": 0.05, "certainty": 0.75, "speed": 0.05,
+                                    "capital": 0.05, "ease": 0.05, "risk": 0.05})
+top_certainty = [o for o in certainty_first if o.feasible][0]
+check("Weighting certainty changes the winner",
+      top_certainty.indicators.certainty >= flip.indicators.certainty,
+      f"{top_certainty.plan.key}")
 
-# The bug this guards: renovating a EUR 40k flat for EUR 49k to let it out.
-check("Works level is chosen, not assumed",
-      rent is not None and "χωρίς εργασίες" in rent.assumptions[0], rent.assumptions[0] if rent else "")
+no_tourism = evaluate(wreck, wreck_facts, val, MarketInputs(monthly_rent=380))
+check("Short stay blocked without tourism",
+      any(o.plan.exit == "rent_short" and not o.feasible for o in no_tourism))
 
-no_tourism = evaluate(wreck, wreck_facts, val,
-                      MarketInputs(monthly_rent=380, tourism_intensity=5))
-check("Short-stay blocked without tourism",
-      any(o.key == "RENT_SHORT" and not o.feasible for o in no_tourism))
-
-capital_first = evaluate(wreck, wreck_facts, val, market,
-                         weights={"profit": 0.1, "ease": 0.1, "capital": 0.8})
-cheapest = min([o for o in capital_first if o.feasible], key=lambda o: o.capital_required)
-top = [o for o in capital_first if o.feasible][0]
-check("Weighting capital changes the winner", top.capital_required == cheapest.capital_required)
-
+print("\n[10b] Land, building and the two markets")
 land = Listing(source="t", listing_id="L1", url="", title="Οικόπεδο 1.200 τ.μ.",
                address="Αρτεμίσιο", area_name="Αρτεμίσιο", sub_area="Αρτεμίσιο",
                item_type="land", transaction="SALE", price=40000, size_sqm=1200,
                lat=38.85, lng=23.25)
 land_facts = infer_facts(land)
-land_val = value_property(land, 50.0, [45, 48, 52, 55, 50], land_facts, 40)
-land_outcomes = evaluate(land, land_facts, land_val,
-                         MarketInputs(annual_drift_pct=2.0, buildable_sqm=400))
-check("Land hold is viable for land",
-      any(o.key == "LAND_HOLD" and o.feasible for o in land_outcomes))
-check("Antiparochi ties up no land capital",
-      any(o.key == "ANTIPAROCHI" and o.feasible for o in land_outcomes))
-check("Flat strategies blocked for land",
-      any(o.key == "LAND_DEVELOP" and o.feasible for o in land_outcomes))
-land_no_plot = evaluate(land, land_facts, land_val, MarketInputs(annual_drift_pct=2.0))
-check("Development blocked without buildable area",
-      any(o.key == "LAND_DEVELOP" and not o.feasible for o in land_no_plot))
+land_val = value_property(land, 55.0, [48, 52, 55, 58, 60, 51, 57, 54], land_facts, 45)
+
+land_plans = {p.key for p in generate_plans(land, MarketInputs())}
+check("Land offers build-then-sell", any("LAND_BUILD_SELL" in k for k in land_plans))
+check("Land offers build-then-let", any("LAND_BUILD_RENT_LONG" in k for k in land_plans))
+check("Land offers build-then-commercial",
+      any("LAND_BUILD_RENT_COMMERCIAL" in k for k in land_plans))
+check("Land offers build-then-operate", any("LAND_BUILD_OPERATE" in k for k in land_plans))
+check("Antiparochi is offered", any(k.startswith("ANTIPAROCHI") for k in land_plans))
+check("Land offers plain holding", any("LAND_NONE_HOLD" in k for k in land_plans))
+
+# Pricing new construction off the plot's own EUR/sqm produced -70% on every
+# build plan. The two markets must stay separate.
+no_built_rate = evaluate(land, land_facts, land_val, MarketInputs(buildable_sqm=480))
+check("Build is refused without finished-space prices",
+      all(not o.feasible for o in no_built_rate if o.plan.transform == "build"))
+check("The refusal explains why",
+      any("δομημένου χώρου" in (o.blockers[0] if o.blockers else "")
+          for o in no_built_rate if o.plan.transform == "build"))
+
+land_market = MarketInputs(annual_drift_pct=2.5, liquidity_score=45, tourism_intensity=52,
+                           commercial_demand=45, buildable_sqm=480,
+                           built_price_per_sqm=1600, rent_per_sqm_month=5.5)
+land_outcomes = evaluate(land, land_facts, land_val, land_market)
+land_viable = [o for o in land_outcomes if o.feasible]
+check("Build plans price up with finished-space rates",
+      all(o.annualised_roi_pct > -20 for o in land_viable if o.plan.transform == "build"),
+      str([round(o.annualised_roi_pct, 1) for o in land_viable if o.plan.transform == "build"]))
+antiparochi = next(o for o in land_viable if o.plan.acquisition == "antiparochi")
+buy_and_build = next(o for o in land_viable
+                     if o.plan.acquisition == "land" and o.plan.transform == "build"
+                     and o.plan.exit == "sell")
+check("Antiparochi ties up less capital than buying the land",
+      antiparochi.capital_required < buy_and_build.capital_required)
+check("Buildable area is estimated when unknown, and flagged",
+      any("ΕΚΤΙΜΩΜΕΝΑ" in a for o in evaluate(
+          land, land_facts, land_val,
+          MarketInputs(built_price_per_sqm=1600, rent_per_sqm_month=5.5))
+          if o.feasible and o.plan.transform == "build" for a in o.assumptions))
+
+print("\n[10c] Market index serves both markets")
+from damasol.scoring import MarketIndex as _MI
+both = _MI()
+both.add_sale_comparables(
+    [Listing(source="t", listing_id=f"p{i}", url="", item_type="land", sub_area="Ζ",
+             area_name="Ζ", price=60000, size_sqm=1000, lat=38.8, lng=23.2) for i in range(6)]
+    + [Listing(source="t", listing_id=f"h{i}", url="", item_type="residence", sub_area="Ζ",
+               area_name="Ζ", price=160000, size_sqm=100, lat=38.8, lng=23.2) for i in range(6)]
+)
+both.add_rent_comparables(
+    [Listing(source="t", listing_id=f"r{i}", url="", item_type="residence", sub_area="Ζ",
+             area_name="Ζ", price=550, size_sqm=100, lat=38.8, lng=23.2) for i in range(6)]
+)
+plot = Listing(source="t", listing_id="P1", url="", item_type="land", sub_area="Ζ",
+               area_name="Ζ", price=50000, size_sqm=900, lat=38.8, lng=23.2)
+check("Land rate stays a land rate", both.sale_price_per_sqm(plot) == 60.0)
+check("Finished-space rate comes from residential comps",
+      both.built_price_per_sqm(plot) == 1600.0)
+check("Finished-space rent comes from residential comps",
+      both.built_rent_per_sqm(plot) == 5.5)
+check("Comparables are exposed for the confidence band",
+      len(both.comparables_for(plot)) >= 4)
 
 print("\n[11] Signals (offline logic)")
 from damasol.signals.news import NewsSignal

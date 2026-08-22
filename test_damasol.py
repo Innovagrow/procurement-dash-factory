@@ -592,6 +592,23 @@ check("Falls back to the wildcard when we are not named",
       only_star.allows("https://a.test/x") and not only_star.allows("https://a.test/private"))
 check("No named group is reported when none exists", only_star.named_group("https://a.test/") == "")
 
+# A file that repeats `User-agent: *` — every such block applies, not just the
+# first. spitogatos.gr splits its wildcard rules across four blocks, and keeping
+# only the first reported a disallowed path as permitted.
+split_groups = RobotsGate(_Canned(
+    "User-agent: *\nDisallow: /one\n\nUser-agent: *\nDisallow: /two\n\n"
+    "User-agent: *\nDisallow: */three*\n"))
+check("First wildcard block applies", not split_groups.allows("https://c.test/one"))
+check("Later wildcard blocks apply too", not split_groups.allows("https://c.test/two"))
+check("...including the last one", not split_groups.allows("https://c.test/x/three/y"))
+check("Unlisted paths still pass", split_groups.allows("https://c.test/four"))
+
+split_named = RobotsGate(_Canned(
+    "User-agent: *\nAllow: /\n\nUser-agent: ClaudeBot\nDisallow: /a\n\n"
+    "User-agent: ClaudeBot\nDisallow: /b\n"))
+check("Repeated named blocks merge as well",
+      not split_named.allows("https://d.test/a") and not split_named.allows("https://d.test/b"))
+
 narrow = RobotsGate(_Canned(
     "User-agent: *\nAllow: /\nUser-agent: Claude-User\nAllow: /ok\nDisallow: /\n"))
 check("A named group's own allow-list still applies", narrow.allows("https://b.test/ok"))

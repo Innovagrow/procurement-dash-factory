@@ -95,21 +95,22 @@ class RobotsGate:
             elif field in ("disallow", "allow") and current is not None and value:
                 current[1].append((self._compile(value), len(value), field == "allow"))
 
+        # Every group addressing the same agent applies, not just the first.
+        # robots.txt files routinely repeat `User-agent: *` with a few rules
+        # each - spitogatos.gr splits its wildcard rules across four such
+        # blocks - and keeping only the first silently ignored the rest. Here
+        # that meant reporting the disallowed map-search path as permitted.
         named_match = ""
         chosen: list = []
         for agents, rules in groups:
-            for agent in agents:
-                if agent in SELF_AGENT_NAMES:
-                    named_match = agent
-                    chosen = rules
-                    break
-            if named_match:
-                break
+            hit = next((a for a in agents if a in SELF_AGENT_NAMES), "")
+            if hit:
+                named_match = named_match or hit
+                chosen.extend(rules)
         if not named_match:
             for agents, rules in groups:
                 if "*" in agents:
-                    chosen = rules
-                    break
+                    chosen.extend(rules)
 
         self._rules[origin] = chosen
         self._named[origin] = named_match

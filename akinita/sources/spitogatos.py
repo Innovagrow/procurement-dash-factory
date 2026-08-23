@@ -278,10 +278,19 @@ class SpitogatosSource(PropertySource):
                     timeout=self.results_timeout_ms)
             except Exception:  # noqa: BLE001 - ίσως η σελίδα δεν έχει αποτελέσματα
                 pass
-            # Πολλές λίστες φορτώνουν με το κύλισμα.
-            for _ in range(3):
-                page.mouse.wheel(0, 5000)
-                page.wait_for_timeout(900)
+            # Το «υπάρχει τιμή» δεν σημαίνει «γέμισε η λίστα». Μια σάρωση που
+            # διάβασε στο πρώτο αποτέλεσμα γυρίζει μία αγγελία και μοιάζει με
+            # περιοχή χωρίς αγορά. Περιμένουμε να ΣΤΑΜΑΤΗΣΕΙ να μεγαλώνει.
+            previous, stable = -1, 0
+            for _ in range(24):
+                page.mouse.wheel(0, 6000)
+                page.wait_for_timeout(700)
+                current = page.evaluate(
+                    "() => (document.body.innerText.match(/€/g) || []).length")
+                stable = stable + 1 if current == previous else 0
+                previous = current
+                if stable >= 3 and current > 0:
+                    break
             try:
                 page.wait_for_load_state("networkidle", timeout=15000)
             except Exception:  # noqa: BLE001 - το networkidle δεν είναι εγγυημένο
@@ -357,6 +366,15 @@ class SpitogatosSource(PropertySource):
             "text_sample": re.sub(r"\s+", " ", text).strip()[:200],
             "sample_links": sorted({m for m in re.findall(r'href="(/[a-z0-9\-/]{4,60})"', html)})[:12],
             "script_blocks": html.count("<script"),
+            # Πώς μοιάζει η σελίδα γύρω από μια τιμή: αυτό λέει πώς γράφεται ο
+            # εξαγωγέας, χωρίς να χρειαστεί να ταξιδέψουν 300KB HTML.
+            "price_context": [
+                re.sub(r"\s+", " ", html[max(0, m.start() - 260):m.start() + 90])
+                for m in list(re.finditer("€", html))[:3]
+            ],
+            "link_context": sorted({
+                m.group(1) for m in re.finditer(r'href="(/[^"]*\d{5,}[^"]*)"', html)
+            })[:5],
             "strategies": {},
         }
         for label, extractor in (

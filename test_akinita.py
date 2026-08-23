@@ -772,6 +772,22 @@ try:
 finally:
     shutil.rmtree(_dir, ignore_errors=True)
 
+# Every bar on a card asks the label table for a name. A field key that is not
+# in that table renders the word "undefined" where a Greek label should be, and
+# nothing else fails — so the mismatch has to be caught here.
+from akinita.webreport import _TEMPLATE as DASHBOARD_TEMPLATE
+from akinita.indicators import INDICATOR_SHORT_EL, INDICATOR_LABELS_EL
+axes_source = re.search(r"const AXES = \[(.*?)\];", DASHBOARD_TEMPLATE, re.S)
+axes_pairs = re.findall(r'\["(\w+)",\s*"(\w+)"\]', axes_source.group(1) if axes_source else "")
+check("Dashboard declares one axis per indicator", len(axes_pairs) == len(INDICATOR_SHORT_EL),
+      str(axes_pairs))
+check("Every axis label key exists in the label tables",
+      all(key in INDICATOR_SHORT_EL and key in INDICATOR_LABELS_EL for _, key in axes_pairs),
+      str([key for _, key in axes_pairs if key not in INDICATOR_SHORT_EL]))
+check("Every axis field exists in the exported payload",
+      all(field in {"ret", "certainty", "speed", "cap", "ease", "risk"}
+          for field, _ in axes_pairs), str([f for f, _ in axes_pairs]))
+
 print("\n[11e] National open-data map")
 from akinita.ethniki import render as render_map, MUNICIPALITIES
 
@@ -821,6 +837,21 @@ check("Every municipality in the national list has coordinates",
           for _, lat, lng in MUNICIPALITIES))
 check("The run command starts from an empty machine",
       "curl -L -o akinita.zip" in page and "akinita.screener" in page)
+
+print("\n[11f] Theme control")
+from akinita import theme as theme_module
+for page_name, page_html in (("map", render_map(map_data)),):
+    check(f"Theme control is present ({page_name})", 'class="theme"' in page_html)
+    check(f"All three theme states offered ({page_name})",
+          page_html.count('data-set="') == 3 and 'data-set="system"' in page_html)
+check("Toggle writes data-theme, and system clears it",
+      'setAttribute("data-theme"' in theme_module.SCRIPT
+      and 'removeAttribute("data-theme")' in theme_module.SCRIPT)
+check("Storage access cannot break the page",
+      theme_module.SCRIPT.count("catch (e)") >= 2
+      and "localStorage" in theme_module.SCRIPT)
+check("Theme styling uses tokens, not literal colours",
+      "#" not in theme_module.CSS and "var(--" in theme_module.CSS)
 
 print("\n[12] Registries")
 from akinita.registry import audit as registry_audit, load_ideas, load_mechanisms

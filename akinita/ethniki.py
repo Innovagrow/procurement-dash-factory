@@ -27,6 +27,7 @@ import json
 import sys
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from . import theme
 from .console import ensure_utf8
 from .http import PoliteFetcher
 from .signals.public_investment import PublicInvestmentSignal
@@ -164,7 +165,7 @@ CSS = """
   header{display:flex;flex-direction:column;gap:13px;
     border-bottom:1px solid var(--line);padding-bottom:26px}
   .stamp{font-family:var(--mono);font-size:11.5px;color:var(--faint);
-    display:flex;flex-wrap:wrap;gap:6px 16px}
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
   section{display:flex;flex-direction:column;gap:15px}
   .head{display:flex;flex-direction:column;gap:5px}
   .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px}
@@ -336,7 +337,7 @@ def render(data: Dict, command: str = DEFAULT_COMMAND) -> str:
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,600&family=Noto+Sans+Mono:wght@400;600&display=swap&subset=greek,latin">
-<style>{CSS}</style>
+<style>{CSS}{theme.CSS}</style>
 <div class="wrap">
   <header>
     <span class="eyebrow">Πού να ψάξεις, πριν ψάξεις τι</span>
@@ -346,6 +347,7 @@ def render(data: Dict, command: str = DEFAULT_COMMAND) -> str:
       Το πρώτο δείχνει πού υπάρχει εισόδημα σήμερα· το δεύτερο, πού αλλάζει η
       περιοχή αύριο. Καμία τιμή ακινήτου δεν χρειάστηκε για αυτή τη σελίδα.</p>
     <div class="stamp">
+      {theme.CONTROL}
       <span>Παράχθηκε {esc(data["generated"])}</span>
       <span>Eurostat tour_occ_nin2 · έτος αναφοράς {esc(latest)}</span>
       <span>Διαύγεια · κυλιόμενο 18μηνο</span>
@@ -449,6 +451,7 @@ def render(data: Dict, command: str = DEFAULT_COMMAND) -> str:
       δέσμευση: αυτοψία, έλεγχος τίτλων και βαρών, πολεοδομικός και τεχνικός έλεγχος.</span>
   </footer>
 </div>
+{theme.SCRIPT}
 """
 
 

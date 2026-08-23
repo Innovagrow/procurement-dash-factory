@@ -26,6 +26,7 @@ import json
 import os
 from typing import Dict, List, Optional, Sequence
 
+from . import theme
 from .indicators import INDICATOR_LABELS_EL, INDICATOR_SHORT_EL
 from .models import ScoredListing
 from .sources import ITEM_TYPE_LABELS_EL
@@ -127,13 +128,18 @@ def write_dashboard(scored: Sequence[ScoredListing], analysis: Dict[str, dict],
             "valued": meta.get("valued", len(rows)),
             "fullDetail": full_detail,
             "basis": meta.get("basis", ""),
+            "note": meta.get("note", ""),
         },
         "typeLabels": ITEM_TYPE_LABELS_EL,
         "indicatorLabels": INDICATOR_LABELS_EL,
         "indicatorShort": INDICATOR_SHORT_EL,
         "items": rows,
     }
-    document = _TEMPLATE.replace("__DATA__", json.dumps(data, ensure_ascii=False))
+    document = (_TEMPLATE
+                .replace("__DATA__", json.dumps(data, ensure_ascii=False))
+                .replace("__THEME_CSS__", theme.CSS)
+                .replace("__THEME_CONTROL__", theme.CONTROL)
+                .replace("__THEME_SCRIPT__", theme.SCRIPT))
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(document)
@@ -200,6 +206,8 @@ _TEMPLATE = r"""<title>Ευκαιρίες Ακινήτων</title>
   .note{border-left:3px solid var(--accent);background:var(--surface);padding:13px 16px;
     margin:18px 0 0;font-size:14.5px;border-radius:0 3px 3px 0}
   .note.warn{border-left-color:var(--warn)}
+  #run-note b{display:block;font-family:var(--ui);font-size:13px;margin-bottom:3px}
+  .mast .theme{margin-top:16px}
   .note.warn strong{color:var(--warn)}
   .note p:last-child{margin-bottom:0}
 
@@ -285,6 +293,7 @@ _TEMPLATE = r"""<title>Ευκαιρίες Ακινήτων</title>
     cursor:pointer}
   .empty{padding:36px;text-align:center;color:var(--muted)}
   footer{padding:32px 0 0;font-family:var(--ui);font-size:12.5px;color:var(--faint)}
+__THEME_CSS__
 </style>
 
 <div class="shell">
@@ -293,6 +302,8 @@ _TEMPLATE = r"""<title>Ευκαιρίες Ακινήτων</title>
     <p class="kicker" id="kicker">Αποτελέσματα σάρωσης</p>
     <h1 id="title">Ευκαιρίες ακινήτων</h1>
     <p class="lede" id="lede"></p>
+    <div id="run-note"></div>
+    __THEME_CONTROL__
   </div>
   <div class="tiles" id="tiles"></div>
 </header>
@@ -331,6 +342,10 @@ el("kicker").textContent = D.meta.basis === "προσωπική, μη εμπορ
   : "Αποτελέσματα σάρωσης";
 el("title").textContent = D.meta.scope === "Όλη η Ελλάδα"
   ? "Ευκαιρίες σε όλη την Ελλάδα" : "Ευκαιρίες · " + D.meta.scope;
+if (D.meta.note) {
+  el("run-note").className = "note";
+  el("run-note").innerHTML = `<b>Για αυτή τη σάρωση</b>${D.meta.note}`;
+}
 el("lede").textContent =
   `Κάθε ακίνητο περασμένο από κάθε τρόπο αξιοποίησης, τιμολογημένο με πλήρες ελληνικό `
   + `κόστος, και κατατεταγμένο σε αυτό που αντέχει. Πηγές: `
@@ -405,7 +420,9 @@ function filtered() {
   return list;
 }
 
-const AXES = [["ret", "ret"], ["certainty", "certainty"], ["speed", "speed"],
+// [payload field, label key]. The two differ where the payload had to avoid a
+// reserved word: the return indicator ships as "ret" and is labelled "return".
+const AXES = [["ret", "return"], ["certainty", "certainty"], ["speed", "speed"],
               ["cap", "capital"], ["ease", "ease"], ["risk", "risk"]];
 
 function card(item, position) {
@@ -503,4 +520,5 @@ el("foot").innerHTML = `Έξοδος μοντέλου, όχι εκτίμηση �
 
 render();
 </script>
+__THEME_SCRIPT__
 """

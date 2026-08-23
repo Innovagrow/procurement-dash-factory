@@ -358,6 +358,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="JSON με βάρη triage, π.χ. '{\"rental_yield\":0.4}'")
     parser.add_argument("--indicator-weights", default=None,
                         help="JSON με βάρη δεικτών κατάταξης, π.χ. '{\"certainty\":0.35}'")
+    parser.add_argument("--note", default="",
+                        help="Σημείωση που τυπώνεται στη σελίδα αποτελεσμάτων")
     parser.add_argument("--capital-ceiling", type=float, default=250000.0,
                         help="Κεφάλαιο που θεωρείται «πολύ» — βαθμονομεί τον δείκτη κεφαλαίου")
     parser.add_argument(
@@ -586,6 +588,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             "transaction": args.transaction,
             "item_types": item_types,
             "max_price": args.max_price,
+            "note": args.note,
             "scope": args.bbox or "Όλη η Ελλάδα",
             "scanned": len(candidates),
             "shortlisted": len(rescored),

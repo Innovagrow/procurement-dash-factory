@@ -1,0 +1,82 @@
+name: Deploy στο droplet
+
+# Το sandbox όπου γράφτηκε ο κώδικας δεν έχει έξοδο στη θύρα 22, οπότε δεν
+# μπορεί να συνδεθεί σε κανέναν διακομιστή. Ο runner του GitHub μπορεί. Έτσι το
+# deploy γίνεται χωρίς να ανοίξετε τερματικό: προσθέτετε τα secrets μία φορά και
+# η ενημέρωση τρέχει μόνη της σε κάθε push.
+#
+# Settings -> Secrets and variables -> Actions -> New repository secret
+#
+#   DROPLET_HOST      η IP ή το domain του droplet
+#   DROPLET_SSH_KEY   ιδιωτικό κλειδί SSH με πρόσβαση στο droplet, ολόκληρο
+#   DROPLET_USER      προαιρετικό, προεπιλογή root
+#   DROPLET_DOMAIN    προαιρετικό, για https με certbot
+#
+# Χωρίς αυτά, το workflow τερματίζει ήσυχα αντί να βάφει κάθε push κόκκινο.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/greek-brokers-investment-outreach-gr5j9p]
+    paths:
+      - 'akinita/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy-droplet.yml'
+
+concurrency:
+  group: deploy-droplet
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Υπάρχουν τα secrets;
+        id: gate
+        env:
+          HOST: ${{ secrets.DROPLET_HOST }}
+          KEY: ${{ secrets.DROPLET_SSH_KEY }}
+        run: |
+          if [ -z "$HOST" ] || [ -z "$KEY" ]; then
+            echo "Δεν έχουν οριστεί DROPLET_HOST και DROPLET_SSH_KEY — παράλειψη."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Κλειδί και known_hosts
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.DROPLET_HOST }}
+          KEY: ${{ secrets.DROPLET_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Στήσιμο και ανανέωση σελίδων
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.DROPLET_HOST }}
+          USER_NAME: ${{ secrets.DROPLET_USER || 'root' }}
+          DOMAIN: ${{ secrets.DROPLET_DOMAIN }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$USER_NAME@$HOST" \
+            "DOMAIN='${DOMAIN}' bash -s" < deploy/droplet.sh
+
+      - name: Απαντάει η σελίδα;
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.DROPLET_HOST }}
+        run: |
+          # 401 είναι η σωστή απάντηση: σημαίνει ότι ο κωδικός φυλάει τη σελίδα.
+          # -L ώστε να μετρηθεί η τελική απάντηση: με certbot το :80 ανακατευθύνει.
+          code="$(curl -sL -o /dev/null -w '%{http_code}' --max-time 25 "http://$HOST/" || echo 000)"
+          echo "HTTP $code"
+          case "$code" in
+            401) echo "Η σελίδα σηκώθηκε και ζητάει κωδικό." ;;
+            200) echo "ΠΡΟΣΟΧΗ: απαντά χωρίς κωδικό. Ελέγξτε το auth_basic." ; exit 1 ;;
+            *)   echo "Δεν απάντησε όπως αναμενόταν." ; exit 1 ;;
+          esac

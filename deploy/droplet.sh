@@ -25,7 +25,7 @@ say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Τρέξτε το ως root:  sudo bash d.sh"; exit 1; }
 
-say "[1/7] Τι τρέχει ήδη εδώ"
+say "[1/8] Τι τρέχει ήδη εδώ"
 busy() { ss -ltnH "sport = :$1" 2>/dev/null | grep -q . ; }
 for p in 80 443; do
   if busy "$p"; then
@@ -50,7 +50,7 @@ fi
 [ -n "$PORT" ] || { echo "Καμία ελεύθερη θύρα 8080-8090. Δώστε δική σας: PORT=9000 bash d.sh"; exit 1; }
 echo "  οι σελίδες θα βγουν στη θύρα $PORT"
 
-say "[2/7] Πακέτα"
+say "[2/8] Πακέτα"
 export DEBIAN_FRONTEND=noninteractive
 NEED=""
 command -v git      >/dev/null || NEED="$NEED git"
@@ -70,7 +70,7 @@ else
 fi
 command -v nginx >/dev/null || { echo "Ο nginx δεν εγκαταστάθηκε. Δείτε: apt-get install nginx"; exit 1; }
 
-say "[3/7] Κώδικας"
+say "[3/8] Κώδικας"
 if [ -d "$APP/.git" ]; then
   git -C "$APP" fetch --quiet origin "$BRANCH"
   git -C "$APP" checkout --quiet -B "$BRANCH" "origin/$BRANCH"
@@ -78,7 +78,7 @@ else
   git clone --quiet --branch "$BRANCH" --depth 1 "$REPO" "$APP"
 fi
 
-say "[4/7] Παραγωγή σελίδων"
+say "[4/8] Παραγωγή σελίδων"
 mkdir -p "$WEB"
 ( cd "$APP" && python3 -m akinita.ethniki --out "$WEB/index.html" --json-out "$WEB/simata.json" )
 [ -f "$WEB/apotelesmata.html" ] || cat > "$WEB/apotelesmata.html" <<'PLACEHOLDER'
@@ -97,7 +97,7 @@ display:block;margin-top:14px;padding:12px;overflow-x:auto}
 PLACEHOLDER
 chown -R www-data:www-data "$WEB" 2>/dev/null || true
 
-say "[5/7] Κωδικός πρόσβασης"
+say "[5/8] Κωδικός πρόσβασης"
 if [ -f /etc/nginx/.akinita_htpasswd ] && [ -z "$WEB_PASS" ]; then
   echo "  Υπάρχει ήδη. Αλλαγή:  htpasswd /etc/nginx/.akinita_htpasswd $WEB_USER"
 else
@@ -113,13 +113,24 @@ else
   echo "  Φυλάσσεται και στο /root/akinita-kwdikos.txt"
 fi
 
-say "[6/7] nginx στη θύρα $PORT"
+say "[6/8] nginx στη θύρα $PORT"
+# Το listen [::] σε μηχάνημα χωρίς IPv6 δεν αγνοείται: ο nginx αρνείται να
+# ξεκινήσει και το `nginx -t` κόβει ολόκληρη την εγκατάσταση. Τα droplet δεν
+# έχουν όλα IPv6 — μπαίνει μόνο όταν υπάρχει.
+LISTEN6=""
+if [ -f /proc/net/if_inet6 ]; then
+  LISTEN6="    listen [::]:$PORT;"
+  echo "  IPv6 διαθέσιμο — ακούει και εκεί"
+else
+  echo "  χωρίς IPv6 σε αυτό το μηχάνημα — μόνο IPv4"
+fi
+
 cat > "$SITE" <<NGINX
 # Μόνο η θύρα $PORT. Ό,τι κι αν σερβίρει αυτό το μηχάνημα στις 80 και 443
 # συνεχίζει ανέπαφο.
 server {
     listen $PORT;
-    listen [::]:$PORT;
+$LISTEN6
     server_name _;
     root $WEB;
     index index.html;
@@ -127,8 +138,11 @@ server {
 
     auth_basic "Ακίνητα";
     auth_basic_user_file /etc/nginx/.akinita_htpasswd;
+    # Όλα τα add_header μαζί, σε ένα επίπεδο: ένα add_header μέσα σε location
+    # ακυρώνει ΟΛΑ όσα κληρονομούνται από το server, αντί να προστεθεί σε αυτά.
     add_header X-Robots-Tag "noindex, nofollow" always;
     add_header Referrer-Policy "no-referrer" always;
+    add_header Cache-Control "no-cache" always;
 
     location / { try_files \$uri \$uri/ =404; }
 }
@@ -147,7 +161,7 @@ if command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active
   echo "  άνοιξε η θύρα $PORT στο ufw"
 fi
 
-say "[7/7] Καθημερινή ανανέωση"
+say "[7/8] Καθημερινή ανανέωση"
 cat > /etc/systemd/system/akinita.service <<UNIT
 [Unit]
 Description=Ανανέωση χάρτη ευκαιριών από Eurostat και Διαύγεια
@@ -173,6 +187,59 @@ WantedBy=timers.target
 UNIT
 systemctl daemon-reload
 systemctl enable --now akinita.timer >/dev/null 2>&1
+
+say "[8/8] Αυτοέλεγχος"
+FAILED=0
+ok()  { printf '  \033[32m✓\033[0m %s\n' "$1"; }
+bad() { printf '  \033[31m✗\033[0m %s\n' "$1"; FAILED=1; }
+
+if head -c 200 "$WEB/index.html" | grep -qi 'charset="utf-8"'; then
+  ok "η σελίδα δηλώνει UTF-8"
+else
+  bad "η σελίδα ΔΕΝ δηλώνει UTF-8"
+fi
+
+if nginx -T 2>/dev/null | grep -q "charset utf-8"; then
+  ok "ο nginx στέλνει UTF-8"
+else
+  bad "ο nginx δεν στέλνει UTF-8"
+fi
+
+CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:$PORT/" || echo 000)"
+if [ "$CODE" = "401" ]; then
+  ok "η σελίδα ζητάει κωδικό"
+else
+  bad "η σελίδα ΔΕΝ ζητάει κωδικό — απάντησε $CODE"
+fi
+
+CREDS=""
+if [ -n "${PASS:-}" ]; then
+  CREDS="$WEB_USER:$PASS"
+elif [ -f /root/akinita-kwdikos.txt ]; then
+  SAVED="$(awk -F": " '/κωδικός/ {print $2}' /root/akinita-kwdikos.txt)"
+  [ -n "$SAVED" ] && CREDS="$WEB_USER:$SAVED"
+fi
+if [ -n "$CREDS" ]; then
+  CTYPE="$(curl -s -u "$CREDS" -o /tmp/akinita_check.html -w '%{content_type}' --max-time 10 "http://127.0.0.1:$PORT/" || echo "")"
+  case "$CTYPE" in
+    *charset=utf-8*) ok "η κεφαλίδα HTTP λέει charset=utf-8" ;;
+    *) bad "η κεφαλίδα HTTP δεν λέει charset — έστειλε: $CTYPE" ;;
+  esac
+  if grep -q "Χάρτης ευκαιριών" /tmp/akinita_check.html 2>/dev/null; then
+    ok "τα ελληνικά φτάνουν σωστά στον browser"
+  else
+    bad "τα ελληνικά ΔΕΝ φτάνουν σωστά"
+  fi
+  rm -f /tmp/akinita_check.html
+else
+  echo "  · ο έλεγχος με κωδικό παραλείφθηκε: δεν υπάρχει αποθηκευμένος κωδικός"
+fi
+
+if [ "$FAILED" -ne 0 ]; then
+  echo
+  echo "Κάτι από τα παραπάνω απέτυχε. Μην κλείσετε το παράθυρο — στείλτε το."
+  exit 1
+fi
 
 IP="$(curl -fsS --max-time 10 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')"
 say "Έτοιμο."

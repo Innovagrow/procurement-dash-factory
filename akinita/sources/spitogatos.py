@@ -101,9 +101,14 @@ class SpitogatosSource(PropertySource):
         "  Δηλώστε τη βάση: --personal-use   ή   --i-have-written-consent"
     )
 
-    def __init__(self, fetcher, headless: bool = True, page_wait_ms: int = 4000):
+    def __init__(self, fetcher, headless: bool = True, page_wait_ms: int = 4000,
+                 solve_seconds: int = 300):
         super().__init__(fetcher)
         self.headless = headless
+        # Πόσο περιμένουμε τον άνθρωπο να λύσει τη δική του πρόκληση, όταν το
+        # παράθυρο είναι ανοιχτό μπροστά του.
+        self.solve_seconds = solve_seconds
+        self._context = None
         self.page_wait_ms = page_wait_ms
         self._browser = None
         self._playwright = None
@@ -168,6 +173,9 @@ class SpitogatosSource(PropertySource):
         return self._browser
 
     def close(self) -> None:
+        if self._context is not None:
+            self._context.close()
+            self._context = None
         if self._browser is not None:
             self._browser.close()
             self._browser = None
@@ -175,26 +183,61 @@ class SpitogatosSource(PropertySource):
             self._playwright.stop()
             self._playwright = None
 
-    def _render(self, url: str) -> str:
+    def _ensure_context(self):
+        """Ένα και μόνο context για όλη τη σάρωση.
+
+        Με καινούργιο context ανά σελίδα, μια επαλήθευση που λύθηκε μία φορά
+        ξαναζητιέται στην επόμενη — και σε μια σάρωση εκατοντάδων σελίδων αυτό
+        σημαίνει ότι δεν τελειώνει ποτέ. Με ένα context, λύνεται μία φορά.
+        """
+        if self._context is not None:
+            return self._context
         browser = self._ensure_browser()
-        context = browser.new_context(
+        self._context = browser.new_context(
             locale="el-GR",
             user_agent=self.fetcher.user_agent,
             viewport={"width": 1366, "height": 900},
             extra_http_headers={"Accept-Language": self.fetcher.accept_language},
         )
-        page = context.new_page()
+        return self._context
+
+    def _render(self, url: str) -> str:
+        page = self._ensure_context().new_page()
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=60000)
             page.wait_for_timeout(self.page_wait_ms)
             html = page.content()
+
+            if self._challenged(html):
+                if self.headless:
+                    raise SpitogatosBlocked(
+                        "Η πύλη ζήτησε επαλήθευση CAPTCHA αντί για αποτελέσματα. "
+                        "Δεν παρακάμπτεται. Ξανατρέξτε με --show-browser, ώστε να "
+                        "ανοίξει παράθυρο και να την περάσετε εσείς."
+                    )
+                # Δεν λύνουμε την πρόκληση — την περνά ο ίδιος ο χρήστης, στο
+                # παράθυρό του. Εμείς απλώς περιμένουμε και συνεχίζουμε.
+                print("\n  Η πύλη ζητά επαλήθευση. Περάστε την στο παράθυρο που "
+                      f"άνοιξε· περιμένω έως {self.solve_seconds // 60} λεπτά…",
+                      flush=True)
+                waited = 0
+                while waited < self.solve_seconds:
+                    page.wait_for_timeout(3000)
+                    waited += 3
+                    html = page.content()
+                    if not self._challenged(html):
+                        print("  ✓ πέρασε — η σάρωση συνεχίζει\n", flush=True)
+                        break
+                else:
+                    raise SpitogatosBlocked(
+                        "Η επαλήθευση δεν ολοκληρώθηκε μέσα στον χρόνο αναμονής."
+                    )
         finally:
-            context.close()
+            page.close()
 
         if BLOCK_MARKERS.search(html):
             raise SpitogatosBlocked(
-                f"bot protection served an interstitial for {url}. Try "
-                "headless=False, a residential proxy, or fall back to --source xe."
+                f"bot protection served an interstitial for {url}."
             )
         return html
 

@@ -358,6 +358,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="JSON με βάρη triage, π.χ. '{\"rental_yield\":0.4}'")
     parser.add_argument("--indicator-weights", default=None,
                         help="JSON με βάρη δεικτών κατάταξης, π.χ. '{\"certainty\":0.35}'")
+    parser.add_argument("--show-browser", action="store_true",
+                        help="Ανοίγει παράθυρο browser. Αν η πύλη ζητήσει "
+                             "επαλήθευση, την περνάτε εσείς και η σάρωση συνεχίζει.")
     parser.add_argument("--no-regions", action="store_true",
                         help="Χωρίς την καρτέλα «Πού να ψάξεις»")
     parser.add_argument("--note", default="",
@@ -427,6 +430,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 2
         sources.append(
             REGISTRY[name](fetcher, args.csv_path) if name == "csv"
+            else REGISTRY[name](fetcher, headless=not args.show_browser)
+            if name == "spitogatos"
             else REGISTRY[name](fetcher)
         )
     # The terms distinguish two bases, so the tool does too. Neither flag is a

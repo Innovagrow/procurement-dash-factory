@@ -755,6 +755,15 @@ check("A real page is not mistaken for a challenge",
       not SpitogatosSource._challenged("<html>" + "x" * 70000 + "</html>"))
 check("The challenge is reported, not silently counted as zero",
       _raises(lambda: SpitogatosSource._extract(_probe_source, _challenge, None)))
+# Η πρόκληση δεν λύνεται από εμάς. Λύνεται από τον χρήστη, στο παράθυρό του —
+# γι' αυτό πρέπει να μπορεί να ζητηθεί ορατός browser, και το context να είναι
+# ένα, αλλιώς η ίδια επαλήθευση θα ζητιόταν σε κάθε σελίδα.
+from akinita.sources import REGISTRY as SOURCE_REGISTRY
+_visible = SOURCE_REGISTRY["spitogatos"](PoliteFetcher(delay=0, verbose=False), headless=False)
+check("A visible browser can be asked for",
+      _visible.headless is False and _visible.solve_seconds >= 60)
+check("The browser session is reused across pages",
+      hasattr(_visible, "_ensure_context") and _visible._context is None)
 
 print("\n[11d] Results dashboard")
 from akinita.webreport import write_dashboard

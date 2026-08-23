@@ -27,14 +27,22 @@ set SSHUSER=root
 set /p SSHUSER=SSH user - press Enter for root: 
 if "%SSHUSER%"=="" set SSHUSER=root
 
+set WEBLOGIN=admin
+echo.
+echo Choose the username and password for the pages. You will type them once
+echo on each device - phone and computer - and the browser remembers them.
+set /p WEBLOGIN=Username - press Enter for admin: 
+if "%WEBLOGIN%"=="" set WEBLOGIN=admin
+set WEBPASS=
+set /p WEBPASS=Password - press Enter to get a random one: 
 set WEBPORT=
 echo.
 echo The pages get their own port so nothing already running is disturbed.
 echo Press Enter to let it pick a free one, or type a port number.
 set /p WEBPORT=Port, or just press Enter: 
 
-set REMOTE=curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/droplet.sh ^&^& bash /tmp/droplet.sh
-if not "%WEBPORT%"=="" set REMOTE=curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/droplet.sh ^&^& PORT=%WEBPORT% bash /tmp/droplet.sh
+set REMOTE=curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/droplet.sh ^&^& WEB_USER='%WEBLOGIN%' WEB_PASS='%WEBPASS%' bash /tmp/droplet.sh
+if not "%WEBPORT%"=="" set REMOTE=curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/droplet.sh ^&^& WEB_USER='%WEBLOGIN%' WEB_PASS='%WEBPASS%' PORT=%WEBPORT% bash /tmp/droplet.sh
 
 echo.
 echo [1/2] Setting up the droplet.

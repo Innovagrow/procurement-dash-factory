@@ -18,6 +18,7 @@ BRANCH="claude/greek-brokers-investment-outreach-gr5j9p"
 APP="/opt/akinita"
 WEB="/var/www/akinita"
 WEB_USER="${WEB_USER:-admin}"
+WEB_PASS="${WEB_PASS:-}"
 PORT="${PORT:-}"
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
@@ -89,10 +90,13 @@ PLACEHOLDER
 chown -R www-data:www-data "$WEB" 2>/dev/null || true
 
 say "[5/7] Κωδικός πρόσβασης"
-if [ -f /etc/nginx/.akinita_htpasswd ]; then
+if [ -f /etc/nginx/.akinita_htpasswd ] && [ -z "$WEB_PASS" ]; then
   echo "  Υπάρχει ήδη. Αλλαγή:  htpasswd /etc/nginx/.akinita_htpasswd $WEB_USER"
 else
-  PASS="$(openssl rand -base64 12)"
+  # Δικός σας κωδικός αν δόθηκε, αλλιώς τυχαίος. Ο δικός σας έχει ένα πρακτικό
+  # πλεονέκτημα: τον πληκτρολογείτε μία φορά σε κάθε συσκευή χωρίς να τον
+  # αντιγράφετε από εδώ.
+  PASS="${WEB_PASS:-$(openssl rand -base64 12)}"
   printf '%s' "$PASS" | htpasswd -ic /etc/nginx/.akinita_htpasswd "$WEB_USER" >/dev/null 2>&1
   printf 'χρήστης: %s\nκωδικός: %s\n' "$WEB_USER" "$PASS" > /root/akinita-kwdikos.txt
   chmod 600 /root/akinita-kwdikos.txt
@@ -164,6 +168,9 @@ systemctl enable --now akinita.timer >/dev/null 2>&1
 IP="$(curl -fsS --max-time 10 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')"
 say "Έτοιμο."
 echo "  http://$IP:$PORT/"
+echo
+echo "  Ανοίξτε το μία φορά σε κάθε συσκευή, δώστε χρήστη και κωδικό, και"
+echo "  αποθηκεύστε τα όταν σας το προτείνει ο browser. Δεν θα ξαναρωτήσει."
 echo
 echo "  Ο χάρτης ανανεώνεται μόνος του κάθε μέρα."
 echo "  Ό,τι έτρεχε ήδη στις θύρες 80 και 443 δεν πειράχτηκε."

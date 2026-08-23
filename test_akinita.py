@@ -822,8 +822,13 @@ check("Every region reaches the page",
       all(row["area"] in page for row in map_data["regions"]))
 check("Every municipality reaches the page",
       all(row["asked_for"] in page for row in map_data["municipalities"]))
-check("Unmatched municipalities are shown, not hidden",
-      all(name in page for name in map_data["unmatched"]))
+# Τα ονόματα των αταύτιστων δήμων δεν βοηθούν κανέναν σε μια σελίδα που
+# διαβάζεται για αποφάσεις. Το πλήθος τους όμως είναι κάλυψη, και μένει.
+check("Coverage is stated as measured-of-total",
+      f"{len(map_data['municipalities'])}" in page
+      and f"από {len(map_data['municipalities']) + len(map_data['unmatched'])}" in page)
+check("Unmatched names are not listed one by one",
+      not any(name in page for name in map_data["unmatched"]))
 check("A zero rank is explained, not left to be misread",
       "342.558" in page and "0/100" in page)
 check("Missing figures render as a dash, not as zero",

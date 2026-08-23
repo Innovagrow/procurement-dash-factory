@@ -203,9 +203,6 @@ CSS = """
   .card p{font-size:13.5px;color:var(--muted);margin:0}
   .quote{font-size:12.5px;color:var(--faint);border-left:2px solid var(--hair);padding-left:10px;
     line-height:1.45}
-  .pills{display:flex;flex-wrap:wrap;gap:6px}
-  .pill{font-family:var(--ui);font-size:12px;background:var(--raised);color:var(--muted);
-    border:1px solid var(--line);border-radius:999px;padding:3px 10px}
   pre{font-family:var(--mono);font-size:12.5px;background:var(--sunken);color:var(--ink);
     border:1px solid var(--line);border-radius:9px;padding:14px 15px;margin:0;
     overflow-x:auto;line-height:1.65;white-space:pre;-webkit-text-size-adjust:100%}
@@ -320,7 +317,6 @@ def render(data: Dict, command: str = DEFAULT_COMMAND) -> str:
             f'<p>{_n(row.get("raw_value"))} αποφάσεις έργων στους τελευταίους 18 μήνες</p>{quoted}</div>'
         )
 
-    unmatched = "".join(f'<span class="pill">{esc(name)}</span>' for name in data["unmatched"])
     lowest = regions[-1] if regions else None
     lowest_note = ""
     if lowest:
@@ -358,7 +354,7 @@ def render(data: Dict, command: str = DEFAULT_COMMAND) -> str:
     <div class="tiles">
       <div class="tile"><b>{len(regions)}</b><span>περιφέρειες με πλήρη σειρά μετρήσεων</span></div>
       <div class="tile"><b>{_n(total_nights)}</b><span>διανυκτερεύσεις πανελλαδικά, {esc(latest)}</span></div>
-      <div class="tile"><b>{len(municipalities)}</b><span>δήμοι με ασφαλή ταυτοποίηση στη Διαύγεια</span></div>
+      <div class="tile"><b>{len(municipalities)}</b><span>δήμοι μετρημένοι στη Διαύγεια, από {len(municipalities) + len(data["unmatched"])}</span></div>
       <div class="tile"><b class="name">{esc(top_region)}</b><span>πρώτη σε τουριστική ζήτηση</span></div>
     </div>
   </section>
@@ -410,29 +406,7 @@ def render(data: Dict, command: str = DEFAULT_COMMAND) -> str:
 
   <section>
     <div class="head">
-      <span class="eyebrow">04 · Τα όρια αυτής της σελίδας</span>
-      <h2>Τι δεν μετρήθηκε, και γιατί</h2>
-    </div>
-    <ul>
-      <li><b>Οι δείκτες είναι κατατάξεις, όχι τιμές.</b> Δείχνουν σειρά μεταξύ περιοχών,
-        και στα δύο σήματα: ο τελευταίος δήμος της κατάταξης έργων γράφει 0/100 ενώ έχει
-        αναρτημένες αποφάσεις — γι' αυτό η στήλη «Αποφάσεις» δείχνει το ωμό πλήθος δίπλα
-        στη μπάρα. Κανένας από τους δύο δείκτες δεν λέει αν ένα συγκεκριμένο ακίνητο
-        είναι φθηνό.</li>
-      <li><b>Η περιφέρεια είναι χονδρικό επίπεδο.</b> Η Μύκονος και η Σύρος μοιράζονται
-        τον ίδιο τουριστικό δείκτη, επειδή η Eurostat δημοσιεύει σε επίπεδο NUTS 2.</li>
-      <li><b>Η Διαύγεια μετριέται με λέξεις-κλειδιά.</b> Είναι δείγμα αποφάσεων έργων,
-        όχι πλήρες μητρώο δαπανών.</li>
-      <li><b>{len(data["unmatched"])} δήμοι έμειναν χωρίς μέτρηση</b> επειδή το όνομά τους
-        ταιριάζει σε πάνω από έναν φορέα. Ο ταυτοποιητής αρνείται αντί να μαντέψει —
-        ένα λάθος «Ηράκλειο» θα μετρούσε τις αποφάσεις της Ηράκλειας Σερρών.</li>
-    </ul>
-    <div class="pills">{unmatched}</div>
-  </section>
-
-  <section>
-    <div class="head">
-      <span class="eyebrow">05 · Το επόμενο βήμα</span>
+      <span class="eyebrow">04 · Το επόμενο βήμα</span>
       <h2>Οι τιμές ακινήτων θέλουν τον δικό σας υπολογιστή</h2>
       <p class="lede">Οι πύλες αγγελιών απορρίπτουν τα αιτήματα αυτού του διακομιστή στο
         επίπεδο του CDN — απάντηση 403 πριν καν φτάσει το αίτημα στον ιστότοπο. Το ίδιο

@@ -7,15 +7,20 @@
 
 ## Από Windows, χωρίς να μπείτε στο droplet
 
-> Όπου βλέπετε `164.92.130.45`, βάζετε τη **δική σας** διεύθυνση droplet —
-> DigitalOcean → Droplets → στήλη **IP Address**. Αν επικολλήσετε την εντολή
-> όπως είναι, το `ssh` θα ψάξει κυριολεκτικά για υπολογιστή με αυτό το όνομα
-> και θα σας πει `Could not resolve hostname`.
+> Όπου βλέπετε `203.0.113.10`, βάζετε τη **δική σας** διεύθυνση droplet —
+> DigitalOcean → Droplets → στήλη **IP Address**.
+>
+> Η `203.0.113.10` είναι δεσμευμένη για παραδείγματα και δεν αντιστοιχεί σε
+> κανένα μηχάνημα: αν επικολλήσετε την εντολή αυτούσια, απλώς δεν θα συνδεθεί.
+> Αυτό είναι σκόπιμο. Μια διεύθυνση που μοιάζει αληθινή μπορεί να **είναι**
+> αληθινή και να ανήκει σε άλλον — και τότε το `ssh` ρωτάει αν εμπιστεύεστε το
+> κλειδί ενός ξένου διακομιστή. Αν δείτε τέτοια ερώτηση και δεν αναγνωρίζετε τη
+> διεύθυνση, απαντήστε `no`.
 
 Τα Windows 10 και 11 έχουν ήδη `ssh`. Από **cmd**, μία γραμμή:
 
 ```
-ssh root@164.92.130.45 "curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/d.sh && bash /tmp/d.sh"
+ssh root@203.0.113.10 "curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/d.sh && bash /tmp/d.sh"
 ```
 
 Την πρώτη φορά το `ssh` ρωτάει αν εμπιστεύεστε το κλειδί του διακομιστή:
@@ -31,7 +36,7 @@ ssh root@164.92.130.45 "curl -fsSL https://raw.githubusercontent.com/Innovagrow/
 ## Μία εντολή, πάνω στο droplet
 
 Συνδεθείτε στο droplet — από την κονσόλα του DigitalOcean ή με
-`ssh root@164.92.130.45` — και επικολλήστε:
+`ssh root@203.0.113.10` — και επικολλήστε:
 
 ```
 curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh | bash
@@ -89,7 +94,7 @@ data center. Δοκιμασμένο, δεν είναι εικασία.
 Ανεβάστε την αναφορά μετά τη σάρωση, από γραμμή εντολών των Windows:
 
 ```
-scp out\apotelesmata.html root@164.92.130.45:/var/www/akinita/apotelesmata.html
+scp out\apotelesmata.html root@203.0.113.10:/var/www/akinita/apotelesmata.html
 ```
 
 Το `scp` υπάρχει ήδη σε Windows 10 και 11.

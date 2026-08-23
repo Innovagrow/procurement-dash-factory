@@ -31,22 +31,34 @@ import urllib.parse
 from typing import Any, Dict, Iterator, List, Optional
 
 from ..geo import normalise_area
+from ..http import FetchError
 from ..models import Listing, parse_area, parse_money
 from .base import PropertySource, SearchQuery
 
 BASE = "https://www.spitogatos.gr"
 
 # Spitogatos' Greek URL segments, keyed by (transaction, item_type).
+# Διαδρομές όπως τις δίνει η ίδια η αρχική σελίδα της πύλης (έλεγχος 23/08/2026).
+# Οι παλιές —/pwliseis-katoikies και τα αδέρφια της— επιστρέφουν πλέον 404: μια
+# σάρωση πάνω τους δεν έβγαζε μηδέν ευκαιρίες επειδή δεν υπάρχουν ευκαιρίες,
+# αλλά επειδή ζητούσε σελίδες που δεν υπάρχουν.
 PATHS = {
-    ("buy", "residence"): "/pwliseis-katoikies",
-    ("buy", "prof"): "/pwliseis-epaggelmatikoi-xwroi",
-    ("buy", "land"): "/pwliseis-oikopeda-gi",
-    ("buy", "parking"): "/pwliseis-parking",
-    ("rent", "residence"): "/enoikiaseis-katoikies",
-    ("rent", "prof"): "/enoikiaseis-epaggelmatikoi-xwroi",
-    ("rent", "land"): "/enoikiaseis-oikopeda-gi",
-    ("rent", "parking"): "/enoikiaseis-parking",
+    ("buy", "residence"): "/sale/diamerismata",
+    ("buy", "prof"): "/sale/commercial",
+    ("buy", "land"): "/sale/land",
+    ("buy", "parking"): "/sale/parking",
+    ("rent", "residence"): "/rent/diamerismata",
+    ("rent", "prof"): "/rent/commercial",
+    ("rent", "land"): "/rent/land",
+    ("rent", "parking"): "/rent/parking",
 }
+
+# Η πύλη απαντά σε αυτοματοποιημένες συνεδρίες με πρόκληση CAPTCHA: σερβίρει
+# ένα κέλυφος λίγων χιλιάδων bytes και φορτώνει hCaptcha. Δεν παρακάμπτεται και
+# δεν επιχειρείται· αναγνωρίζεται, ώστε το εργαλείο να λέει τι συνέβη αντί να
+# επιστρέφει σιωπηλά μηδέν αγγελίες.
+CHALLENGE_MARKERS = ("hcaptcha", "recaptcha", "iamwatchingyou",
+                     "pardon our interruption", "are you a human")
 
 BLOCK_MARKERS = re.compile(
     r"Pardon Our Interruption|px-captcha|Access to this page has been denied", re.I
@@ -97,6 +109,12 @@ class SpitogatosSource(PropertySource):
         self._playwright = None
 
     # ----------------------------------------------------------- url build
+    @staticmethod
+    def _challenged(html: str) -> bool:
+        """Απάντησε η πύλη με πρόκληση αντί για αποτελέσματα;"""
+        low = html.lower()
+        return len(html) < 60_000 and any(m in low for m in CHALLENGE_MARKERS)
+
     def _url(self, query: SearchQuery, page: int = 1) -> str:
         path = PATHS.get((query.transaction, query.item_type))
         if not path:
@@ -115,7 +133,7 @@ class SpitogatosSource(PropertySource):
         if page > 1:
             params["page"] = page
         params.update(query.extra)
-        url = f"{BASE}{path}/ellada"
+        url = f"{BASE}{path}"
         return url + ("?" + urllib.parse.urlencode(params) if params else "")
 
     # ------------------------------------------------------------- browser
@@ -131,10 +149,18 @@ class SpitogatosSource(PropertySource):
             ) from exc
 
         self._playwright = sync_playwright().start()
-        launch: Dict[str, Any] = {
-            "headless": self.headless,
-            "args": ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
-        }
+        args = ["--no-sandbox", "--disable-blink-features=AutomationControlled"]
+        # Σε περιβάλλον με MITM proxy, το TLS 1.3 του Chromium πέφτει με
+        # ERR_CONNECTION_RESET πριν φτάσει σε οποιονδήποτε ιστότοπο. Το όριο
+        # στο 1.2 δεν απενεργοποιεί κανέναν έλεγχο πιστοποιητικού· απλώς
+        # μιλά τη διάλεκτο που καταλαβαίνει ο ενδιάμεσος.
+        args += [flag for flag in os.environ.get("AKINITA_BROWSER_ARGS", "").split() if flag]
+        launch: Dict[str, Any] = {"headless": self.headless, "args": args}
+        # Δρόμος προς συγκεκριμένο Chromium, όταν το playwright δεν βρίσκει το
+        # δικό του build — π.χ. σε εικόνα που το φέρνει προεγκατεστημένο.
+        executable = os.environ.get("AKINITA_CHROMIUM", "")
+        if executable:
+            launch["executable_path"] = executable
         proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
         if proxy:
             launch["proxy"] = {"server": proxy}
@@ -192,6 +218,13 @@ class SpitogatosSource(PropertySource):
         return report
 
     def _extract(self, html: str, query: SearchQuery) -> List[Listing]:
+        if self._challenged(html):
+            raise FetchError(
+                "Η πύλη απάντησε με πρόκληση CAPTCHA αντί για αποτελέσματα. Δεν "
+                "παρακάμπτεται: σημαίνει ότι δεν δέχεται αυτοματοποιημένη συλλογή "
+                "από αυτή τη σύνδεση. Χρησιμοποιήστε την πηγή csv με ακίνητα που "
+                "έχετε ήδη υπόψη σας."
+            )
         for extractor in (self._from_next_data, self._from_ld_json, self._from_dom):
             try:
                 listings = extractor(html, query)

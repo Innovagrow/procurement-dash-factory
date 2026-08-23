@@ -345,7 +345,10 @@ _TEMPLATE = r"""<meta charset="utf-8">
   .more button{font-family:var(--ui);font-size:13px;font-weight:600;background:var(--surface);
     color:var(--accent);border:1px solid var(--accent);border-radius:3px;padding:8px 20px;
     cursor:pointer}
-  .empty{padding:36px;text-align:center;color:var(--muted)}
+  .empty{padding:30px 24px;text-align:center;color:var(--muted);
+    background:var(--surface);border:1px solid var(--line);border-radius:6px;margin-top:14px}
+  .empty b{display:block;font-family:var(--ui);font-size:15px;color:var(--ink);margin-bottom:6px}
+  .empty p{max-width:56ch;margin:8px auto 0;font-size:14.5px}
   footer{padding:26px 0 0;font-family:var(--ui);font-size:12.5px;color:var(--faint)}
   /* Τελευταίο στο φύλλο επίτηδες: γραμμένο πιο πάνω, ο βασικός κανόνας των
      πλακιδίων που ορίζεται αργότερα το υπερίσχυε και η λωρίδα ξανατυλιγόταν. */
@@ -578,7 +581,17 @@ function render() {
   const slice = list.slice(0, state.shown);
   el("list").innerHTML = slice.length
     ? slice.map((item, i) => card(item, i + 1)).join("")
-    : `<p class="empty">Κανένα ακίνητο με αυτά τα φίλτρα.</p>`;
+    // Άδεια λίστα από φίλτρο και άδεια λίστα από απούσα σάρωση είναι δύο
+    // διαφορετικά πράγματα. Το να τα λέει και τα δύο «κανένα με αυτά τα
+    // φίλτρα» στέλνει τον αναγνώστη να πειράζει φίλτρα που δεν φταίνε.
+    : (D.items.length
+        ? `<p class="empty">Κανένα ακίνητο με αυτά τα φίλτρα.</p>`
+        : `<div class="empty"><b>Δεν έχει ανέβει σάρωση ακόμη</b>
+             <p>Οι πύλες αγγελιών απορρίπτουν τις διευθύνσεις των data center,
+             οπότε η σάρωση τρέχει στον υπολογιστή σας. Το αρχείο που παράγει
+             ανεβαίνει εδώ και η καρτέλα γεμίζει.</p>
+             <p>Στο μεταξύ, η καρτέλα <b>«Πού να ψάξεις»</b> δουλεύει κανονικά:
+             στηρίζεται σε ανοιχτά δεδομένα και ενημερώνεται μόνη της.</p></div>`);
   el("count").textContent = `${list.length} από ${D.items.length}`;
   el("more").innerHTML = list.length > state.shown
     ? `<button id="more-btn">Δείξε άλλα ${Math.min(40, list.length - state.shown)}

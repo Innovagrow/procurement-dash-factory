@@ -730,6 +730,32 @@ check("Personal use is named as expressly permitted",
 check("Republication stays prohibited under either basis",
       "αναδημοσίευση" in SpitogatosSource.terms_notice)
 
+print("\n[11c3] Portal paths and the CAPTCHA wall")
+from akinita.sources.spitogatos import SpitogatosSource, PATHS, CHALLENGE_MARKERS
+from akinita.http import FetchError as _FetchError
+
+# Οι παλιές διαδρομές επιστρέφουν 404. Μια σάρωση πάνω τους δεν έβγαζε «μηδέν
+# ευκαιρίες» επειδή δεν υπάρχουν, αλλά επειδή ζητούσε ανύπαρκτες σελίδες.
+check("Paths follow the portal's current scheme",
+      all(p.startswith(("/sale/", "/rent/")) for p in PATHS.values()),
+      str(sorted(PATHS.values())[:3]))
+check("No path still carries the retired suffix",
+      not any(p.endswith("/ellada") for p in PATHS.values()))
+_probe_source = SpitogatosSource.__new__(SpitogatosSource)
+_url = SpitogatosSource._url(_probe_source,
+                             SearchQuery(transaction="buy", item_type="residence",
+                                         max_price=50000, bbox=None))
+check("Search URL is built on the live scheme",
+      "/sale/diamerismata" in _url and "priceTo=50000" in _url and "/ellada" not in _url, _url)
+
+_challenge = ('<html><head><title>x</title></head><body>'
+              '<script src="https://js.hcaptcha.com/1/api.js"></script></body></html>')
+check("A CAPTCHA shell is recognised", SpitogatosSource._challenged(_challenge))
+check("A real page is not mistaken for a challenge",
+      not SpitogatosSource._challenged("<html>" + "x" * 70000 + "</html>"))
+check("The challenge is reported, not silently counted as zero",
+      _raises(lambda: SpitogatosSource._extract(_probe_source, _challenge, None)))
+
 print("\n[11d] Results dashboard")
 from akinita.webreport import write_dashboard
 

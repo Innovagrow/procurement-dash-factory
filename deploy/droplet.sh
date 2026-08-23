@@ -43,7 +43,7 @@ mkdir -p "$WEB"
 ( cd "$APP" && python3 -m akinita.ethniki --out "$WEB/index.html" \
     --json-out "$WEB/simata.json" )
 # Η αναφορά σάρωσης παράγεται στον υπολογιστή σας και ανεβαίνει χωριστά:
-#   scp out\apotelesmata.html root@<IP>:/var/www/akinita/apotelesmata.html
+#   scp out\apotelesmata.html root@164.92.130.45:/var/www/akinita/apotelesmata.html
 [ -f "$WEB/apotelesmata.html" ] || cat > "$WEB/apotelesmata.html" <<'PLACEHOLDER'
 <!doctype html><html lang="el"><head><meta charset="utf-8">
 <title>Αναφορά — δεν έχει ανέβει ακόμη</title>
@@ -54,7 +54,7 @@ font-size:14px;display:block;margin-top:14px;padding:12px;overflow-x:auto}
 </style></head><body>
 <h1>Η αναφορά δεν έχει ανέβει ακόμη</h1>
 <p>Τρέξτε τη σάρωση στον υπολογιστή σας και ανεβάστε τη σελίδα εδώ:</p>
-<code>scp out\apotelesmata.html root@ΤΟ_IP_ΣΑΣ:/var/www/akinita/apotelesmata.html</code>
+<code>scp out\apotelesmata.html root@164.92.130.45:/var/www/akinita/apotelesmata.html</code>
 <p><a href="/">Ο χάρτης ευκαιριών</a> είναι ήδη εδώ.</p>
 </body></html>
 PLACEHOLDER

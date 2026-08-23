@@ -7,10 +7,15 @@
 
 ## Από Windows, χωρίς να μπείτε στο droplet
 
+> Όπου βλέπετε `164.92.130.45`, βάζετε τη **δική σας** διεύθυνση droplet —
+> DigitalOcean → Droplets → στήλη **IP Address**. Αν επικολλήσετε την εντολή
+> όπως είναι, το `ssh` θα ψάξει κυριολεκτικά για υπολογιστή με αυτό το όνομα
+> και θα σας πει `Could not resolve hostname`.
+
 Τα Windows 10 και 11 έχουν ήδη `ssh`. Από **cmd**, μία γραμμή:
 
 ```
-ssh root@ΤΟ_IP_ΣΟΥ "curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/d.sh && bash /tmp/d.sh"
+ssh root@164.92.130.45 "curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/d.sh && bash /tmp/d.sh"
 ```
 
 Την πρώτη φορά το `ssh` ρωτάει αν εμπιστεύεστε το κλειδί του διακομιστή:
@@ -26,7 +31,7 @@ ssh root@ΤΟ_IP_ΣΟΥ "curl -fsSL https://raw.githubusercontent.com/Innovagrow
 ## Μία εντολή, πάνω στο droplet
 
 Συνδεθείτε στο droplet — από την κονσόλα του DigitalOcean ή με
-`ssh root@ΤΟ_IP_ΣΑΣ` — και επικολλήστε:
+`ssh root@164.92.130.45` — και επικολλήστε:
 
 ```
 curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh | bash
@@ -84,7 +89,7 @@ data center. Δοκιμασμένο, δεν είναι εικασία.
 Ανεβάστε την αναφορά μετά τη σάρωση, από γραμμή εντολών των Windows:
 
 ```
-scp out\apotelesmata.html root@ΤΟ_IP_ΣΑΣ:/var/www/akinita/apotelesmata.html
+scp out\apotelesmata.html root@164.92.130.45:/var/www/akinita/apotelesmata.html
 ```
 
 Το `scp` υπάρχει ήδη σε Windows 10 και 11.

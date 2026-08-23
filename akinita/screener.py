@@ -358,6 +358,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="JSON με βάρη triage, π.χ. '{\"rental_yield\":0.4}'")
     parser.add_argument("--indicator-weights", default=None,
                         help="JSON με βάρη δεικτών κατάταξης, π.χ. '{\"certainty\":0.35}'")
+    parser.add_argument("--no-regions", action="store_true",
+                        help="Χωρίς την καρτέλα «Πού να ψάξεις»")
     parser.add_argument("--note", default="",
                         help="Σημείωση που τυπώνεται στη σελίδα αποτελεσμάτων")
     parser.add_argument("--capital-ceiling", type=float, default=250000.0,
@@ -580,22 +582,45 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     export_json(final, args.out + ".json", analysis)
     from .webreport import write_dashboard
 
+    dashboard_meta = {
+        "sources": [s.name for s in sources],
+        "transaction": args.transaction,
+        "item_types": item_types,
+        "max_price": args.max_price,
+        "note": args.note,
+        "scope": args.bbox or "Όλη η Ελλάδα",
+        "scanned": len(candidates),
+        "shortlisted": len(rescored),
+        "valued": len(analysis),
+        "basis": declared_basis,
+        "indicator_weights": indicator_weights,
+    }
+
+    # Η καρτέλα «Πού να ψάξεις» έρχεται από ανοιχτά δεδομένα και δεν χρειάζεται
+    # καμία αγγελία. Αν η ανάγνωσή τους αποτύχει, η σελίδα βγαίνει χωρίς αυτήν
+    # αντί να μη βγει καθόλου.
+    regions_html, regions_css = "", ""
+    if not args.no_regions:
+        try:
+            from . import ethniki
+            _log("\n  · Περιοχές: Eurostat και Διαύγεια …")
+            regions_html = ethniki.render_pane(ethniki.collect(fetcher, verbose=False))
+            regions_css = ethniki.PANE_CSS
+        except Exception as exc:  # noqa: BLE001 - η σάρωση δεν χάνεται γι' αυτό
+            _log(f"    · χωρίς την καρτέλα περιοχών: {exc}")
+
+    # Τα δεδομένα της σελίδας χωριστά: αυτό το αρχείο ανεβαίνει στο droplet και
+    # γίνεται εκεί η ίδια σελίδα, χωρίς να ξανατρέξει η σάρωση.
+    from .webreport import build_data
+    payload_path = args.out + "_analysis.json"
+    with open(payload_path, "w", encoding="utf-8") as handle:
+        json.dump(build_data(final, analysis, dashboard_meta), handle, ensure_ascii=False)
+
     html_path = args.html_out or (args.out + ".html")
     write_dashboard(
         final, analysis, html_path,
-        meta={
-            "sources": [s.name for s in sources],
-            "transaction": args.transaction,
-            "item_types": item_types,
-            "max_price": args.max_price,
-            "note": args.note,
-            "scope": args.bbox or "Όλη η Ελλάδα",
-            "scanned": len(candidates),
-            "shortlisted": len(rescored),
-            "valued": len(analysis),
-            "basis": declared_basis,
-            "indicator_weights": indicator_weights,
-        },
+        regions_html=regions_html, regions_css=regions_css,
+        meta=dashboard_meta,
     )
 
     _log(f"\n  ✓ {args.out}.csv")

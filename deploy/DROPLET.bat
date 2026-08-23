@@ -59,19 +59,19 @@ set /p UPLOAD=Type Y or N and press Enter:
 if /i not "%UPLOAD%"=="Y" goto done
 
 set REPORT=
-if exist "out\apotelesmata.html" set REPORT=out\apotelesmata.html
-if "%REPORT%"=="" for /f "delims=" %%f in ('dir /b /o-d "out\apotelesmata*.html" 2^>nul') do if "!REPORT!"=="" set REPORT=out\%%f
+if exist "out\eukairies_analysis.json" set REPORT=out\eukairies_analysis.json
+if "%REPORT%"=="" for /f "delims=" %%f in ('dir /b /o-d "out\*_analysis.json" 2^>nul') do if "!REPORT!"=="" set REPORT=out\%%f
 if "%REPORT%"=="" goto noreport
 
 echo.
 echo       Uploading !REPORT!
-scp "!REPORT!" %SSHUSER%@%DROPLET%:/var/www/akinita/apotelesmata.html
+scp "!REPORT!" %SSHUSER%@%DROPLET%:/var/www/akinita/scan.json
 if errorlevel 1 goto failed
 goto done
 
 :noreport
 echo.
-echo       No scan report found in the out folder yet. Run SAROSI.bat first,
+echo       No scan data found in the out folder yet. Run SAROSI.bat first,
 echo       then run this again to upload it.
 goto done
 

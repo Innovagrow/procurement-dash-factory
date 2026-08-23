@@ -790,8 +790,9 @@ check("Every axis field exists in the exported payload",
       all(field in {"ret", "certainty", "speed", "cap", "ease", "risk"}
           for field, _ in axes_pairs), str([f for f, _ in axes_pairs]))
 
-print("\n[11e] National open-data map")
-from akinita.ethniki import render as render_map, MUNICIPALITIES
+print("\n[11e] Regions tab and the single page")
+from akinita.ethniki import render_pane, PANE_CSS, MUNICIPALITIES
+from akinita.webreport import render_page, empty_data
 
 map_data = {
     "generated": "01/01/2026 09:00",
@@ -816,46 +817,53 @@ map_data = {
     ],
     "unmatched": ["Ηράκλειο", "Λάρισα"],
 }
-page = render_map(map_data)
-check("Map page carries its own title", "<title>" in page and "</title>" in page)
-# Σερβιρισμένη από απλό web server, μια σελίδα χωρίς δήλωση κωδικοποίησης
-# διαβάζεται ως Latin-1 και τα ελληνικά γίνονται σκουπίδια. Η δήλωση πρέπει να
-# είναι μέσα στα πρώτα bytes, εκεί που την ψάχνει ο parser.
-check("Encoding is declared, and declared early",
-      'charset="utf-8"' in page[:200].lower())
-check("Map page has no document-level tags",
-      not re.search(r"<(?:!doctype|html|head|body)\b", page, re.I))
-check("Every region reaches the page",
-      all(row["area"] in page for row in map_data["regions"]))
-check("Every municipality reaches the page",
-      all(row["asked_for"] in page for row in map_data["municipalities"]))
-# Τα ονόματα των αταύτιστων δήμων δεν βοηθούν κανέναν σε μια σελίδα που
-# διαβάζεται για αποφάσεις. Το πλήθος τους όμως είναι κάλυψη, και μένει.
-check("Coverage is stated as measured-of-total",
-      f"{len(map_data['municipalities'])}" in page
-      and f"από {len(map_data['municipalities']) + len(map_data['unmatched'])}" in page)
-check("Unmatched names are not listed one by one",
-      not any(name in page for name in map_data["unmatched"]))
-check("A zero rank is explained, not left to be misread",
-      "342.558" in page and "0/100" in page)
+pane = render_pane(map_data)
+check("Regions tab is content, not a page of its own",
+      "<title>" not in pane and "<style>" not in pane
+      and not re.search(r"<(?:!doctype|html|head|body)\b", pane, re.I))
+check("Every region reaches the tab",
+      all(row["area"] in pane for row in map_data["regions"]))
+check("Every municipality reaches the tab",
+      all(row["asked_for"] in pane for row in map_data["municipalities"]))
+# «Διανυκτερεύσεις» ως επικεφαλίδα στήλης δεν απαντά σε κανένα ερώτημα αγοραστή.
+# Ο αριθμός μένει ως τεκμήριο από κάτω, η στήλη λέει τι σημαίνει.
+check("Columns say what the number means, not what it is",
+      "Ζήτηση για μίσθωση" in pane and "<th>Διανυκτερεύσεις" not in pane)
+check("The raw figure survives as evidence", "εκατ. διανυκτερεύσεις" in pane)
+check("A zero rank is explained where it appears",
+      "342.558" in pane and "0/100" in pane)
 check("Missing figures render as a dash, not as zero",
-      page.count(">—<") >= 1 and "None" not in page)
-check("Absolute nights use Greek thousands separators", "41.500.466" in page)
-check("Pre-pandemic comparison comes from data, not prose", "+6.0%" in page)
-check("Repeated evidence lines are shown once",
-      page.count("Απόφαση Α") == 1)
+      ">—<" in pane and "None" not in pane)
+check("Pre-pandemic comparison comes from data, not prose", "+6.0%" in pane)
+check("Repeated evidence is shown once", pane.count("Απόφαση Α") == 1)
+check("Unmatched names are not listed one by one",
+      not any(name in pane for name in map_data["unmatched"]))
+check("Regions styling cannot leak into the other tab",
+      PANE_CSS.count("#pane-areas") >= 10 and "\n  table{" not in PANE_CSS)
 check("Every municipality in the national list has coordinates",
       all(isinstance(lat, float) and isinstance(lng, float)
           for _, lat, lng in MUNICIPALITIES))
-check("The run command starts from an empty machine",
-      "curl -L -o akinita.zip" in page and "akinita.screener" in page)
+
+page = render_page(empty_data(), pane, PANE_CSS)
+check("One page carries both tabs",
+      page.count('data-pane="') >= 3 and 'role="tablist"' in page)
+check("The opportunities tab is the one that opens",
+      re.search(r'data-pane="pane-ops"[^>]*aria-selected="true"', page) is not None)
+check("The regions tab holds the regions content", "Πού να ψάξεις πρώτα" in page)
+check("Every placeholder is substituted",
+      not any(token in page for token in
+              ("__DATA__", "__REGIONS__", "__PANE_CSS__", "__THEME_CSS__",
+               "__THEME_CONTROL__", "__THEME_SCRIPT__")))
+check("The page declares its encoding and title",
+      'charset="utf-8"' in page[:200].lower() and "<title>" in page)
+check("The page itself does not scroll, the open tab does",
+      "overflow:hidden" in page and ".pane{" in page and "overflow-y:auto" in page)
 
 print("\n[11f] Theme control")
 from akinita import theme as theme_module
-for page_name, page_html in (("map", render_map(map_data)),):
-    check(f"Theme control is present ({page_name})", 'class="theme"' in page_html)
-    check(f"All three theme states offered ({page_name})",
-          page_html.count('data-set="') == 3 and 'data-set="system"' in page_html)
+check("Theme control is present on the page", 'class="theme"' in page)
+check("All three theme states offered",
+      page.count('data-set="') == 3 and 'data-set="system"' in page)
 check("Toggle writes data-theme, and system clears it",
       'setAttribute("data-theme"' in theme_module.SCRIPT
       and 'removeAttribute("data-theme")' in theme_module.SCRIPT)

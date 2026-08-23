@@ -80,21 +80,10 @@ fi
 
 say "[4/8] Παραγωγή σελίδων"
 mkdir -p "$WEB"
-( cd "$APP" && python3 -m akinita.ethniki --out "$WEB/index.html" --json-out "$WEB/simata.json" )
-[ -f "$WEB/apotelesmata.html" ] || cat > "$WEB/apotelesmata.html" <<'PLACEHOLDER'
-<!doctype html><html lang="el"><head><meta charset="utf-8">
-<title>Αναφορά — δεν έχει ανέβει ακόμη</title>
-<style>body{font:16px/1.6 system-ui,sans-serif;max-width:54ch;margin:12vh auto;padding:0 20px;
-color:#171A1F;background:#ECEEF1}code{background:#E1E5EB;border-radius:4px;font-size:13.5px;
-display:block;margin-top:14px;padding:12px;overflow-x:auto}
-@media(prefers-color-scheme:dark){body{background:#101317;color:#E7EBF0}code{background:#0B0E12}}
-</style></head><body>
-<h1>Η αναφορά δεν έχει ανέβει ακόμη</h1>
-<p>Τρέξτε τη σάρωση στον υπολογιστή σας και ανεβάστε τη σελίδα εδώ:</p>
-<code>scp out\apotelesmata.html root@ΤΟ-IP:/var/www/akinita/apotelesmata.html</code>
-<p><a href="/">Ο χάρτης ευκαιριών</a> είναι ήδη εδώ.</p>
-</body></html>
-PLACEHOLDER
+# Μία σελίδα, με καρτέλες. Η καρτέλα «Ευκαιρίες» γεμίζει από το scan.json που
+# ανεβάζετε από τον υπολογιστή σας· χωρίς αυτό βγαίνει άδεια και το λέει.
+( cd "$APP" && python3 -m akinita.ethniki --out "$WEB/index.html" \
+    --scan "$WEB/scan.json" --json-out "$WEB/simata.json" )
 chown -R www-data:www-data "$WEB" 2>/dev/null || true
 
 say "[5/8] Κωδικός πρόσβασης"
@@ -171,7 +160,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=$APP
-ExecStart=/usr/bin/python3 -m akinita.ethniki --out $WEB/index.html --json-out $WEB/simata.json
+ExecStart=/usr/bin/python3 -m akinita.ethniki --out $WEB/index.html --scan $WEB/scan.json --json-out $WEB/simata.json
 UNIT
 cat > /etc/systemd/system/akinita.timer <<'UNIT'
 [Unit]

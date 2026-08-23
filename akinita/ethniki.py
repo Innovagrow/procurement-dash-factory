@@ -120,116 +120,35 @@ def collect(fetcher: PoliteFetcher,
 # Τα ίδια tokens με τη σελίδα αποτελεσμάτων (webreport.py): μία σελίδα, μία
 # οπτική γλώσσα. Ένα χρώμα για το μέγεθος, τα σημασιολογικά χρώματα μόνο για
 # πρόσημο — ένα μπλε μπάρα δεν σημαίνει «καλό», σημαίνει «πόσο».
-CSS = """
-  :root{
-    --ground:#ECEEF1; --surface:#FFFFFF; --raised:#F5F7F9; --sunken:#E1E5EB;
-    --ink:#171A1F; --muted:#586170; --faint:#8B94A3;
-    --line:#D5DAE2; --hair:#E6E9EE;
-    --accent:#2E3A8C; --accent-soft:#E2E5F4;
-    --good:#2F6B4A; --warn:#A34A2A;
-    --ui:"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;
-    --body:"Literata",Georgia,serif;
-    --mono:"Noto Sans Mono",ui-monospace,Consolas,monospace;
-  }
-  @media (prefers-color-scheme:dark){
-    :root:not([data-theme="light"]){
-      --ground:#101317; --surface:#181C22; --raised:#1E232A; --sunken:#0B0E12;
-      --ink:#E7EBF0; --muted:#98A2B1; --faint:#6C7788;
-      --line:#272D36; --hair:#20262E;
-      --accent:#8B98E8; --accent-soft:#1C2140;
-      --good:#6FBF93; --warn:#DB8B68;
-    }
-  }
-  :root[data-theme="dark"]{
-    --ground:#101317; --surface:#181C22; --raised:#1E232A; --sunken:#0B0E12;
-    --ink:#E7EBF0; --muted:#98A2B1; --faint:#6C7788;
-    --line:#272D36; --hair:#20262E;
-    --accent:#8B98E8; --accent-soft:#1C2140;
-    --good:#6FBF93; --warn:#DB8B68;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--ground);color:var(--ink);
-    font-family:var(--body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1060px;margin:0 auto;padding:34px 20px 72px;
-    display:flex;flex-direction:column;gap:34px}
-  h1,h2,h3,.ui,th,label,.eyebrow{font-family:var(--ui)}
-  h1{font-size:31px;line-height:1.16;margin:0;letter-spacing:-.02em;text-wrap:balance;font-weight:600}
-  h2{font-size:19px;margin:0;letter-spacing:-.01em;font-weight:600;text-wrap:balance}
-  h3{font-size:14px;margin:0;font-weight:600}
-  p{margin:0;max-width:68ch}
-  a{color:var(--accent);text-underline-offset:3px}
-  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
-  .eyebrow{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);
-    font-weight:600}
-  .lede{color:var(--muted);font-size:16.5px}
-  header{display:flex;flex-direction:column;gap:13px;
-    border-bottom:1px solid var(--line);padding-bottom:26px}
-  .stamp{font-family:var(--mono);font-size:11.5px;color:var(--faint);
-    display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
-  section{display:flex;flex-direction:column;gap:15px}
-  .head{display:flex;flex-direction:column;gap:5px}
-  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px}
-  .tile{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:14px 15px}
-  .tile b{display:block;font-family:var(--mono);font-size:23px;font-weight:600;
-    letter-spacing:-.02em;color:var(--accent);font-variant-numeric:tabular-nums}
-  .tile b.name{font-family:var(--ui);font-size:19px;letter-spacing:-.01em;line-height:1.25}
-  .tile span{display:block;font-family:var(--ui);font-size:11.5px;color:var(--muted);
-    margin-top:3px;line-height:1.35}
-  .panel{background:var(--surface);border:1px solid var(--line);border-radius:11px;overflow:hidden}
-  .scroller{overflow-x:auto}
-  table{border-collapse:collapse;width:100%;min-width:620px;font-size:14px}
-  th{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
-    text-align:left;font-weight:600;padding:11px 14px;border-bottom:1px solid var(--line);
-    background:var(--raised);white-space:nowrap}
-  td{padding:11px 14px;border-bottom:1px solid var(--hair);vertical-align:middle}
-  tr:last-child td{border-bottom:none}
-  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
-  .place{font-family:var(--ui);font-weight:500}
-  .sub{display:block;font-family:var(--ui);font-size:11.5px;color:var(--faint);font-weight:400}
-  .rank{font-family:var(--mono);color:var(--faint);text-align:right;font-size:13px}
-  .meter{display:flex;align-items:center;gap:9px;min-width:150px}
-  .meter i{flex:1;height:6px;background:var(--sunken);border-radius:3px;position:relative;
-    display:block;min-width:70px}
-  .meter i b{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:3px}
-  .meter em{font-family:var(--mono);font-style:normal;font-size:12.5px;color:var(--muted);
-    font-variant-numeric:tabular-nums;width:34px;text-align:right}
-  .up{color:var(--good)} .down{color:var(--warn)}
-  .note{border-left:3px solid var(--accent);background:var(--surface);
-    border-radius:0 9px 9px 0;padding:13px 16px;font-size:14.5px}
-  .note b{font-family:var(--ui);font-size:13px;display:block;margin-bottom:3px}
-  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:11px}
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:14px 15px;
-    display:flex;flex-direction:column;gap:7px}
-  .card p{font-size:13.5px;color:var(--muted);margin:0}
-  .quote{font-size:12.5px;color:var(--faint);border-left:2px solid var(--hair);padding-left:10px;
-    line-height:1.45}
-  pre{font-family:var(--mono);font-size:12.5px;background:var(--sunken);color:var(--ink);
-    border:1px solid var(--line);border-radius:9px;padding:14px 15px;margin:0;
-    overflow-x:auto;line-height:1.65;white-space:pre;-webkit-text-size-adjust:100%}
-  footer{border-top:1px solid var(--line);padding-top:20px;font-size:13px;color:var(--muted);
-    display:flex;flex-direction:column;gap:7px}
-  ul{margin:0;padding-left:19px;display:flex;flex-direction:column;gap:6px;max-width:68ch}
-  li::marker{color:var(--faint)}
-  @media (max-width:640px){
-    h1{font-size:25px} .wrap{padding:26px 15px 56px;gap:28px}
-  }
+PANE_CSS = """
+  /* Σκοπευμένο κάτω από #pane-areas: η άλλη καρτέλα έχει δικούς της πίνακες
+     και δεν πρέπει να τους αγγίξει τίποτα από εδώ. */
+  #pane-areas .panel{background:var(--surface);border:1px solid var(--line);
+    border-radius:6px;overflow:hidden}
+  #pane-areas .scroller{overflow-x:auto}
+  #pane-areas table{border-collapse:collapse;width:100%;min-width:600px;font-size:14px}
+  #pane-areas th{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--muted);text-align:left;font-weight:600;padding:10px 13px;
+    border-bottom:1px solid var(--line);background:var(--raised);white-space:nowrap;
+    font-family:var(--ui)}
+  #pane-areas td{padding:9px 13px;border-bottom:1px solid var(--hair);vertical-align:middle}
+  #pane-areas tr:last-child td{border-bottom:none}
+  #pane-areas .num{font-family:var(--mono);font-variant-numeric:tabular-nums;
+    text-align:right;white-space:nowrap}
+  #pane-areas .rank{font-family:var(--mono);color:var(--faint);text-align:right;font-size:13px}
+  #pane-areas .place{font-family:var(--ui);font-weight:500}
+  #pane-areas .sub{display:block;font-family:var(--ui);font-size:11.5px;color:var(--faint);
+    font-weight:400}
+  #pane-areas .meter{display:flex;align-items:center;gap:8px;min-width:132px}
+  #pane-areas .meter i{flex:1;height:6px;background:var(--sunken);border-radius:3px;
+    position:relative;display:block;min-width:60px}
+  #pane-areas .meter i b{position:absolute;inset:0 auto 0 0;background:var(--accent);
+    border-radius:3px}
+  #pane-areas .meter em{font-family:var(--mono);font-style:normal;font-size:12.5px;
+    color:var(--muted);font-variant-numeric:tabular-nums;width:30px;text-align:right}
+  #pane-areas .up{color:var(--good)}
+  #pane-areas .down{color:var(--warn)}
 """
-
-# Ένα αντιγράψιμο μπλοκ για γραμμή εντολών των Windows, από το μηδέν: κατέβασμα,
-# εξαρτήσεις, σάρωση, άνοιγμα της σελίδας. Το `tar` και το `curl` υπάρχουν ήδη
-# στα Windows 10 και 11.
-BRANCH_ZIP = ("https://github.com/Innovagrow/procurement-dash-factory/archive/"
-              "refs/heads/claude/greek-brokers-investment-outreach-gr5j9p.zip")
-FOLDER = "procurement-dash-factory-claude-greek-brokers-investment-outreach-gr5j9p"
-DEFAULT_COMMAND = (
-    f'cd /d "%USERPROFILE%\\Desktop" && curl -L -o akinita.zip "{BRANCH_ZIP}"'
-    f' && tar -xf akinita.zip && cd {FOLDER}\n'
-    "py -3 -m pip install -r requirements-akinita.txt && py -3 -m playwright install chromium\n"
-    "py -3 -m akinita.screener --source spitogatos --all-types --personal-use "
-    "--max-price 50000 --enrich-top 150 --top 400 --delay 2.5 "
-    "--out out\\eukairies --html-out out\\apotelesmata.html && start out\\apotelesmata.html"
-)
-
 
 def _n(value: Optional[float], decimals: int = 0) -> str:
     """Ελληνική μορφή αριθμού: τελεία για χιλιάδες, κόμμα για δεκαδικά."""
@@ -254,202 +173,135 @@ def _momentum(value: Optional[float]) -> str:
     return f'<span class="num {css}">{arrow} {value:+.1f}%</span>'
 
 
-def render(data: Dict, command: str = DEFAULT_COMMAND) -> str:
-    """Η σελίδα ως απόσπασμα HTML — δικό της <title>, χωρίς document tags."""
+def render_pane(data: Dict) -> str:
+    """Το περιεχόμενο της καρτέλας «Περιοχές», έτοιμο να μπει στη σελίδα.
+
+    Οι ωμές διανυκτερεύσεις δεν είναι απάντηση σε κανένα ερώτημα αγοραστή. Ο
+    πίνακας οδηγεί με το τι σημαίνουν — πόση ζήτηση υπάρχει για μίσθωση — και
+    κρατά τον αριθμό από κάτω, μικρό, ως τεκμήριο.
+    """
     regions = data["regions"]
     municipalities = data["municipalities"]
     esc = html.escape
-
-    total_nights = sum(r.get("raw_value") or 0 for r in regions)
     latest = regions[0]["as_of"] if regions else "—"
-    top_region = regions[0]["area"] if regions else "—"
-    fastest = max(regions, key=lambda r: r.get("momentum") if r.get("momentum") is not None else -99)
 
     region_rows = []
     for position, row in enumerate(regions, 1):
-        nights = _n(row.get("raw_value"))
         evidence = [e for e in row.get("evidence", []) if "%" not in e]
-        measured_years = [e.split(":")[0].strip() for e in evidence if e[:4].isdigit()]
-        span = (f"{measured_years[0]}–{measured_years[-1]}" if len(measured_years) > 1
-                else (measured_years[0] if measured_years else "—"))
-        against_2019 = (row.get("detail") or {}).get("versus_2019_pct")
+        years = [e.split(":")[0].strip() for e in evidence if e[:4].isdigit()]
+        span = f"{years[0]}–{years[-1]}" if len(years) > 1 else (years[0] if years else "—")
+        nights = row.get("raw_value")
+        nights_text = (f"{nights / 1_000_000:.1f} εκατ. διανυκτερεύσεις {esc(latest)}"
+                       if nights else "χωρίς μέτρηση")
         region_rows.append(
             f'<tr><td class="rank">{position}</td>'
-            f'<td class="place">{esc(row["area"])}<span class="sub">{esc(row["code"])}'
-            f' · μετρήσεις {span}</span></td>'
+            f'<td class="place">{esc(row["area"])}'
+            f'<span class="sub">{nights_text} · μετρήσεις {span}</span></td>'
             f'<td>{_meter(row["intensity"])}</td>'
-            f'<td class="num">{nights}</td>'
             f'<td>{_momentum(row.get("momentum"))}</td>'
-            f'<td>{_momentum(against_2019)}</td>'
+            f'<td>{_momentum((row.get("detail") or {}).get("versus_2019_pct"))}</td>'
             f'</tr>'
         )
 
     muni_rows = []
     for position, row in enumerate(municipalities, 1):
+        sample = next((e.strip() for e in row.get("evidence", []) if e.strip()), "")
+        title = f' title="{esc(sample[:170])}"' if sample else ""
         muni_rows.append(
             f'<tr><td class="rank">{position}</td>'
-            f'<td class="place">{esc(row["asked_for"])}<span class="sub">{esc(row["area"])}</span></td>'
-            f'<td class="num">{esc(row["region"])}</td>'
+            f'<td class="place">{esc(row["asked_for"])}'
+            f'<span class="sub">{esc(row["region"])}</span></td>'
             f'<td>{_meter(row.get("region_tourism"))}</td>'
             f'<td>{_meter(row["intensity"])}</td>'
-            f'<td class="num">{_n(row.get("raw_value"))}</td>'
+            f'<td class="num"{title}>{_n(row.get("raw_value"))}</td>'
             f'<td>{_meter(row.get("where_to_look"))}</td>'
             f'</tr>'
         )
 
-    cards = []
-    for row in municipalities[:4]:
-        seen, quotes = set(), []
-        for line in row.get("evidence", []):
-            trimmed = line.strip()
-            if trimmed and trimmed not in seen:
-                seen.add(trimmed)
-                quotes.append(trimmed)
-            if len(quotes) == 2:
-                break
-        quoted = "".join(f'<span class="quote">{esc(q[:190])}…</span>' for q in quotes)
-        cards.append(
-            f'<div class="card"><h3>{esc(row["asked_for"])}</h3>'
-            f'<p>{_n(row.get("raw_value"))} αποφάσεις έργων στους τελευταίους 18 μήνες · '
-            f'τουρισμός περιφέρειας {row.get("region_tourism"):.0f}/100</p>{quoted}</div>'
-            if row.get("region_tourism") is not None else
-            f'<div class="card"><h3>{esc(row["asked_for"])}</h3>'
-            f'<p>{_n(row.get("raw_value"))} αποφάσεις έργων στους τελευταίους 18 μήνες</p>{quoted}</div>'
-        )
-
     lowest = regions[-1] if regions else None
     lowest_note = ""
-    if lowest:
+    if lowest and lowest["intensity"] <= 0:
         lowest_note = (
-            f'<div class="note"><b>Το 0/100 δεν σημαίνει «καθόλου»</b>'
-            f'Η ένταση είναι κατάταξη ανάμεσα στις 13 περιφέρειες, όχι απόλυτο μέγεθος. '
-            f'Η τελευταία της κατάταξης, {esc(lowest["area"])}, γράφει '
-            f'{lowest["intensity"]:.0f}/100 έχοντας {_n(lowest.get("raw_value"))} '
-            f'διανυκτερεύσεις. Είναι η λιγότερο τουριστική περιφέρεια της χώρας, όχι μια '
-            f'περιφέρεια χωρίς τουρισμό.</div>'
+            f'<p class="foot-note">Το 0/100 είναι θέση στην κατάταξη, όχι απουσία: η '
+            f'{esc(lowest["area"])} έχει {_n(lowest.get("raw_value"))} διανυκτερεύσεις — '
+            f'είναι η τελευταία των δεκατριών, όχι περιοχή χωρίς τουρισμό.</p>'
         )
 
-    return f"""<meta charset="utf-8">
-<title>Χάρτης Ευκαιριών Ελλάδας</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,600&family=Noto+Sans+Mono:wght@400;600&display=swap&subset=greek,latin">
-<style>{CSS}{theme.CSS}</style>
-<div class="wrap">
-  <header>
-    <span class="eyebrow">Πού να ψάξεις, πριν ψάξεις τι</span>
-    <h1>Χάρτης ευκαιριών ακινήτων στην Ελλάδα</h1>
-    <p class="lede">Δύο δημόσια σύνολα δεδομένων, διαβασμένα ζωντανά: πόση ζήτηση
-      πληρώνει με τη νύχτα σε κάθε περιφέρεια, και πού ξοδεύει το δημόσιο σε έργα.
-      Το πρώτο δείχνει πού υπάρχει εισόδημα σήμερα· το δεύτερο, πού αλλάζει η
-      περιοχή αύριο. Καμία τιμή ακινήτου δεν χρειάστηκε για αυτή τη σελίδα.</p>
-    <div class="stamp">
-      {theme.CONTROL}
-      <span>Παράχθηκε {esc(data["generated"])}</span>
-      <span>Eurostat tour_occ_nin2 · έτος αναφοράς {esc(latest)}</span>
-      <span>Διαύγεια · κυλιόμενο 18μηνο</span>
-    </div>
-  </header>
-
-  <section>
-    <div class="tiles">
-      <div class="tile"><b>{len(regions)}</b><span>περιφέρειες με πλήρη σειρά μετρήσεων</span></div>
-      <div class="tile"><b>{_n(total_nights)}</b><span>διανυκτερεύσεις πανελλαδικά, {esc(latest)}</span></div>
-      <div class="tile"><b>{len(municipalities)}</b><span>δήμοι μετρημένοι στη Διαύγεια, από {len(municipalities) + len(data["unmatched"])}</span></div>
-      <div class="tile"><b class="name">{esc(top_region)}</b><span>πρώτη σε τουριστική ζήτηση</span></div>
-    </div>
-  </section>
-
-  <section>
-    <div class="head">
-      <span class="eyebrow">01 · Ζήτηση που πληρώνει με τη νύχτα</span>
-      <h2>Οι 13 περιφέρειες, κατά σειρά</h2>
-      <p class="lede">Η ένταση κατατάσσει· ο ρυθμός δείχνει προς τα πού πάει. Τα έτη
-        2020 και 2021 εξαιρούνται από τον ρυθμό: μετρούν το κλείσιμο των συνόρων,
-        όχι τον τουρισμό. Η ταχύτερα ανερχόμενη είναι η {esc(fastest["area"])}.</p>
-    </div>
-    <div class="panel scroller">
-      <table>
-        <thead><tr><th></th><th>Περιφέρεια</th><th>Πόσος τουρισμός</th>
-          <th>Διανυκτερεύσεις {esc(latest)}</th><th>Ρυθμός/έτος</th><th>Έναντι 2019</th></tr></thead>
-        <tbody>{"".join(region_rows)}</tbody>
-      </table>
-    </div>
-    {lowest_note}
-  </section>
-
-  <section>
-    <div class="head">
-      <span class="eyebrow">02 · Πού συναντιούνται τα δύο σήματα</span>
-      <h2>Δήμοι με ζήτηση και με έργα ταυτόχρονα</h2>
-      <p class="lede">Η τελευταία στήλη είναι ο μέσος όρος των δύο κατατάξεων και τίποτα
-        παραπάνω. Λέει πού αξίζει να ψάξει κανείς πρώτα — δεν λέει τι να αγοράσει.
-        Αυτό το κρίνει το ακίνητο, με τους δικούς του αριθμούς.</p>
-    </div>
-    <div class="panel scroller">
-      <table>
-        <thead><tr><th></th><th>Δήμος</th><th>Περιφέρεια</th><th>Τουρισμός</th>
-          <th>Δημόσια έργα</th><th>Αποφάσεις</th><th>Πού να ψάξεις πρώτα</th></tr></thead>
-        <tbody>{"".join(muni_rows)}</tbody>
-      </table>
-    </div>
-  </section>
-
-  <section>
-    <div class="head">
-      <span class="eyebrow">03 · Τι λένε οι ίδιες οι αποφάσεις</span>
-      <h2>Δείγμα από τα τεκμήρια</h2>
-      <p class="lede">Ο δείκτης έργων δεν είναι γνώμη· είναι μέτρημα αναρτημένων
-        αποφάσεων. Αυτά είναι αυτούσια αποσπάσματα από τους τέσσερις πρώτους δήμους.</p>
-    </div>
-    <div class="cards">{"".join(cards)}</div>
-  </section>
-
-  <section>
-    <div class="head">
-      <span class="eyebrow">04 · Το επόμενο βήμα</span>
-      <h2>Οι τιμές ακινήτων θέλουν τον δικό σας υπολογιστή</h2>
-      <p class="lede">Οι πύλες αγγελιών απορρίπτουν τα αιτήματα αυτού του διακομιστή στο
-        επίπεδο του CDN — απάντηση 403 πριν καν φτάσει το αίτημα στον ιστότοπο. Το ίδιο
-        εργαλείο τρέχει κανονικά από οικιακή σύνδεση. Οι όροι χρήσης επιτρέπουν ρητά την
-        προσωπική χρήση των δεδομένων και απαγορεύουν την αναδημοσίευσή τους: τα
-        αποτελέσματα της σάρωσης μένουν τοπικά, σε αντίθεση με αυτή τη σελίδα, που
-        στηρίζεται αποκλειστικά σε ανοιχτά δημόσια δεδομένα.</p>
-    </div>
-    <pre>{esc(command)}</pre>
-  </section>
-
-  <footer>
-    <span>Πηγές: Eurostat (tour_occ_nin2, ελεύθερη χρήση με αναφορά πηγής) ·
-      Διαύγεια diavgeia.gov.gr (ανοικτά δεδομένα δημόσιου τομέα).</span>
-    <span>Οι αριθμοί είναι μοντέλο και κατάταξη, όχι εκτίμηση αξίας. Πριν από κάθε
-      δέσμευση: αυτοψία, έλεγχος τίτλων και βαρών, πολεοδομικός και τεχνικός έλεγχος.</span>
-  </footer>
+    return f"""<div class="pane-head">
+  <h2>Πού να ψάξεις πρώτα</h2>
+  <p>Ο μέσος όρος δύο κατατάξεων: πόση ζήτηση για μίσθωση έχει η περιοχή, και πόσα
+    δημόσια έργα τρέχουν στον δήμο. Λέει πού να κοιτάξεις — τι θα αγοράσεις το
+    κρίνει το ακίνητο, στην καρτέλα «Ευκαιρίες».</p>
 </div>
-{theme.SCRIPT}
+<div class="panel scroller">
+  <table>
+    <thead><tr><th></th><th>Δήμος</th><th>Ζήτηση περιοχής</th><th>Δημόσια έργα</th>
+      <th>Αποφάσεις</th><th>Πού να ψάξεις πρώτα</th></tr></thead>
+    <tbody>{"".join(muni_rows)}</tbody>
+  </table>
+</div>
+
+<div class="pane-head">
+  <h2>Οι 13 περιφέρειες, κατά ζήτηση</h2>
+  <p>Η ζήτηση μετριέται από τις διανυκτερεύσεις που καταγράφει η Eurostat: πόσοι
+    πληρώνουν για να μείνουν εκεί. Η τάση εξαιρεί 2020 και 2021, που μετρούν το
+    κλείσιμο των συνόρων και όχι τον τουρισμό.</p>
+</div>
+<div class="panel scroller">
+  <table>
+    <thead><tr><th></th><th>Περιφέρεια</th><th>Ζήτηση για μίσθωση</th>
+      <th>Τάση/έτος</th><th>Από το 2019</th></tr></thead>
+    <tbody>{"".join(region_rows)}</tbody>
+  </table>
+</div>
+{lowest_note}
 """
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    """Φτιάχνει ΤΗ σελίδα — μία, με καρτέλες.
+
+    Στο droplet δεν υπάρχει σάρωση αγγελιών: οι πύλες απορρίπτουν τις
+    διευθύνσεις των data center. Οι περιοχές όμως διαβάζονται από παντού, και
+    η σάρωση που έγινε αλλού ανεβαίνει ως αρχείο δεδομένων και μπαίνει στην
+    καρτέλα «Ευκαιρίες» χωρίς να ξανατρέξει τίποτα.
+    """
     ensure_utf8()
     parser = argparse.ArgumentParser(
         prog="akinita.ethniki",
-        description="Εθνικός χάρτης ευκαιριών από ανοιχτά δεδομένα.")
-    parser.add_argument("--out", default="out/chartis.html", help="Αρχείο HTML")
-    parser.add_argument("--json-out", default="", help="Προαιρετικά, τα δεδομένα ως JSON")
+        description="Η σελίδα: ευκαιρίες και περιοχές, σε μία σελίδα με καρτέλες.")
+    parser.add_argument("--out", default="out/index.html", help="Αρχείο HTML")
+    parser.add_argument("--scan", default="",
+                        help="Δεδομένα σάρωσης (<out>_analysis.json) για την καρτέλα «Ευκαιρίες»")
+    parser.add_argument("--json-out", default="", help="Τα δεδομένα περιοχών ως JSON")
     parser.add_argument("--delay", type=float, default=1.0)
     parser.add_argument("--cache-hours", type=float, default=24.0)
     args = parser.parse_args(argv)
 
     import os
+    from .webreport import empty_data, render_page
+
     fetcher = PoliteFetcher(delay=args.delay, verbose=False, cache_ttl_hours=args.cache_hours)
     data = collect(fetcher)
+
+    scan = None
+    if args.scan and os.path.exists(args.scan):
+        try:
+            with open(args.scan, encoding="utf-8") as handle:
+                scan = json.load(handle)
+            print(f"  ✓ σάρωση: {len(scan.get('items', []))} ακίνητα από {args.scan}")
+        except (ValueError, OSError) as exc:
+            print(f"  · η σάρωση δεν διαβάστηκε ({exc}) — η καρτέλα θα είναι κενή")
+    elif args.scan:
+        print(f"  · δεν βρέθηκε {args.scan} — η καρτέλα «Ευκαιρίες» θα είναι κενή")
+
+    page = render_page(scan or empty_data(), render_pane(data), PANE_CSS)
 
     directory = os.path.dirname(os.path.abspath(args.out))
     if directory:
         os.makedirs(directory, exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as handle:
-        handle.write(render(data))
+        handle.write(page)
     print(f"  ✓ {args.out}")
     if args.json_out:
         with open(args.json_out, "w", encoding="utf-8") as handle:

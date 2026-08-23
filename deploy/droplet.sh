@@ -34,6 +34,14 @@ for p in 80 443; do
     echo "  θύρα $p: ελεύθερη — και πάλι δεν την πειράζουμε"
   fi
 done
+# Σε επανεκτέλεση, η θύρα της προηγούμενης εγκατάστασης φαίνεται πιασμένη —
+# από εμάς τους ίδιους. Χωρίς αυτό, κάθε τρέξιμο θα μετακόμιζε μια θύρα πιο
+# πέρα και το λινκ σας θα άλλαζε από κάτω σας.
+SITE="/etc/nginx/sites-available/akinita"
+if [ -z "$PORT" ] && [ -f "$SITE" ]; then
+  PORT="$(awk '/^[[:space:]]*listen[[:space:]]+[0-9]+/ {gsub(/[^0-9]/, "", $2); print $2; exit}' "$SITE")"
+  [ -n "$PORT" ] && echo "  κρατάμε τη θύρα $PORT της προηγούμενης εγκατάστασης"
+fi
 if [ -z "$PORT" ]; then
   for candidate in 8080 8081 8082 8083 8084 8090; do
     if ! busy "$candidate"; then PORT="$candidate"; break; fi
@@ -106,7 +114,7 @@ else
 fi
 
 say "[6/7] nginx στη θύρα $PORT"
-cat > /etc/nginx/sites-available/akinita <<NGINX
+cat > "$SITE" <<NGINX
 # Μόνο η θύρα $PORT. Ό,τι κι αν σερβίρει αυτό το μηχάνημα στις 80 και 443
 # συνεχίζει ανέπαφο.
 server {
@@ -125,7 +133,7 @@ server {
     location / { try_files \$uri \$uri/ =404; }
 }
 NGINX
-ln -sf /etc/nginx/sites-available/akinita /etc/nginx/sites-enabled/akinita
+ln -sf "$SITE" /etc/nginx/sites-enabled/akinita
 # Η stock σελίδα του nginx δεσμεύει τη θύρα 80. Αποσύρεται ΜΟΝΟ αν ο nginx δεν
 # τρέχει ήδη — αν τρέχει, σερβίρει τα δικά σας και δεν τον πειράζουμε.
 if ! systemctl is-active --quiet nginx && [ -e /etc/nginx/sites-enabled/default ]; then

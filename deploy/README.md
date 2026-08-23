@@ -5,6 +5,24 @@
 πίσω από κωδικό και δηλώνονται `noindex`, οπότε δεν τις βρίσκει ούτε μηχανή
 αναζήτησης.
 
+## Από Windows, χωρίς να μπείτε στο droplet
+
+Τα Windows 10 και 11 έχουν ήδη `ssh`. Από **cmd**, μία γραμμή:
+
+```
+ssh root@ΤΟ_IP_ΣΟΥ "curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/d.sh && bash /tmp/d.sh"
+```
+
+Την πρώτη φορά το `ssh` ρωτάει αν εμπιστεύεστε το κλειδί του διακομιστή:
+γράψτε `yes`. Μετά ζητάει τον κωδικό του droplet, αν δεν χρησιμοποιείτε κλειδί.
+
+Ή **διπλό κλικ στο `deploy\DROPLET.bat`**: ρωτάει διεύθυνση, χρήστη και
+προαιρετικό domain, στήνει το droplet και προσφέρεται να ανεβάσει και την
+τελευταία αναφορά σάρωσης.
+
+Αν το `ssh` δεν αναγνωρίζεται: Ρυθμίσεις → Σύστημα → Προαιρετικές δυνατότητες →
+Προσθήκη → **OpenSSH Client**.
+
 ## Μία εντολή, πάνω στο droplet
 
 Συνδεθείτε στο droplet — από την κονσόλα του DigitalOcean ή με

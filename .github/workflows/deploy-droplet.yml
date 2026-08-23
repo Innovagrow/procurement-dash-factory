@@ -10,7 +10,7 @@ name: Deploy στο droplet
 #   DROPLET_HOST      η IP ή το domain του droplet
 #   DROPLET_SSH_KEY   ιδιωτικό κλειδί SSH με πρόσβαση στο droplet, ολόκληρο
 #   DROPLET_USER      προαιρετικό, προεπιλογή root
-#   DROPLET_DOMAIN    προαιρετικό, για https με certbot
+#   DROPLET_PORT      προαιρετικό, προεπιλογή 8080
 #
 # Χωρίς αυτά, το workflow τερματίζει ήσυχα αντί να βάφει κάθε push κόκκινο.
 
@@ -61,10 +61,10 @@ jobs:
         env:
           HOST: ${{ secrets.DROPLET_HOST }}
           USER_NAME: ${{ secrets.DROPLET_USER || 'root' }}
-          DOMAIN: ${{ secrets.DROPLET_DOMAIN }}
+          PORT: ${{ secrets.DROPLET_PORT || '8080' }}
         run: |
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$USER_NAME@$HOST" \
-            "DOMAIN='${DOMAIN}' bash -s" < deploy/droplet.sh
+            "PORT='${PORT}' bash -s" < deploy/droplet.sh
 
       - name: Απαντάει η σελίδα;
         if: steps.gate.outputs.ready == 'true'

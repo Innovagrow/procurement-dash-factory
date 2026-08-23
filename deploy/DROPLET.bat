@@ -27,13 +27,14 @@ set SSHUSER=root
 set /p SSHUSER=SSH user - press Enter for root: 
 if "%SSHUSER%"=="" set SSHUSER=root
 
-set WEBDOMAIN=
+set WEBPORT=
 echo.
-echo A domain gets you real https. Leave empty to use the IP over http.
-set /p WEBDOMAIN=Domain, or just press Enter: 
+echo The pages get their own port so nothing already running is disturbed.
+echo Press Enter to let it pick a free one, or type a port number.
+set /p WEBPORT=Port, or just press Enter: 
 
 set REMOTE=curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/droplet.sh ^&^& bash /tmp/droplet.sh
-if not "%WEBDOMAIN%"=="" set REMOTE=curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/droplet.sh ^&^& DOMAIN=%WEBDOMAIN% bash /tmp/droplet.sh
+if not "%WEBPORT%"=="" set REMOTE=curl -fsSL https://raw.githubusercontent.com/Innovagrow/procurement-dash-factory/claude/greek-brokers-investment-outreach-gr5j9p/deploy/droplet.sh -o /tmp/droplet.sh ^&^& PORT=%WEBPORT% bash /tmp/droplet.sh
 
 echo.
 echo [1/2] Setting up the droplet.
@@ -89,6 +90,7 @@ exit /b 1
 echo.
 echo ===========================================================================
 echo   Done. The address, user and password were printed above.
+echo   Nothing that was already running on ports 80 and 443 was touched.
 echo   The map refreshes itself on the droplet every day.
 echo ===========================================================================
 pause

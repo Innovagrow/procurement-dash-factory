@@ -575,15 +575,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     item_types = (list(ALL_ITEM_TYPES) if args.all_types
                   else [t.strip() for t in args.item_types.split(",") if t.strip()])
 
+    locations = _resolve_locations(args)
+
     if args.discover_locations:
         return _discover_locations(sources[0], args, item_types)
 
     if args.probe:
+        # Ο probe χτίζει URL όπως και η σάρωση: χωρίς περιοχή, η πύλη δίνει
+        # σελίδα κατηγορίας — δηλαδή ο έλεγχος θα έλεγχε λάθος σελίδα.
         query = SearchQuery(
             transaction=args.transaction,
             item_type=item_types[0],
             max_price=args.max_price,
             bbox=bbox,
+            extra={"location": locations[0]} if locations else {},
         )
         if hasattr(source, "probe"):
             _log(json.dumps(source.probe(query), ensure_ascii=False, indent=2))
@@ -604,7 +609,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     _log("=" * 74)
 
-    locations = _resolve_locations(args)
     _log("\n[1/5] Συλλογή υποψηφίων")
     candidates = crawl_sources(
         sources, item_types, args.transaction, args.max_price,

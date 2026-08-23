@@ -147,7 +147,8 @@ class SpitogatosSource(PropertySource):
     )
 
     def __init__(self, fetcher, headless: bool = True, page_wait_ms: int = 4000,
-                 solve_seconds: int = 300, save_html_dir: str = ""):
+                 solve_seconds: int = 300, save_html_dir: str = "",
+                 results_timeout_ms: int = 30000):
         super().__init__(fetcher)
         self.headless = headless
         # Πόσο περιμένουμε τον άνθρωπο να λύσει τη δική του πρόκληση, όταν το
@@ -155,6 +156,7 @@ class SpitogatosSource(PropertySource):
         self.solve_seconds = solve_seconds
         self._context = None
         self.save_html_dir = save_html_dir
+        self.results_timeout_ms = results_timeout_ms
         self.page_wait_ms = page_wait_ms
         self._browser = None
         self._playwright = None
@@ -223,6 +225,7 @@ class SpitogatosSource(PropertySource):
             self._context.close()
             self._context = None
         self.save_html_dir = save_html_dir
+        self.results_timeout_ms = results_timeout_ms
         if self._browser is not None:
             self._browser.close()
             self._browser = None
@@ -257,6 +260,24 @@ class SpitogatosSource(PropertySource):
         page = self._ensure_context().new_page()
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            # Το κέλυφος φτάνει σε δευτερόλεπτα· οι αγγελίες έρχονται μετά, από
+            # τον client. Ένα σταθερό wait έπιανε τη σελίδα πριν γεμίσει και
+            # γύριζε μηδέν με τη σελίδα να είναι μια χαρά. Περιμένουμε να
+            # φανούν τιμές — αυτό σημαίνει ότι υπάρχουν αποτελέσματα.
+            try:
+                page.wait_for_function(
+                    "() => (document.body.innerText.match(/€/g) || []).length > 2",
+                    timeout=self.results_timeout_ms)
+            except Exception:  # noqa: BLE001 - ίσως η σελίδα δεν έχει αποτελέσματα
+                pass
+            # Πολλές λίστες φορτώνουν με το κύλισμα.
+            for _ in range(3):
+                page.mouse.wheel(0, 5000)
+                page.wait_for_timeout(900)
+            try:
+                page.wait_for_load_state("networkidle", timeout=15000)
+            except Exception:  # noqa: BLE001 - το networkidle δεν είναι εγγυημένο
+                pass
             page.wait_for_timeout(self.page_wait_ms)
             html = page.content()
 
@@ -326,6 +347,8 @@ class SpitogatosSource(PropertySource):
             "euro_signs": html.count("€"),
             "candidate_links": len(re.findall(r'<a[^>]+href="(/[^"]*?\d{6,}[^"]*)"', html)),
             "text_sample": re.sub(r"\s+", " ", text).strip()[:200],
+            "sample_links": sorted({m for m in re.findall(r'href="(/[a-z0-9\-/]{4,60})"', html)})[:12],
+            "script_blocks": html.count("<script"),
             "strategies": {},
         }
         for label, extractor in (

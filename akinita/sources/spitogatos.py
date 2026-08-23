@@ -27,6 +27,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import html as html_module
 import urllib.parse
 from typing import Any, Dict, Iterator, List, Optional
 
@@ -58,6 +59,18 @@ PATHS = {
 # ένα κέλυφος λίγων χιλιάδων bytes και φορτώνει hCaptcha. Δεν παρακάμπτεται και
 # δεν επιχειρείται· αναγνωρίζεται, ώστε το εργαλείο να λέει τι συνέβη αντί να
 # επιστρέφει σιωπηλά μηδέν αγγελίες.
+# Η κατηγορία όπως γράφεται στο title της κάρτας.
+_ITEM_TYPE_FROM_TITLE = {
+    "Κατοικία": "residence",
+    "Επαγγελματικός χώρος": "prof",
+    "Επαγγελματικό": "prof",
+    "Γη": "land",
+    "Οικόπεδο": "land",
+    "Αγροτεμάχιο": "land",
+    "Parking": "parking",
+    "Θέση στάθμευσης": "parking",
+}
+
 CHALLENGE_MARKERS = ("hcaptcha", "recaptcha", "iamwatchingyou",
                      "pardon our interruption", "are you a human")
 
@@ -378,6 +391,7 @@ class SpitogatosSource(PropertySource):
             "strategies": {},
         }
         for label, extractor in (
+            ("tiles", self._from_tiles),
             ("__NEXT_DATA__", self._from_next_data),
             ("embedded json", self._from_embedded_json),
             ("ld+json", self._from_ld_json),
@@ -399,8 +413,9 @@ class SpitogatosSource(PropertySource):
                 "από αυτή τη σύνδεση. Χρησιμοποιήστε την πηγή csv με ακίνητα που "
                 "έχετε ήδη υπόψη σας."
             )
-        for extractor in (self._from_next_data, self._from_embedded_json,
-                          self._from_ld_json, self._from_dom):
+        for extractor in (self._from_tiles, self._from_next_data,
+                          self._from_embedded_json, self._from_ld_json,
+                          self._from_dom):
             try:
                 listings = extractor(html, query)
             except Exception:  # noqa: BLE001 - fall through to next strategy
@@ -408,6 +423,64 @@ class SpitogatosSource(PropertySource):
             if listings:
                 return listings
         return []
+
+    def _from_tiles(self, html: str, query: SearchQuery) -> List[Listing]:
+        """Οι κάρτες, όπως τις γράφει πράγματι η πύλη.
+
+        Κάθε κάρτα είναι ένας σύνδεσμος προς /aggelia/<id> με τα πάντα μέσα στο
+        title του:
+
+            Πώληση,Κατοικία,Studio / Γκαρσονιέρα, 30τ.μ.,€79.000,Ιπποκράτειο
+
+        Ο προηγούμενος εξαγωγέας έσβηνε τα tags πριν διαβάσει — πετώντας το
+        μοναδικό σημείο όπου υπάρχει η πληροφορία. Και έψαχνε «αριθμός μετά
+        ευρώ», ενώ η πύλη γράφει «ευρώ πριν τον αριθμό».
+        """
+        listings: List[Listing] = []
+        seen: set = set()
+        for match in re.finditer(
+            r'<a\b[^>]*?href="(/aggelia/(\d+))"[^>]*?title="([^"]{10,400})"', html
+        ):
+            href, listing_id, title = match.groups()
+            if listing_id in seen:
+                continue
+            title = html_module.unescape(title)
+            fields = [f.strip() for f in title.split(",") if f.strip()]
+
+            size = None
+            price = None
+            for field in fields:
+                if size is None and re.search(r"\d\s*τ\.?\s*μ", field):
+                    size = parse_area(field.replace("τ.μ.", " τ.μ."))
+                if price is None and "€" in field:
+                    price = parse_money(field.replace("€", "").strip())
+            if price is None or size is None:
+                continue
+
+            # Η περιοχή είναι ό,τι απομένει μετά τα νούμερα.
+            area = ""
+            for field in reversed(fields):
+                if "€" not in field and not re.search(r"\d\s*τ\.?\s*μ", field):
+                    area = field
+                    break
+
+            seen.add(listing_id)
+            listings.append(
+                Listing(
+                    source=self.name,
+                    listing_id=listing_id,
+                    url=BASE + href,
+                    title=title[:160],
+                    item_type=_ITEM_TYPE_FROM_TITLE.get(fields[1] if len(fields) > 1 else "",
+                                                        query.item_type),
+                    transaction=query.transaction.upper(),
+                    price=price,
+                    size_sqm=size,
+                    area_name=normalise_area(re.sub(r"\s*\(.*?\)", "", area).strip()),
+                    sub_area=area,
+                )
+            )
+        return listings
 
     def _from_next_data(self, html: str, query: SearchQuery) -> List[Listing]:
         match = re.search(

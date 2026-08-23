@@ -812,6 +812,28 @@ check("Cards are read by shape, not by class name", len(_from_dom) == 2,
       str([l.listing_id for l in _from_dom]))
 check("A card without a price is not invented",
       _src._from_dom('<a href="/property/5555555-d"><h3>Χωρίς τιμή</h3></a>', _q) == [])
+# Η πραγματική κάρτα, όπως ήρθε από την πύλη στις 23/08/2026. Όλα τα δεδομένα
+# ζουν στο title του συνδέσμου· ο εξαγωγέας που έσβηνε τα tags πριν διαβάσει
+# πέταγε ακριβώς αυτό που έψαχνε, και η τιμή γράφεται «€79.000», με το σύμβολο
+# μπροστά από τον αριθμό.
+_real_tile = ('<div class="img__wrap" data-v-e2848626=""><a data-v-1cde48b7="" '
+              'href="/aggelia/1120653476" target="_blank" '
+              'title="Πώληση,Κατοικία,Studio / Γκαρσονιέρα, 30τ.μ.,€79.000,'
+              'Ιπποκράτειο (Φάληρο - Ιπποκράτειο)" class="tile__link">')
+_tiles = _src._from_tiles(_real_tile, _q)
+check("The portal's real card is read", len(_tiles) == 1)
+check("Price is read with the euro sign in front",
+      _tiles and _tiles[0].price == 79000)
+check("Size is read from the same attribute", _tiles and _tiles[0].size_sqm == 30)
+check("Area survives the parenthetical", _tiles and _tiles[0].area_name == "Ιπποκράτειο")
+check("The listing links to its own page",
+      _tiles and _tiles[0].url.endswith("/aggelia/1120653476"))
+check("Type comes from the card, not from the query",
+      _tiles and _tiles[0].item_type == "residence")
+_no_price = _src._from_tiles(
+    '<a href="/aggelia/999" title="Πώληση,Κατοικία,Studio, 30τ.μ.,Κέντρο">', _q)
+check("A card without a price is skipped, not invented", _no_price == [])
+
 check("An object without an area is not a listing",
       not _src._from_embedded_json('<script>{"price": 1000}</script>', _q))
 # Το «μηδέν ώρες cache» πρέπει να σημαίνει «χωρίς cache». Σήμαινε «για πάντα»,

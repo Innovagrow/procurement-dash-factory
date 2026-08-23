@@ -834,6 +834,27 @@ _no_price = _src._from_tiles(
     '<a href="/aggelia/999" title="Πώληση,Κατοικία,Studio, 30τ.μ.,Κέντρο">', _q)
 check("A card without a price is skipped, not invented", _no_price == [])
 
+# Δύο πράγματα που η πύλη δεν εγγυάται και δεν πρέπει να θεωρούνται: η σειρά των
+# attributes, και η ίδια η ύπαρξη του title. Ένα regex που απαιτούσε
+# href-πριν-από-title έπιανε 4 κάρτες σε σελίδα με 576 συνδέσμους.
+check("Attribute order does not matter",
+      len(_src._from_tiles(
+          '<a title="Πώληση,Κατοικία,Διαμέρισμα, 65τ.μ.,€48.500,Κέντρο" '
+          'href="/aggelia/1119999999" class="tile__link">', _q)) == 1)
+_untitled = _src._from_tiles(
+    '<a href="/aggelia/1118888888"><h3>Διαμέρισμα</h3><span>€35.000</span>'
+    '<span>52 τ.μ.</span><p>Ξηροκρήνη</p></a><a href="/x">', _q)
+check("A card with no title is read from its text", len(_untitled) == 1)
+# «€35.000 52 τ.μ.» ως ένα πεδίο έβγαζε τιμή 3.500.052 και εμβαδόν 35.000 —
+# αριθμοί που περνούν αθόρυβα μέσα σε χιλιάδες γραμμές.
+check("Price and size are not run together",
+      _untitled and _untitled[0].price == 35000 and _untitled[0].size_sqm == 52,
+      str([(l.price, l.size_sqm) for l in _untitled]))
+check("The same listing twice is counted once",
+      len(_src._from_tiles(
+          '<a href="/aggelia/777777" title="Πώληση,Κατοικία,Studio, 30τ.μ.,€79.000,Κέντρο"></a>'
+          '<a href="/aggelia/777777" title="Πώληση,Κατοικία,Studio, 30τ.μ.,€79.000,Κέντρο">', _q)) == 1)
+
 check("An object without an area is not a listing",
       not _src._from_embedded_json('<script>{"price": 1000}</script>', _q))
 # Το «μηδέν ώρες cache» πρέπει να σημαίνει «χωρίς cache». Σήμαινε «για πάντα»,

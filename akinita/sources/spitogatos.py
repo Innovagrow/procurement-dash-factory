@@ -427,52 +427,57 @@ class SpitogatosSource(PropertySource):
     def _from_tiles(self, html: str, query: SearchQuery) -> List[Listing]:
         """Οι κάρτες, όπως τις γράφει πράγματι η πύλη.
 
-        Κάθε κάρτα είναι ένας σύνδεσμος προς /aggelia/<id> με τα πάντα μέσα στο
-        title του:
+        Κάθε αποτέλεσμα είναι σύνδεσμος προς /aggelia/<id>. Τα δεδομένα είναι
+        συνήθως στο title του:
 
             Πώληση,Κατοικία,Studio / Γκαρσονιέρα, 30τ.μ.,€79.000,Ιπποκράτειο
 
-        Ο προηγούμενος εξαγωγέας έσβηνε τα tags πριν διαβάσει — πετώντας το
-        μοναδικό σημείο όπου υπάρχει η πληροφορία. Και έψαχνε «αριθμός μετά
-        ευρώ», ενώ η πύλη γράφει «ευρώ πριν τον αριθμό».
+        Δύο πράγματα δεν είναι σταθερά και δεν πρέπει να θεωρούνται: η ΣΕΙΡΑ των
+        attributes μέσα στο tag, και η ίδια η ύπαρξη του title. Γι' αυτό το tag
+        διαβάζεται ολόκληρο και τα attributes ψάχνονται μέσα του ανεξάρτητα, με
+        το κείμενο της κάρτας ως δεύτερη ανάγνωση.
         """
         listings: List[Listing] = []
         seen: set = set()
-        for match in re.finditer(
-            r'<a\b[^>]*?href="(/aggelia/(\d+))"[^>]*?title="([^"]{10,400})"', html
-        ):
-            href, listing_id, title = match.groups()
+        for tag in re.finditer(r"<a\b[^>]*>", html):
+            attributes = tag.group(0)
+            link = re.search(r'href="(/aggelia/(\d+))"', attributes)
+            if not link:
+                continue
+            href, listing_id = link.group(1), link.group(2)
             if listing_id in seen:
                 continue
-            title = html_module.unescape(title)
-            fields = [f.strip() for f in title.split(",") if f.strip()]
 
-            size = None
-            price = None
-            for field in fields:
-                if size is None and re.search(r"\d\s*τ\.?\s*μ", field):
-                    size = parse_area(field.replace("τ.μ.", " τ.μ."))
-                if price is None and "€" in field:
-                    price = parse_money(field.replace("€", "").strip())
+            title_attr = re.search(r'title="([^"]{10,400})"', attributes)
+            title = html_module.unescape(title_attr.group(1)) if title_attr else ""
+            price = size = None
+            area = ""
+            if title:
+                price, size, area = self._read_card(title)
+            if price is None or size is None:
+                # Χωρίς title: το κείμενο της κάρτας, ως το επόμενο άνοιγμα <a.
+                window = html[tag.end():tag.end() + 1800]
+                cut = window.find("<a ")
+                text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", window[:cut if cut > 0 else len(window)]))
+                found_price, found_size, found_area = self._read_card(text)
+                price = price if price is not None else found_price
+                size = size if size is not None else found_size
+                area = area or found_area
             if price is None or size is None:
                 continue
 
-            # Η περιοχή είναι ό,τι απομένει μετά τα νούμερα.
-            area = ""
-            for field in reversed(fields):
-                if "€" not in field and not re.search(r"\d\s*τ\.?\s*μ", field):
-                    area = field
-                    break
-
             seen.add(listing_id)
+            category = ""
+            if title:
+                parts = [f.strip() for f in title.split(",") if f.strip()]
+                category = parts[1] if len(parts) > 1 else ""
             listings.append(
                 Listing(
                     source=self.name,
                     listing_id=listing_id,
                     url=BASE + href,
-                    title=title[:160],
-                    item_type=_ITEM_TYPE_FROM_TITLE.get(fields[1] if len(fields) > 1 else "",
-                                                        query.item_type),
+                    title=(title or area)[:160],
+                    item_type=_ITEM_TYPE_FROM_TITLE.get(category, query.item_type),
                     transaction=query.transaction.upper(),
                     price=price,
                     size_sqm=size,
@@ -481,6 +486,30 @@ class SpitogatosSource(PropertySource):
                 )
             )
         return listings
+
+    @staticmethod
+    def _read_card(text: str):
+        """Τιμή, εμβαδόν και περιοχή από μια κάρτα.
+
+        Η τιμή και το εμβαδόν διαβάζονται στοχευμένα, όχι με χώρισμα σε πεδία:
+        σε κάρτα χωρίς κόμματα, το «€35.000 52 τ.μ.» γινόταν ένα πεδίο και
+        έβγαινε τιμή 3.500.052 με εμβαδόν 35.000 — αριθμοί που θα περνούσαν
+        αθόρυβα μέσα σε μια σάρωση χιλιάδων γραμμών.
+
+        Η πύλη γράφει «€79.000», με το σύμβολο μπροστά από τον αριθμό.
+        """
+        price = parse_money(_first(r"€\s*([\d.,]+)", text) or "")
+        if price is None:
+            price = parse_money(_first(r"([\d.,]+)\s*€", text) or "")
+        size = parse_area(_first(r"([\d.,]+)\s*τ\.?\s*μ", text) or "")
+
+        area = ""
+        for field in reversed([f.strip() for f in re.split(r"[,\n]", text) if f.strip()]):
+            if "€" in field or re.search(r"\d\s*τ\.?\s*μ", field) or len(field) <= 2:
+                continue
+            area = field
+            break
+        return price, size, area
 
     def _from_next_data(self, html: str, query: SearchQuery) -> List[Listing]:
         match = re.search(

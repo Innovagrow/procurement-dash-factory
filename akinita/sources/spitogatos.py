@@ -38,19 +38,20 @@ from .base import PropertySource, SearchQuery
 BASE = "https://www.spitogatos.gr"
 
 # Spitogatos' Greek URL segments, keyed by (transaction, item_type).
-# Διαδρομές όπως τις δίνει η ίδια η αρχική σελίδα της πύλης (έλεγχος 23/08/2026).
-# Οι παλιές —/pwliseis-katoikies και τα αδέρφια της— επιστρέφουν πλέον 404: μια
-# σάρωση πάνω τους δεν έβγαζε μηδέν ευκαιρίες επειδή δεν υπάρχουν ευκαιρίες,
-# αλλά επειδή ζητούσε σελίδες που δεν υπάρχουν.
+# Οι διαδρομές αποτελεσμάτων, με την περιοχή στο τέλος:
+#     /pwliseis-katoikies/thessaloniki-kentro
+# Χωρίς περιοχή είναι σελίδα κατηγορίας με κείμενα και FAQ — καμία αγγελία — και
+# το /ellada επιστρέφει 404. Δεν υπάρχει σελίδα «όλη η Ελλάδα»: η χώρα σαρώνεται
+# νομό-νομό.
 PATHS = {
-    ("buy", "residence"): "/sale/diamerismata",
-    ("buy", "prof"): "/sale/commercial",
-    ("buy", "land"): "/sale/land",
-    ("buy", "parking"): "/sale/parking",
-    ("rent", "residence"): "/rent/diamerismata",
-    ("rent", "prof"): "/rent/commercial",
-    ("rent", "land"): "/rent/land",
-    ("rent", "parking"): "/rent/parking",
+    ("buy", "residence"): "/pwliseis-katoikies",
+    ("buy", "prof"): "/pwliseis-epaggelmatikoi-xwroi",
+    ("buy", "land"): "/pwliseis-oikopeda-gi",
+    ("buy", "parking"): "/pwliseis-parking",
+    ("rent", "residence"): "/enoikiaseis-katoikies",
+    ("rent", "prof"): "/enoikiaseis-epaggelmatikoi-xwroi",
+    ("rent", "land"): "/enoikiaseis-oikopeda-gi",
+    ("rent", "parking"): "/enoikiaseis-parking",
 }
 
 # Η πύλη απαντά σε αυτοματοποιημένες συνεδρίες με πρόκληση CAPTCHA: σερβίρει
@@ -185,8 +186,15 @@ class SpitogatosSource(PropertySource):
             params["areaFrom"] = int(query.min_size)
         if page > 1:
             params["page"] = page
-        params.update(query.extra)
-        url = f"{BASE}{path}"
+        location = str(query.extra.pop("location", "") or "").strip("/")
+        params.update({k: v for k, v in query.extra.items() if k != "location"})
+        if not location:
+            raise ValueError(
+                "Η πύλη δεν έχει σελίδα αποτελεσμάτων για όλη τη χώρα. "
+                "Δώστε περιοχή, π.χ. --locations thessaloniki,attiki, ή "
+                "--locations all για όλους τους νομούς."
+            )
+        url = f"{BASE}{path}/{location}"
         return url + ("?" + urllib.parse.urlencode(params) if params else "")
 
     # ------------------------------------------------------------- browser
@@ -508,7 +516,11 @@ class SpitogatosSource(PropertySource):
         page = 1
         seen: set = set()
         max_pages = query.max_pages or 50
-        try:
+        # Ο browser ΔΕΝ κλείνει εδώ. Μια σάρωση πενήντα νομών καλεί αυτή τη
+        # μέθοδο πενήντα φορές· κλείνοντας κάθε φορά, η επαλήθευση που πέρασε ο
+        # χρήστης θα ζητιόταν ξανά από την αρχή σε κάθε νομό. Κλείνει ο καλών,
+        # όταν τελειώσουν όλα.
+        if True:
             while page <= max_pages:
                 html = self._render(self._url(query, page))
                 listings = self._extract(html, query)
@@ -523,8 +535,6 @@ class SpitogatosSource(PropertySource):
                 if fresh == 0:
                     return  # same page served again -> end of results
                 page += 1
-        finally:
-            self.close()
 
 
 def _first(pattern: str, text: str) -> Optional[str]:

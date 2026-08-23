@@ -736,17 +736,28 @@ from akinita.http import FetchError as _FetchError
 
 # Οι παλιές διαδρομές επιστρέφουν 404. Μια σάρωση πάνω τους δεν έβγαζε «μηδέν
 # ευκαιρίες» επειδή δεν υπάρχουν, αλλά επειδή ζητούσε ανύπαρκτες σελίδες.
-check("Paths follow the portal's current scheme",
-      all(p.startswith(("/sale/", "/rent/")) for p in PATHS.values()),
+check("Paths follow the portal's results scheme",
+      all(p.startswith(("/pwliseis-", "/enoikiaseis-")) for p in PATHS.values()),
       str(sorted(PATHS.values())[:3]))
 check("No path still carries the retired suffix",
       not any(p.endswith("/ellada") for p in PATHS.values()))
 _probe_source = SpitogatosSource.__new__(SpitogatosSource)
 _url = SpitogatosSource._url(_probe_source,
                              SearchQuery(transaction="buy", item_type="residence",
-                                         max_price=50000, bbox=None))
-check("Search URL is built on the live scheme",
-      "/sale/diamerismata" in _url and "priceTo=50000" in _url and "/ellada" not in _url, _url)
+                                         max_price=50000, bbox=None,
+                                         extra={"location": "thessaloniki-kentro"}))
+check("Search URL matches the form the portal actually serves",
+      _url.endswith("/pwliseis-katoikies/thessaloniki-kentro?priceTo=50000"), _url)
+_paged = SpitogatosSource._url(_probe_source,
+                               SearchQuery(transaction="buy", item_type="residence",
+                                           max_price=50000, bbox=None,
+                                           extra={"location": "attiki"}), 3)
+check("Pagination keeps the area", "/attiki?" in _paged and "page=3" in _paged, _paged)
+# Χωρίς περιοχή η πύλη δίνει σελίδα κατηγορίας με μηδέν αγγελίες. Καλύτερα να
+# αρνηθεί παρά να σαρώσει το κενό και να το πει «καμία ευκαιρία».
+check("A country-wide URL is refused, not silently empty",
+      _raises(lambda: SpitogatosSource._url(
+          _probe_source, SearchQuery(transaction="buy", item_type="residence", bbox=None))))
 
 _challenge = ('<html><head><title>x</title></head><body>'
               '<script src="https://js.hcaptcha.com/1/api.js"></script></body></html>')
@@ -815,6 +826,18 @@ _with_cache = PoliteFetcher(delay=0, verbose=False, cache_ttl_hours=24, cache_di
 check("A real TTL still serves the cache",
       _with_cache._cache_read("https://x.test/a") == "<html>παλιό</html>")
 shutil.rmtree(_tmp_cache, ignore_errors=True)
+
+# Η χώρα σαρώνεται νομό-νομό, οπότε ο κατάλογος πρέπει να την καλύπτει ολόκληρη.
+from akinita.locations import PREFECTURES, all_candidates, candidates as _loc_candidates
+check("Every region of the country has prefectures listed",
+      len({region for _, region in PREFECTURES.values()}) == 13,
+      str(sorted({r for _, r in PREFECTURES.values()})))
+check("Prefecture slugs are url-safe",
+      all(s.replace("-", "").isalnum() and s.islower() for s in PREFECTURES))
+check("Candidates include the confirmed working area",
+      "thessaloniki-kentro" in all_candidates())
+check("Each prefecture keeps its own name and region",
+      all(len(v) == 2 and all(v) for v in PREFECTURES.values()))
 
 print("\n[11d] Results dashboard")
 from akinita.webreport import write_dashboard

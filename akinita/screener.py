@@ -48,6 +48,89 @@ def _log(message: str) -> None:
 # ------------------------------------------------------------------- crawl
 
 
+
+
+def _discover_locations(source, args, item_types: Sequence[str]) -> int:
+    """Ποιες περιοχές δίνουν πράγματι αγγελίες.
+
+    Τα slug γράφτηκαν από τη λατινική απόδοση της πύλης, χωρίς πρόσβαση στον
+    κατάλογό της. Αντί να μαντεύουμε στη μεγάλη σάρωση, ρωτάμε μία φορά και
+    κρατάμε ό,τι απάντησε.
+    """
+    import itertools
+    from .locations import all_candidates, PREFECTURES, VERIFIED_FILE
+
+    candidates = all_candidates()
+    _log(f"\nΈλεγχος {len(candidates)} υποψηφίων περιοχών, μία σελίδα η καθεμία.")
+    _log("Η επαλήθευση ζητείται μία φορά· από εκεί και πέρα τρέχει μόνο του.\n")
+
+    working, dead = [], []
+    for position, slug in enumerate(candidates, 1):
+        query = SearchQuery(
+            transaction=args.transaction, item_type=item_types[0],
+            max_price=args.max_price, min_price=args.min_price,
+            bbox=None, max_pages=1, extra={"location": slug},
+        )
+        try:
+            found = list(itertools.islice(source.search(query), 40))
+        except Exception as exc:  # noqa: BLE001 - μια νεκρή περιοχή δεν ρίχνει τον έλεγχο
+            found, reason = [], str(exc).splitlines()[0][:60]
+        else:
+            reason = ""
+        if found:
+            greek = next((PREFECTURES[k][0] for k in PREFECTURES if k == slug), slug)
+            working.append({"slug": slug, "name": greek, "sample": len(found)})
+            _log(f"  [{position:>2}/{len(candidates)}] ✓ {slug:<22} {len(found)} αγγελίες")
+        else:
+            dead.append(slug)
+            _log(f"  [{position:>2}/{len(candidates)}] · {slug:<22} —{(' ' + reason) if reason else ''}")
+
+    closer = getattr(source, "close", None)
+    if callable(closer):
+        try:
+            closer()
+        except Exception:  # noqa: BLE001
+            pass
+
+    os.makedirs(os.path.dirname(VERIFIED_FILE) or ".", exist_ok=True)
+    with open(VERIFIED_FILE, "w", encoding="utf-8") as handle:
+        json.dump({"checked": len(candidates), "locations": working,
+                   "without_results": dead}, handle, ensure_ascii=False, indent=1)
+    _log(f"\n  ✓ {len(working)} περιοχές με αγγελίες, {len(dead)} χωρίς")
+    _log(f"  ✓ {VERIFIED_FILE}")
+    _log("\n  Η σάρωση τώρα τρέχει με: --locations verified")
+    return 0
+
+
+def _resolve_locations(args) -> List[str]:
+    """Ποιες περιοχές θα σαρωθούν.
+
+    Η πύλη δεν έχει σελίδα «όλη η Ελλάδα»: τα αποτελέσματα ζουν ανά περιοχή.
+    Χωρίς επιλογή, χρησιμοποιούνται οι επιβεβαιωμένες αν υπάρχουν — αλλιώς
+    καμία, και η πηγή το λέει καθαρά αντί να σαρώσει το κενό.
+    """
+    from .locations import all_candidates, VERIFIED_FILE
+
+    raw = (args.locations or "").strip()
+    if raw and raw not in ("all", "verified"):
+        return [p.strip().strip("/") for p in raw.split(",") if p.strip()]
+    if raw == "all":
+        return all_candidates()
+    if os.path.exists(VERIFIED_FILE):
+        try:
+            with open(VERIFIED_FILE, encoding="utf-8") as handle:
+                verified = json.load(handle)
+            names = [row["slug"] for row in verified.get("locations", [])]
+            if names:
+                _log(f"  Περιοχές: {len(names)} επιβεβαιωμένες από {VERIFIED_FILE}")
+                return names
+        except (ValueError, OSError, KeyError, TypeError):
+            pass
+    if raw == "verified":
+        _log("  ! Δεν υπάρχει επιβεβαιωμένη λίστα. Τρέξτε πρώτα --discover-locations.")
+    return []
+
+
 def crawl_sources(
     sources: Sequence,
     item_types: Sequence[str],
@@ -57,6 +140,7 @@ def crawl_sources(
     min_size: Optional[float],
     bbox,
     max_pages: Optional[int],
+    locations: Sequence[str] = (),
 ) -> List[Listing]:
     """Crawl every configured source and merge, keeping the cheapest duplicate.
 
@@ -70,7 +154,8 @@ def crawl_sources(
         _log(f"\n  ── πηγή: {source.name}")
         try:
             found = crawl_candidates(source, item_types, transaction, max_price,
-                                     min_price, min_size, bbox, max_pages)
+                                     min_price, min_size, bbox, max_pages,
+                                     locations)
         except Exception as exc:  # noqa: BLE001 - one dead source must not kill the run
             _log(f"    ! η πηγή {source.name} απέτυχε: {exc}")
             continue
@@ -96,27 +181,40 @@ def crawl_candidates(
     min_size: Optional[float],
     bbox,
     max_pages: Optional[int],
+    locations: Sequence[str] = (),
 ) -> List[Listing]:
+    """Κάθε τύπος ακινήτου, σε κάθε περιοχή.
+
+    Οι πύλες που δεν έχουν σελίδα «όλη η χώρα» σαρώνονται περιοχή-περιοχή· όσες
+    έχουν, δέχονται κενή λίστα περιοχών και τρέχουν μία φορά.
+    """
     listings: List[Listing] = []
+    places: Sequence[Optional[str]] = list(locations) or [None]
     for item_type in item_types:
-        query = SearchQuery(
-            transaction=transaction,
-            item_type=item_type,
-            max_price=max_price,
-            min_price=min_price,
-            min_size=min_size,
-            bbox=bbox,
-            max_pages=max_pages,
-        )
-        total = source.count(query)
-        _log(f"  · {item_type:9s} {total:>6} αγγελίες στην αγορά για αυτά τα φίλτρα")
         collected = 0
-        for listing in source.search(query):
-            listings.append(listing)
-            collected += 1
-            if collected % 340 == 0:
-                _log(f"      ... {collected} συλλέχθηκαν")
-        _log(f"    ✓ {collected} συλλέχθηκαν")
+        for place in places:
+            query = SearchQuery(
+                transaction=transaction,
+                item_type=item_type,
+                max_price=max_price,
+                min_price=min_price,
+                min_size=min_size,
+                bbox=bbox,
+                max_pages=max_pages,
+                extra={"location": place} if place else {},
+            )
+            try:
+                for listing in source.search(query):
+                    listings.append(listing)
+                    collected += 1
+                    if collected % 200 == 0:
+                        _log(f"      … {collected} συλλέχθηκαν")
+            except Exception as exc:  # noqa: BLE001 - μια περιοχή δεν ρίχνει τη σάρωση
+                _log(f"      · {place or item_type}: {str(exc).splitlines()[0][:80]}")
+                continue
+            if place and len(places) > 1:
+                _log(f"      {place:<22} σύνολο ως εδώ: {collected}")
+        _log(f"    ✓ {item_type:9s} {collected} συλλέχθηκαν")
     return listings
 
 
@@ -361,6 +459,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--show-browser", action="store_true",
                         help="Ανοίγει παράθυρο browser. Αν η πύλη ζητήσει "
                              "επαλήθευση, την περνάτε εσείς και η σάρωση συνεχίζει.")
+    parser.add_argument("--locations", default="",
+                        help="Περιοχές χωρισμένες με κόμμα (π.χ. thessaloniki,attiki), "
+                             "«all» για όλους τους νομούς, ή «verified» για όσους "
+                             "έχουν ήδη επιβεβαιωθεί.")
+    parser.add_argument("--discover-locations", action="store_true",
+                        help="Δοκιμάζει κάθε υποψήφια περιοχή, κρατά όσες δίνουν "
+                             "αγγελίες και γράφει τη λίστα.")
     parser.add_argument("--save-html", default="",
                         help="Φάκελος όπου αποθηκεύονται οι σελίδες όπως ήρθαν, "
                              "για έλεγχο και προσαρμογή των εξαγωγέων.")
@@ -470,6 +575,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     item_types = (list(ALL_ITEM_TYPES) if args.all_types
                   else [t.strip() for t in args.item_types.split(",") if t.strip()])
 
+    if args.discover_locations:
+        return _discover_locations(sources[0], args, item_types)
+
     if args.probe:
         query = SearchQuery(
             transaction=args.transaction,
@@ -496,12 +604,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     _log("=" * 74)
 
+    locations = _resolve_locations(args)
     _log("\n[1/5] Συλλογή υποψηφίων")
     candidates = crawl_sources(
         sources, item_types, args.transaction, args.max_price,
-        args.min_price, args.min_size, bbox, args.max_pages,
+        args.min_price, args.min_size, bbox, args.max_pages, locations,
     )
     _log(f"  Σύνολο: {len(candidates)} αγγελίες")
+    for provider in sources:
+        closer = getattr(provider, "close", None)
+        if callable(closer):
+            try:
+                closer()
+            except Exception:  # noqa: BLE001 - το κλείσιμο δεν ρίχνει τη σάρωση
+                pass
 
     # Rent comparables come from whichever source can supply them: a portal
     # query, or a rent column in the file.

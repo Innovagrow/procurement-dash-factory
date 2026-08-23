@@ -803,6 +803,18 @@ check("A card without a price is not invented",
       _src._from_dom('<a href="/property/5555555-d"><h3>Χωρίς τιμή</h3></a>', _q) == [])
 check("An object without an area is not a listing",
       not _src._from_embedded_json('<script>{"price": 1000}</script>', _q))
+# Το «μηδέν ώρες cache» πρέπει να σημαίνει «χωρίς cache». Σήμαινε «για πάντα»,
+# οπότε η μοναδική σημαία που υπάρχει για να την παρακάμψει την καθιστούσε
+# μόνιμη — και μια διόρθωση στον κώδικα δεν έφτανε ποτέ στη σελίδα.
+_tmp_cache = tempfile.mkdtemp()
+_no_cache = PoliteFetcher(delay=0, verbose=False, cache_ttl_hours=0, cache_dir=_tmp_cache)
+_no_cache._cache_write("https://x.test/a", "<html>παλιό</html>")
+check("Zero cache hours means no cache, not forever",
+      _no_cache._cache_read("https://x.test/a") is None)
+_with_cache = PoliteFetcher(delay=0, verbose=False, cache_ttl_hours=24, cache_dir=_tmp_cache)
+check("A real TTL still serves the cache",
+      _with_cache._cache_read("https://x.test/a") == "<html>παλιό</html>")
+shutil.rmtree(_tmp_cache, ignore_errors=True)
 
 print("\n[11d] Results dashboard")
 from akinita.webreport import write_dashboard

@@ -193,7 +193,13 @@ class PoliteFetcher:
         path = self._cache_path(url)
         if not path or not os.path.exists(path):
             return None
-        if self.cache_ttl and (time.time() - os.path.getmtime(path)) > self.cache_ttl:
+        # Μηδέν ώρες σημαίνει «χωρίς cache», όχι «για πάντα». Το falsy μηδέν
+        # προσπερνούσε τον έλεγχο λήξης και σέρβιρε αιώνια την πρώτη λήψη —
+        # δηλαδή η μία σημαία που υπάρχει για να παρακάμψει την cache ήταν
+        # ακριβώς αυτή που την έκανε μόνιμη.
+        if not self.cache_ttl:
+            return None
+        if (time.time() - os.path.getmtime(path)) > self.cache_ttl:
             return None
         try:
             with gzip.open(path, "rt", encoding="utf-8") as fh:

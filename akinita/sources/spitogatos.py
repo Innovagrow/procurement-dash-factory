@@ -251,8 +251,8 @@ class SpitogatosSource(PropertySource):
         )
         return self._context
 
-    def _render(self, url: str) -> str:
-        cached = self.fetcher._cache_read(url)
+    def _render(self, url: str, use_cache: bool = True) -> str:
+        cached = self.fetcher._cache_read(url) if use_cache else None
         if cached is not None and not self._challenged(cached):
             self.fetcher.stats["cache_hits"] += 1
             return cached
@@ -336,7 +336,7 @@ class SpitogatosSource(PropertySource):
     def probe(self, query: SearchQuery) -> Dict[str, Any]:
         """Fetch one page and report which extraction strategy works."""
         url = self._url(query, 1)
-        html = self._render(url)
+        html = self._render(url, use_cache=False)
         text = re.sub(r"<[^>]+>", " ", html)
         report = {
             "url": url,

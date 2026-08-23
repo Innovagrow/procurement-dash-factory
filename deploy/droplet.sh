@@ -115,6 +115,7 @@ server {
     server_name _;
     root $WEB;
     index index.html;
+    charset utf-8;
 
     auth_basic "Ακίνητα";
     auth_basic_user_file /etc/nginx/.akinita_htpasswd;

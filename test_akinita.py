@@ -779,6 +779,8 @@ from akinita.webreport import _TEMPLATE as DASHBOARD_TEMPLATE
 from akinita.indicators import INDICATOR_SHORT_EL, INDICATOR_LABELS_EL
 axes_source = re.search(r"const AXES = \[(.*?)\];", DASHBOARD_TEMPLATE, re.S)
 axes_pairs = re.findall(r'\["(\w+)",\s*"(\w+)"\]', axes_source.group(1) if axes_source else "")
+check("Dashboard declares its encoding too",
+      'charset="utf-8"' in DASHBOARD_TEMPLATE[:200].lower())
 check("Dashboard declares one axis per indicator", len(axes_pairs) == len(INDICATOR_SHORT_EL),
       str(axes_pairs))
 check("Every axis label key exists in the label tables",
@@ -816,6 +818,11 @@ map_data = {
 }
 page = render_map(map_data)
 check("Map page carries its own title", "<title>" in page and "</title>" in page)
+# Σερβιρισμένη από απλό web server, μια σελίδα χωρίς δήλωση κωδικοποίησης
+# διαβάζεται ως Latin-1 και τα ελληνικά γίνονται σκουπίδια. Η δήλωση πρέπει να
+# είναι μέσα στα πρώτα bytes, εκεί που την ψάχνει ο parser.
+check("Encoding is declared, and declared early",
+      'charset="utf-8"' in page[:200].lower())
 check("Map page has no document-level tags",
       not re.search(r"<(?:!doctype|html|head|body)\b", page, re.I))
 check("Every region reaches the page",

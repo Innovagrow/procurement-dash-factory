@@ -146,7 +146,8 @@ def write_dashboard(scored: Sequence[ScoredListing], analysis: Dict[str, dict],
     return path
 
 
-_TEMPLATE = r"""<title>Ευκαιρίες Ακινήτων</title>
+_TEMPLATE = r"""<meta charset="utf-8">
+<title>Ευκαιρίες Ακινήτων</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Literata:opsz,wght@7..72,400;7..72,600&family=Noto+Sans+Mono:wght@400;600&display=swap&subset=greek,latin">

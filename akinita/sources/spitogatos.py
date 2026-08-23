@@ -69,6 +69,51 @@ class SpitogatosBlocked(RuntimeError):
     """The bot-management interstitial was served instead of results."""
 
 
+# Οι σελίδες γράφτηκαν από κάποιον άλλο και αλλάζουν χωρίς προειδοποίηση. Ο
+# εξαγωγέας που ψάχνει συγκεκριμένο id script ή συγκεκριμένη κλάση σπάει στην
+# πρώτη ανακατασκευή — και σπάει σιωπηλά, γυρνώντας μηδέν. Αυτό ψάχνει σχήμα:
+# αντικείμενα JSON που ΕΧΟΥΝ τιμή και εμβαδόν, οπουδήποτε στη σελίδα, όπως κι
+# αν τυλίχθηκαν.
+PRICE_KEYS = ("price", "priceValue", "askingPrice", "amount")
+AREA_KEYS = ("area", "sqm", "size", "surface", "livingArea")
+
+
+def _unescape(blob: str) -> str:
+    """Το JSON μέσα σε συμβολοσειρά JavaScript έρχεται με backslash."""
+    if '\\"' not in blob:
+        return blob
+    return blob.replace('\\"', '"').replace("\\\\", "\\")
+
+
+def _balanced_objects(text: str, anchor: str, limit: int = 4000) -> Iterator[str]:
+    """Κάθε αντικείμενο JSON που περιέχει το `anchor`, με ισοσκελισμένα άγκιστρα."""
+    for hit in re.finditer(re.escape(anchor), text):
+        start = text.rfind("{", max(0, hit.start() - limit), hit.start())
+        if start < 0:
+            continue
+        depth, index, end = 0, start, -1
+        while index < min(len(text), start + limit * 4):
+            char = text[index]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    end = index + 1
+                    break
+            index += 1
+        if end > start:
+            yield text[start:end]
+
+
+def _looks_like_listing(node: Any) -> bool:
+    if not isinstance(node, dict):
+        return False
+    has_price = any(k in node for k in PRICE_KEYS)
+    has_area = any(k in node for k in AREA_KEYS)
+    return has_price and has_area
+
+
 class SpitogatosSource(PropertySource):
     name = "spitogatos.gr"
     supports_bbox = False
@@ -271,9 +316,21 @@ class SpitogatosSource(PropertySource):
         """Fetch one page and report which extraction strategy works."""
         url = self._url(query, 1)
         html = self._render(url)
-        report = {"url": url, "html_bytes": len(html), "strategies": {}}
+        text = re.sub(r"<[^>]+>", " ", html)
+        report = {
+            "url": url,
+            "html_bytes": len(html),
+            "title": (re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I)
+                      or [None, ""])[1].strip()[:80],
+            "challenged": self._challenged(html),
+            "euro_signs": html.count("€"),
+            "candidate_links": len(re.findall(r'<a[^>]+href="(/[^"]*?\d{6,}[^"]*)"', html)),
+            "text_sample": re.sub(r"\s+", " ", text).strip()[:200],
+            "strategies": {},
+        }
         for label, extractor in (
             ("__NEXT_DATA__", self._from_next_data),
+            ("embedded json", self._from_embedded_json),
             ("ld+json", self._from_ld_json),
             ("dom", self._from_dom),
         ):
@@ -293,7 +350,8 @@ class SpitogatosSource(PropertySource):
                 "από αυτή τη σύνδεση. Χρησιμοποιήστε την πηγή csv με ακίνητα που "
                 "έχετε ήδη υπόψη σας."
             )
-        for extractor in (self._from_next_data, self._from_ld_json, self._from_dom):
+        for extractor in (self._from_next_data, self._from_embedded_json,
+                          self._from_ld_json, self._from_dom):
             try:
                 listings = extractor(html, query)
             except Exception:  # noqa: BLE001 - fall through to next strategy
@@ -311,6 +369,23 @@ class SpitogatosSource(PropertySource):
         payload = json.loads(match.group(1))
         return [self._to_listing(node, query) for node in _walk_for_listings(payload)]
 
+    def _from_embedded_json(self, html: str, query: SearchQuery) -> List[Listing]:
+        """Κάθε αντικείμενο με τιμή και εμβαδόν, όπου κι αν κρύβεται."""
+        text = _unescape(html)
+        found: Dict[str, Dict[str, Any]] = {}
+        for key in PRICE_KEYS:
+            for blob in _balanced_objects(text, f'"{key}"'):
+                try:
+                    node = json.loads(blob)
+                except ValueError:
+                    continue
+                if not _looks_like_listing(node):
+                    continue
+                identity = str(node.get("id") or node.get("listingId")
+                               or node.get("propertyId") or blob[:80])
+                found.setdefault(identity, node)
+        return [self._to_listing(node, query) for node in found.values()]
+
     def _from_ld_json(self, html: str, query: SearchQuery) -> List[Listing]:
         listings: List[Listing] = []
         for block in re.findall(
@@ -325,30 +400,41 @@ class SpitogatosSource(PropertySource):
         return listings
 
     def _from_dom(self, html: str, query: SearchQuery) -> List[Listing]:
+        """Τελευταία γραμμή άμυνας: κάρτες που φαίνονται από τη μορφή τους.
+
+        Δεν ψάχνει κλάσεις — αλλάζουν σε κάθε ανακατασκευή. Ψάχνει συνδέσμους
+        προς σελίδα ακινήτου και διαβάζει τιμή και εμβαδόν από το κείμενο γύρω
+        τους, που είναι το μόνο που παραμένει σταθερό: ένα ποσό σε ευρώ και ένα
+        εμβαδόν σε τετραγωνικά.
+        """
         listings: List[Listing] = []
         seen: set = set()
-        for match in re.finditer(
-            r'<a[^>]+href="(/(?:property|katoikia|akinito)/[^"]*?(\d{5,}))"[^>]*>(.{0,1200}?)</a>',
-            html,
-            re.S,
-        ):
-            href, listing_id, blob = match.groups()
+        anchors = list(re.finditer(
+            r'<a[^>]+href="(/[^"]*?(\d{6,})[^"]*)"', html))
+        for index, match in enumerate(anchors):
+            href, listing_id = match.group(1), match.group(2)
             if listing_id in seen:
                 continue
-            seen.add(listing_id)
-            text = re.sub(r"<[^>]+>", " ", blob)
+            # Το κείμενο της κάρτας: από αυτόν τον σύνδεσμο ως τον επόμενο.
+            stop = anchors[index + 1].start() if index + 1 < len(anchors) else len(html)
+            blob = html[match.start():min(stop, match.start() + 2500)]
+            text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", blob)).strip()
             price = parse_money(_first(r"([\d.,]+)\s*€", text))
             size = parse_area(_first(r"([\d.,]+)\s*τ\.?μ", text))
+            if price is None or size is None:
+                continue
+            seen.add(listing_id)
             listings.append(
                 Listing(
                     source=self.name,
                     listing_id=listing_id,
-                    url=BASE + href,
-                    title=re.sub(r"\s+", " ", text).strip()[:120],
+                    url=href if href.startswith("http") else BASE + href,
+                    title=text[:120],
                     item_type=query.item_type,
                     transaction=query.transaction.upper(),
                     price=price,
                     size_sqm=size,
+                    area_name=normalise_area(_first(r"([Α-ΩΆΈΉΊΌΎΏα-ωάέήίόύώ]{3,}(?:\s[Α-Ωα-ω][α-ωάέήίόύώ]+)*)", text) or ""),
                 )
             )
         return listings

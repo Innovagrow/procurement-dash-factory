@@ -771,6 +771,39 @@ _capture = SOURCE_REGISTRY["spitogatos"](PoliteFetcher(delay=0, verbose=False),
 check("Pages can be captured for extractor work",
       _capture.save_html_dir == "/tmp/akinita-pages")
 
+print("\n[11c4] Extraction that survives a redesign")
+import json as _json
+_src = SOURCE_REGISTRY["spitogatos"](PoliteFetcher(delay=0, verbose=False))
+_q = SearchQuery(transaction="buy", item_type="residence", max_price=50000, bbox=None)
+_item = {"id": 1234567, "price": 45000, "area": 58, "url": "/property/1234567",
+         "locationName": "Αθήνα, Κυψέλη", "yearOfConstruction": 1975}
+
+# Το ίδιο ακίνητο, τρεις εντελώς διαφορετικές συσκευασίες. Ένας εξαγωγέας που
+# ψάχνει συγκεκριμένο script id ή κλάση πιάνει το πολύ μία από τις τρεις.
+_plain = "<html><script>window.__DATA__=" + _json.dumps({"results": [_item]}, ensure_ascii=False) + "</script></html>"
+_rsc = ("<html><script>self.__next_f.push([1,"
+        + _json.dumps(_json.dumps({"props": {"listings": [_item]}}, ensure_ascii=False), ensure_ascii=False)
+        + "])</script></html>")
+_cards = ('<div class="build-2026-x"><a href="/property/9876543-d"><h3>Διαμέρισμα 58 τ.μ.</h3>'
+          '<span>45.000 €</span><p>Αθήνα, Κυψέλη</p></a></div>'
+          '<div><a href="/property/1122334-d"><h3>Διαμέρισμα 72 τ.μ.</h3>'
+          '<span>78.000 €</span><p>Πάτρα</p></a></div>')
+
+check("Plain JSON anywhere on the page is found",
+      len(_src._from_embedded_json(_plain, _q)) == 1)
+check("JSON escaped inside a JavaScript string is found",
+      len(_src._from_embedded_json(_rsc, _q)) == 1)
+_from_json = _src._from_embedded_json(_plain, _q)[0]
+check("Price and area survive extraction",
+      _from_json.price == 45000 and _from_json.size_sqm == 58)
+_from_dom = _src._from_dom(_cards, _q)
+check("Cards are read by shape, not by class name", len(_from_dom) == 2,
+      str([l.listing_id for l in _from_dom]))
+check("A card without a price is not invented",
+      _src._from_dom('<a href="/property/5555555-d"><h3>Χωρίς τιμή</h3></a>', _q) == [])
+check("An object without an area is not a listing",
+      not _src._from_embedded_json('<script>{"price": 1000}</script>', _q))
+
 print("\n[11d] Results dashboard")
 from akinita.webreport import write_dashboard
 

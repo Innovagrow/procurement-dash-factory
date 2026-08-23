@@ -361,6 +361,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--show-browser", action="store_true",
                         help="Ανοίγει παράθυρο browser. Αν η πύλη ζητήσει "
                              "επαλήθευση, την περνάτε εσείς και η σάρωση συνεχίζει.")
+    parser.add_argument("--save-html", default="",
+                        help="Φάκελος όπου αποθηκεύονται οι σελίδες όπως ήρθαν, "
+                             "για έλεγχο και προσαρμογή των εξαγωγέων.")
     parser.add_argument("--no-regions", action="store_true",
                         help="Χωρίς την καρτέλα «Πού να ψάξεις»")
     parser.add_argument("--note", default="",
@@ -430,7 +433,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 2
         sources.append(
             REGISTRY[name](fetcher, args.csv_path) if name == "csv"
-            else REGISTRY[name](fetcher, headless=not args.show_browser)
+            else REGISTRY[name](fetcher, headless=not args.show_browser,
+                                save_html_dir=args.save_html)
             if name == "spitogatos"
             else REGISTRY[name](fetcher)
         )

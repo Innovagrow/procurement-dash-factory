@@ -102,13 +102,14 @@ class SpitogatosSource(PropertySource):
     )
 
     def __init__(self, fetcher, headless: bool = True, page_wait_ms: int = 4000,
-                 solve_seconds: int = 300):
+                 solve_seconds: int = 300, save_html_dir: str = ""):
         super().__init__(fetcher)
         self.headless = headless
         # Πόσο περιμένουμε τον άνθρωπο να λύσει τη δική του πρόκληση, όταν το
         # παράθυρο είναι ανοιχτό μπροστά του.
         self.solve_seconds = solve_seconds
         self._context = None
+        self.save_html_dir = save_html_dir
         self.page_wait_ms = page_wait_ms
         self._browser = None
         self._playwright = None
@@ -176,6 +177,7 @@ class SpitogatosSource(PropertySource):
         if self._context is not None:
             self._context.close()
             self._context = None
+        self.save_html_dir = save_html_dir
         if self._browser is not None:
             self._browser.close()
             self._browser = None
@@ -202,6 +204,11 @@ class SpitogatosSource(PropertySource):
         return self._context
 
     def _render(self, url: str) -> str:
+        cached = self.fetcher._cache_read(url)
+        if cached is not None and not self._challenged(cached):
+            self.fetcher.stats["cache_hits"] += 1
+            return cached
+
         page = self._ensure_context().new_page()
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=60000)
@@ -239,7 +246,25 @@ class SpitogatosSource(PropertySource):
             raise SpitogatosBlocked(
                 f"bot protection served an interstitial for {url}."
             )
+        self.fetcher._cache_write(url, html)
+        if self.save_html_dir:
+            self._save(url, html)
         return html
+
+    def _save(self, url: str, html: str) -> None:
+        """Γράφει τη σελίδα στον δίσκο, για να διαβαστεί από άνθρωπο.
+
+        Οι εξαγωγείς γράφτηκαν χωρίς πρόσβαση σε πραγματική σελίδα
+        αποτελεσμάτων. Ένα αποθηκευμένο δείγμα είναι η διαφορά ανάμεσα στο να
+        προσαρμοστούν και στο να μαντευτούν.
+        """
+        import hashlib
+        os.makedirs(self.save_html_dir, exist_ok=True)
+        name = hashlib.sha1(url.encode("utf-8")).hexdigest()[:12]
+        path = os.path.join(self.save_html_dir, f"{name}.html")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(f"<!-- {url} -->\n{html}")
+        print(f"  · αποθηκεύτηκε: {path}", flush=True)
 
     # ---------------------------------------------------------- extraction
     def probe(self, query: SearchQuery) -> Dict[str, Any]:

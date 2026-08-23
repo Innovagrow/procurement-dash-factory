@@ -764,6 +764,12 @@ check("A visible browser can be asked for",
       _visible.headless is False and _visible.solve_seconds >= 60)
 check("The browser session is reused across pages",
       hasattr(_visible, "_ensure_context") and _visible._context is None)
+# Οι εξαγωγείς γράφτηκαν χωρίς πρόσβαση σε πραγματική σελίδα αποτελεσμάτων.
+# Χωρίς αποθηκευμένο δείγμα, η προσαρμογή τους είναι μαντεψιά.
+_capture = SOURCE_REGISTRY["spitogatos"](PoliteFetcher(delay=0, verbose=False),
+                                         save_html_dir="/tmp/akinita-pages")
+check("Pages can be captured for extractor work",
+      _capture.save_html_dir == "/tmp/akinita-pages")
 
 print("\n[11d] Results dashboard")
 from akinita.webreport import write_dashboard

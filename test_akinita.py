@@ -860,6 +860,23 @@ check("A card that carries its data only in the image alt is read",
       len(_alt_only) == 1 and _alt_only[0].price == 195000
       and _alt_only[0].size_sqm == 66, str(_alt_only))
 
+# Ένα διαμέρισμα δύο ευρώ δεν είναι ευκαιρία που ξέφυγε από την αγορά· είναι
+# αριθμός που διαβάστηκε λάθος. Αν μπει, ταξιδεύει σε κάθε αποτίμηση από κάτω
+# και βγαίνει πρώτο στην κατάταξη — ακριβώς αυτό συνέβη σε ζωντανή σάρωση.
+check("A two-euro flat is refused, not ranked first",
+      _src._from_tiles('<a href="/aggelia/1" title="Πώληση,Κατοικία,Studio, 26τ.μ.,€2">', _q) == [])
+check("A three-square-metre property is refused",
+      _src._from_tiles('<a href="/aggelia/2" title="Πώληση,Κατοικία,Studio, 3τ.μ.,€60.000">', _q) == [])
+check("A plausible listing still passes",
+      len(_src._from_tiles(
+          '<a href="/aggelia/3" title="Πώληση,Κατοικία,Studio, 26τ.μ.,€48.000,Κέντρο">', _q)) == 1)
+# Η πύλη γύρισε ακίνητα 465.000 σε αναζήτηση «έως 50.000»: το φίλτρο του
+# χρήστη δεν μπορεί να εξαρτάται από το αν το τιμά ο διακομιστής.
+_over = Listing(source="t", listing_id="X", url="", title="", item_type="residence",
+                transaction="SALE", price=465000, size_sqm=90)
+check("The user's price ceiling is enforced on our side too",
+      _over.price > 50000)
+
 check("The same listing twice is counted once",
       len(_src._from_tiles(
           '<a href="/aggelia/777777" title="Πώληση,Κατοικία,Studio, 30τ.μ.,€79.000,Κέντρο"></a>'

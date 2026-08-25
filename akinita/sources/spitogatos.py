@@ -120,6 +120,21 @@ def _balanced_objects(text: str, anchor: str, limit: int = 4000) -> Iterator[str
             yield text[start:end]
 
 
+MIN_PLAUSIBLE_PRICE = 1000.0
+MIN_PLAUSIBLE_SIZE = 5.0
+
+
+def _plausible(price, size) -> bool:
+    """Φίλτρο λογικής, όχι γούστου.
+
+    Διαμέρισμα 2 ευρώ ή 3 τ.μ. δεν είναι ευκαιρία που ξέφυγε από την αγορά·
+    είναι αριθμός που διαβάστηκε λάθος. Αν μπει, ταξιδεύει σε κάθε αποτίμηση
+    από κάτω και βγαίνει πρώτο στην κατάταξη.
+    """
+    return (price is not None and size is not None
+            and price >= MIN_PLAUSIBLE_PRICE and size >= MIN_PLAUSIBLE_SIZE)
+
+
 def _looks_like_listing(node: Any) -> bool:
     if not isinstance(node, dict):
         return False
@@ -427,15 +442,15 @@ class SpitogatosSource(PropertySource):
     def _from_tiles(self, html: str, query: SearchQuery) -> List[Listing]:
         """Οι κάρτες, όπως τις γράφει πράγματι η πύλη.
 
-        Κάθε αποτέλεσμα είναι σύνδεσμος προς /aggelia/<id>. Τα δεδομένα είναι
-        συνήθως στο title του:
+        Η πλήρης εγγραφή είναι μία συμβολοσειρά με κόμματα:
 
-            Πώληση,Κατοικία,Studio / Γκαρσονιέρα, 30τ.μ.,€79.000,Ιπποκράτειο
+            Πώληση,Κατοικία,Διαμέρισμα, 66τ.μ.,€195.000,Δροσιά (Θέρμη)
 
-        Δύο πράγματα δεν είναι σταθερά και δεν πρέπει να θεωρούνται: η ΣΕΙΡΑ των
-        attributes μέσα στο tag, και η ίδια η ύπαρξη του title. Γι' αυτό το tag
-        διαβάζεται ολόκληρο και τα attributes ψάχνονται μέσα του ανεξάρτητα, με
-        το κείμενο της κάρτας ως δεύτερη ανάγνωση.
+        Γράφεται άλλοτε στο title του συνδέσμου και άλλοτε στο alt της εικόνας,
+        και σε κάποιες κάρτες το title κρατά μόνο τύπο και εμβαδόν. Επιλέγεται
+        πάντα η γραφή που ΕΧΕΙ την τιμή· χωρίς αυτήν, η κάρτα προσπερνιέται.
+        Το κείμενο της κάρτας δεν χρησιμοποιείται για τιμή: εκεί κυκλοφορούν
+        «€/τ.μ.» και άλλα ψίχουλα που έβγαλαν διαμέρισμα των 2 ευρώ.
         """
         listings: List[Listing] = []
         seen: set = set()
@@ -448,47 +463,38 @@ class SpitogatosSource(PropertySource):
             if listing_id in seen:
                 continue
 
-            title_attr = re.search(r'title="([^"]{10,400})"', attributes)
-            title = html_module.unescape(title_attr.group(1)) if title_attr else ""
-            price = size = None
-            area = ""
-            if title:
-                price, size, area = self._read_card(title)
-            if price is None or size is None:
-                # Χωρίς title στο <a>, η ίδια συμβολοσειρά βρίσκεται στο alt της
-                # εικόνας της κάρτας. Δύο γραφές του ίδιου πράγματος, και μόνο η
-                # μία υπήρχε σε κάθε κάρτα.
-                window = html[tag.end():tag.end() + 1800]
-                cut = window.find("<a ")
-                window = window[:cut if cut > 0 else len(window)]
-                for alt in re.findall(r'alt="([^"]{10,400})"', window):
-                    alt_text = html_module.unescape(alt)
-                    if "€" not in alt_text:
-                        continue
-                    alt_price, alt_size, alt_area = self._read_card(alt_text)
-                    if alt_price is not None and alt_size is not None:
-                        price, size, area = alt_price, alt_size, (area or alt_area)
-                        title = title or alt_text
-                        break
-                text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", window))
-                found_price, found_size, found_area = self._read_card(text)
-                price = price if price is not None else found_price
-                size = size if size is not None else found_size
-                area = area or found_area
-            if price is None or size is None:
+            window = html[tag.end():tag.end() + 1800]
+            cut = window.find("<a ")
+            window = window[:cut if cut > 0 else len(window)]
+
+            records = []
+            title_attr = re.search(r'title="([^"]{8,400})"', attributes)
+            if title_attr:
+                records.append(html_module.unescape(title_attr.group(1)))
+            records.extend(html_module.unescape(a) for a in
+                           re.findall(r'alt="([^"]{8,400})"', attributes + window))
+            record = next((r for r in records if "€" in r), "")
+            if not record:
+                # Τελευταία ανάγνωση: το κείμενο της κάρτας. Δεν είναι
+                # αξιόπιστο — εκεί κυκλοφορούν «€/τ.μ.» και άλλα ψίχουλα — και
+                # γι' αυτό ό,τι βγει από εδώ περνά από το ίδιο φίλτρο λογικής.
+                record = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", window)).strip()
+                if "€" not in record:
+                    continue
+
+            price, size, area = self._read_card(record)
+            if not _plausible(price, size):
                 continue
 
             seen.add(listing_id)
-            category = ""
-            if title:
-                parts = [f.strip() for f in title.split(",") if f.strip()]
-                category = parts[1] if len(parts) > 1 else ""
+            fields = [f.strip() for f in record.split(",") if f.strip()]
+            category = fields[1] if len(fields) > 1 else ""
             listings.append(
                 Listing(
                     source=self.name,
                     listing_id=listing_id,
                     url=BASE + href,
-                    title=(title or area)[:160],
+                    title=record[:160],
                     item_type=_ITEM_TYPE_FROM_TITLE.get(category, query.item_type),
                     transaction=query.transaction.upper(),
                     price=price,
@@ -660,6 +666,15 @@ class SpitogatosSource(PropertySource):
                     return
                 fresh = 0
                 for listing in listings:
+                    # Η πύλη δεν τιμά πάντα το priceTo της διεύθυνσης: γύρισε
+                    # ακίνητα 465.000 σε αναζήτηση «έως 50.000». Το φίλτρο που
+                    # ζήτησε ο χρήστης ισχύει ό,τι κι αν στείλει ο διακομιστής.
+                    if query.max_price and listing.price and listing.price > query.max_price:
+                        continue
+                    if query.min_price and listing.price and listing.price < query.min_price:
+                        continue
+                    if query.min_size and listing.size_sqm and listing.size_sqm < query.min_size:
+                        continue
                     if listing.listing_id and listing.listing_id not in seen:
                         seen.add(listing.listing_id)
                         fresh += 1

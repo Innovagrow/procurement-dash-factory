@@ -186,6 +186,8 @@ class SpitogatosSource(PropertySource):
         self._context = None
         self.save_html_dir = save_html_dir
         self.results_timeout_ms = results_timeout_ms
+        self.save_html_dir = save_html_dir
+        self.results_timeout_ms = results_timeout_ms
         self.page_wait_ms = page_wait_ms
         self._browser = None
         self._playwright = None
@@ -260,8 +262,6 @@ class SpitogatosSource(PropertySource):
         if self._context is not None:
             self._context.close()
             self._context = None
-        self.save_html_dir = save_html_dir
-        self.results_timeout_ms = results_timeout_ms
         if self._browser is not None:
             self._browser.close()
             self._browser = None

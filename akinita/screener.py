@@ -205,6 +205,8 @@ def crawl_candidates(
             )
             try:
                 for listing in source.search(query):
+                    if place and not listing.prefecture:
+                        listing.prefecture = place
                     listings.append(listing)
                     collected += 1
                     if collected % 200 == 0:
@@ -311,7 +313,9 @@ def analyse_shortlist(
         market = MarketInputs(
             monthly_rent=(rent_per_sqm * listing.size_sqm) if rent_per_sqm else None,
             liquidity_score=scored.components.get("liquidity", 55.0),
-            tourism_intensity=tourism_by_area.get(listing.area_name),
+            tourism_intensity=(tourism_by_area.get(listing.prefecture)
+                               if listing.prefecture else
+                               tourism_by_area.get(listing.area_name)),
             built_price_per_sqm=built_per_sqm,
             rent_per_sqm_month=built_rent_per_sqm,
             capital_ceiling=capital_ceiling,
@@ -637,6 +641,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         _log("Καμία αγγελία. Χαλαρώστε τα φίλτρα.")
         return 1
 
+    regions_data = None
+    if not args.no_regions:
+        try:
+            from . import ethniki
+            _log("\n  · Σήματα περιοχών: Eurostat και Διαύγεια …")
+            regions_data = ethniki.collect(fetcher, verbose=False)
+        except Exception as exc:  # noqa: BLE001 - η σάρωση δεν χάνεται γι' αυτό
+            _log(f"    · χωρίς σήματα περιοχών: {exc}")
+
     _log("\n[2/5] Διαλογή — ποια αξίζουν πλήρη ανάλυση (ΟΧΙ ετυμηγορία)")
 
     # A national crawl can spare four comparables per neighbourhood; a
@@ -685,11 +698,28 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         _log("\n[3/5] Εμπλουτισμός παραλείφθηκε (--no-enrich)")
         index.add_rent_comparables(rent_listings)
 
+    # Τα σήματα περιοχής δεν είναι διακοσμητικά: η τουριστική ζήτηση κρίνει αν
+    # η βραχυχρόνια μίσθωση και τα τουριστικά μοντέλα λειτουργίας είναι καν
+    # εφικτά. Μέχρι τώρα υπολογίζονταν για τη σελίδα και δεν έφταναν ποτέ στην
+    # κρίση του ακινήτου.
+    tourism_by_prefecture: Dict[str, float] = {}
+    if regions_data:
+        from .locations import PREFECTURES
+        by_region = {row["area"]: row.get("intensity") for row in regions_data.get("regions", [])}
+        for slug, (greek_name, region) in PREFECTURES.items():
+            value = by_region.get(region)
+            if value is not None:
+                tourism_by_prefecture[slug] = value
+                tourism_by_prefecture[greek_name] = value
+        if tourism_by_prefecture:
+            _log(f"  Τουριστική ζήτηση σε {len(PREFECTURES)} νομούς, από τα σήματα περιοχής")
+
     _log("\n[4/5] Αποτίμηση & τιμολόγηση κάθε πλάνου αξιοποίησης")
     rescored = score_all([s.listing for s in shortlist], index,
                          budget=args.max_price, weights=weights)
     analysis = analyse_shortlist(
         rescored, index, weights=indicator_weights, capital_ceiling=args.capital_ceiling,
+        tourism_by_area=tourism_by_prefecture,
     )
     _log(f"  {len(analysis)}/{len(rescored)} ακίνητα με τουλάχιστον ένα εφικτό πλάνο")
 
@@ -729,11 +759,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # καμία αγγελία. Αν η ανάγνωσή τους αποτύχει, η σελίδα βγαίνει χωρίς αυτήν
     # αντί να μη βγει καθόλου.
     regions_html, regions_css = "", ""
-    if not args.no_regions:
+    if regions_data:
         try:
             from . import ethniki
-            _log("\n  · Περιοχές: Eurostat και Διαύγεια …")
-            regions_html = ethniki.render_pane(ethniki.collect(fetcher, verbose=False))
+            regions_html = ethniki.render_pane(regions_data)
             regions_css = ethniki.PANE_CSS
         except Exception as exc:  # noqa: BLE001 - η σάρωση δεν χάνεται γι' αυτό
             _log(f"    · χωρίς την καρτέλα περιοχών: {exc}")

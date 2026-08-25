@@ -83,6 +83,10 @@ class Listing:
     lat: Optional[float] = None
     lng: Optional[float] = None
     listed_age_days: Optional[int] = None
+    # Ο νομός από τη σάρωση του οποίου ήρθε. Είναι η μόνη αξιόπιστη γέφυρα προς
+    # τα σήματα περιοχής: οι κάρτες δίνουν γειτονιά, τα σήματα δημοσιεύονται σε
+    # επίπεδο περιφέρειας, και το όνομα της γειτονιάς δεν γεφυρώνει τα δύο.
+    prefecture: str = ""
     auction_date: Optional[str] = None
     is_commercial_seller: bool = False
     company_title: str = ""

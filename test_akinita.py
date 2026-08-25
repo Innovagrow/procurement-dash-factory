@@ -882,6 +882,23 @@ check("Candidates include the confirmed working area",
 check("Each prefecture keeps its own name and region",
       all(len(v) == 2 and all(v) for v in PREFECTURES.values()))
 
+# Τα σήματα περιοχής πρέπει να ΦΤΑΝΟΥΝ στην κρίση του ακινήτου. Υπολογίζονταν
+# για τη σελίδα και δεν περνούσαν ποτέ στην ανάλυση: κάθε ακίνητο είχε
+# τουριστική ζήτηση «άγνωστη», η βραχυχρόνια μίσθωση μπλοκαριζόταν πάντα, και
+# τα τουριστικά μοντέλα λειτουργίας δεν ενεργοποιούνταν ποτέ.
+from akinita.screener import analyse_shortlist as _analyse
+_sunny = Listing(source="t", listing_id="SUN", url="", title="Studio",
+                 area_name="Θήρα", sub_area="Θήρα", item_type="residence",
+                 transaction="SALE", price=60000, size_sqm=70, prefecture="kyklades")
+check("A listing remembers which prefecture it came from",
+      _sunny.prefecture == "kyklades")
+_region_of = {slug: region for slug, (_, region) in PREFECTURES.items()}
+check("Every prefecture bridges to a region that signals are published for",
+      _region_of["kyklades"] == "Νότιο Αιγαίο"
+      and _region_of["thessaloniki"] == "Κεντρική Μακεδονία")
+check("The bridge covers every prefecture in the catalogue",
+      all(_region_of.values()) and len(_region_of) == len(PREFECTURES))
+
 print("\n[11d] Results dashboard")
 from akinita.webreport import write_dashboard
 

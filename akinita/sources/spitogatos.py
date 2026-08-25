@@ -455,10 +455,22 @@ class SpitogatosSource(PropertySource):
             if title:
                 price, size, area = self._read_card(title)
             if price is None or size is None:
-                # Χωρίς title: το κείμενο της κάρτας, ως το επόμενο άνοιγμα <a.
+                # Χωρίς title στο <a>, η ίδια συμβολοσειρά βρίσκεται στο alt της
+                # εικόνας της κάρτας. Δύο γραφές του ίδιου πράγματος, και μόνο η
+                # μία υπήρχε σε κάθε κάρτα.
                 window = html[tag.end():tag.end() + 1800]
                 cut = window.find("<a ")
-                text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", window[:cut if cut > 0 else len(window)]))
+                window = window[:cut if cut > 0 else len(window)]
+                for alt in re.findall(r'alt="([^"]{10,400})"', window):
+                    alt_text = html_module.unescape(alt)
+                    if "€" not in alt_text:
+                        continue
+                    alt_price, alt_size, alt_area = self._read_card(alt_text)
+                    if alt_price is not None and alt_size is not None:
+                        price, size, area = alt_price, alt_size, (area or alt_area)
+                        title = title or alt_text
+                        break
+                text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", window))
                 found_price, found_size, found_area = self._read_card(text)
                 price = price if price is not None else found_price
                 size = size if size is not None else found_size

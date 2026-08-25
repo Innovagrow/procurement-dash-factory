@@ -850,6 +850,16 @@ check("A card with no title is read from its text", len(_untitled) == 1)
 check("Price and size are not run together",
       _untitled and _untitled[0].price == 35000 and _untitled[0].size_sqm == 52,
       str([(l.price, l.size_sqm) for l in _untitled]))
+# Η ίδια συμβολοσειρά υπάρχει και στο alt της εικόνας, και σε πολλές κάρτες
+# ΜΟΝΟ εκεί. Διαβάζοντας μόνο το title, οι μισές κάρτες της σελίδας χάνονταν.
+_alt_only = _src._from_tiles(
+    '<a href="/aggelia/1119806217" class="tile__link"><div class="img__wrap">'
+    '<img src="x.jpg" alt="Πώληση,Κατοικία,Διαμέρισμα, 66τ.μ.,€195.000,Δροσιά (Θέρμη)">'
+    '</div></a><a href="/next">', _q)
+check("A card that carries its data only in the image alt is read",
+      len(_alt_only) == 1 and _alt_only[0].price == 195000
+      and _alt_only[0].size_sqm == 66, str(_alt_only))
+
 check("The same listing twice is counted once",
       len(_src._from_tiles(
           '<a href="/aggelia/777777" title="Πώληση,Κατοικία,Studio, 30τ.μ.,€79.000,Κέντρο"></a>'

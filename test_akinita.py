@@ -752,7 +752,11 @@ _paged = SpitogatosSource._url(_probe_source,
                                SearchQuery(transaction="buy", item_type="residence",
                                            max_price=50000, bbox=None,
                                            extra={"location": "attiki"}), 3)
-check("Pagination keeps the area", "/attiki?" in _paged and "page=3" in _paged, _paged)
+# Η σελιδοποίηση είναι τμήμα διαδρομής: η πύλη συνδέει σε /thessaloniki/selida_2.
+# Με ?page=2 σερβίρει ξανά τη σελίδα 1, οπότε η σάρωση έβλεπε διπλότυπα,
+# συμπέραινε «τέλος αποτελεσμάτων» και σταματούσε στην πρώτη από 1527 σελίδες.
+check("Pagination is a path segment, not a query parameter",
+      "/attiki/selida_3" in _paged and "page=" not in _paged, _paged)
 # Χωρίς περιοχή η πύλη δίνει σελίδα κατηγορίας με μηδέν αγγελίες. Καλύτερα να
 # αρνηθεί παρά να σαρώσει το κενό και να το πει «καμία ευκαιρία».
 check("A country-wide URL is refused, not silently empty",

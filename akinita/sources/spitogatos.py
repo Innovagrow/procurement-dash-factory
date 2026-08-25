@@ -214,8 +214,7 @@ class SpitogatosSource(PropertySource):
             params["areaTo"] = int(query.max_size)
         if query.min_size is not None:
             params["areaFrom"] = int(query.min_size)
-        if page > 1:
-            params["page"] = page
+
         location = str(query.extra.pop("location", "") or "").strip("/")
         params.update({k: v for k, v in query.extra.items() if k != "location"})
         if not location:
@@ -224,7 +223,13 @@ class SpitogatosSource(PropertySource):
                 "Δώστε περιοχή, π.χ. --locations thessaloniki,attiki, ή "
                 "--locations all για όλους τους νομούς."
             )
+        # Η σελιδοποίηση είναι τμήμα διαδρομής, όχι παράμετρος: η ίδια η πύλη
+        # συνδέει σε /thessaloniki/selida_2. Με ?page=2 σερβίρει ξανά τη σελίδα
+        # 1, οπότε η σάρωση έβλεπε διπλότυπα, συμπέραινε «τέλος αποτελεσμάτων»
+        # και σταματούσε στην πρώτη σελίδα από τις χίλιες πεντακόσιες.
         url = f"{BASE}{path}/{location}"
+        if page > 1:
+            url += f"/selida_{page}"
         return url + ("?" + urllib.parse.urlencode(params) if params else "")
 
     # ------------------------------------------------------------- browser

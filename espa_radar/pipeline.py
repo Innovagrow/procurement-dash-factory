@@ -140,17 +140,22 @@ _DEDUPE_SCAN_LIMIT = 3000
 
 
 def _find_near_duplicate(session: Session, data: dict) -> Program | None:
-    """Σχεδόν ίδιος τίτλος — ίδιο πρόγραμμα, ακόμη κι αν το βρήκε άλλη πηγή."""
+    """Σχεδόν ίδιος τίτλος — ίδιο πρόγραμμα, ακόμη κι αν το βρήκε άλλη πηγή.
+
+    Διαβάζει μόνο (id, τίτλος): τρέχει μία φορά ανά εισερχόμενο πρόγραμμα, οπότε
+    το να φορτώναμε ολόκληρες εγγραφές — με σώμα κειμένου έως 60.000 χαρακτήρες
+    η καθεμία — θα σήμαινε δεκάδες MB ανά κλήση σε γεμάτη βάση.
+    """
     cutoff = utcnow() - timedelta(days=_DEDUPE_WINDOW_DAYS)
-    candidates = session.scalars(
-        select(Program)
+    candidates = session.execute(
+        select(Program.id, Program.title)
         .where(Program.last_seen_at >= cutoff)
         .order_by(Program.last_seen_at.desc())
         .limit(_DEDUPE_SCAN_LIMIT)
     ).all()
-    for candidate in candidates:
-        if similarity(candidate.title, data["title"]) >= TITLE_DUPLICATE_THRESHOLD:
-            return candidate
+    for program_id, title in candidates:
+        if similarity(title, data["title"]) >= TITLE_DUPLICATE_THRESHOLD:
+            return session.get(Program, program_id)
     return None
 
 

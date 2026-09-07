@@ -1,0 +1,33 @@
+name: Deploy to droplet
+
+on:
+  push:
+    branches: [claude/upwork-detection-bidding-0k08ry]
+    paths: ["upwork-autobid/**", ".github/workflows/deploy-droplet.yml"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          port: ${{ secrets.DROPLET_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            cd /opt/upbid
+            git fetch origin ${{ github.ref_name }} --depth 1
+            git reset --hard origin/${{ github.ref_name }}
+            cd upwork-autobid
+            if [ -f deploy/Caddyfile ] && grep -q "^[a-z0-9.-]\+ {" deploy/Caddyfile; then
+              docker compose -f docker-compose.yml -f deploy/docker-compose.caddy.yml up -d --build
+            else
+              docker compose up -d --build
+            fi
+            docker image prune -f
+            sleep 10
+            curl -fsS http://127.0.0.1:3000/api/health/live || (docker compose logs --tail=50 api; exit 1)

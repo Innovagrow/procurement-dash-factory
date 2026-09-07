@@ -1,0 +1,323 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // matching
+  includeKeywords   String[]
+  excludeKeywords   String[]
+  requiredSkills    String[]
+  niceToHaveSkills  String[]
+  categories        String[]
+  searchQueries     String[]
+
+  // hard filters
+  jobTypes               String[]
+  experienceLevels       String[]
+  minFixedBudget         Float?
+  maxFixedBudget         Float?
+  minHourlyRate          Float?
+  maxProposals           Int?
+  maxJobAgeMinutes       Int      @default(180)
+  requirePaymentVerified Boolean  @default(true)
+  minClientSpend         Float?
+  minClientRating        Float?
+  minClientHireRate      Float?
+  minClientReviews       Int?
+  allowedCountries       String[]
+  blockedCountries       String[]
+  blockedClients         String[]
+
+  // scoring
+  autoBidThreshold Int     @default(85)
+  reviewThreshold  Int     @default(60)
+  weights          Json?
+  useLlmRerank     Boolean @default(true)
+
+  // bidding
+  fixedBidStrategy      String  @default("PERCENT_OF_BUDGET")
+  autoSubmit            Boolean @default(false)
+  hourlyRate            Float?
+  fixedBidPercent       Float   @default(0.9)
+  minBid                Float?
+  maxBid                Float?
+  maxDailySubmissions   Int     @default(15)
+  maxHourlySubmissions  Int     @default(5)
+  maxDailyConnects      Int     @default(120)
+
+  // drafting
+  freelancerProfile   String?  @db.Text
+  portfolioHighlights String[]
+  proposalTone        String   @default("professional")
+  proposalMaxChars    Int      @default(1500)
+  proposalLanguage    String   @default("en")
+  customInstructions  String?  @db.Text
+
+  jobs        JobProfileMatch[]
+  proposals   Proposal[]
+  checkpoints SourceCheckpoint[]
+  connects    ConnectsLedger[]
+
+  @@index([isActive])
+  @@map("profiles")
+}
+
+model Job {
+  id          String   @id @default(cuid())
+  source      String
+  externalId  String
+  url         String
+  title       String
+  description String   @db.Text
+  skills      String[]
+  category    String?
+  subcategory String?
+  jobType     String   @default("UNKNOWN")
+
+  budgetAmount  Float?
+  hourlyMin     Float?
+  hourlyMax     Float?
+  currency      String? @default("USD")
+  durationLabel String?
+
+  experienceLevel String?
+  workload        String?
+
+  connectsRequired  Int?
+  proposalsCount    Int?
+  interviewingCount Int?
+
+  clientCountry          String?
+  clientCity             String?
+  clientPaymentVerified  Boolean?
+  clientTotalSpent       Float?
+  clientTotalHires       Int?
+  clientHireRate         Float?
+  clientAvgRating        Float?
+  clientReviewsCount     Int?
+  clientMemberSince      DateTime?
+  clientOpenJobs         Int?
+
+  screeningQuestions String[]
+
+  postedAt    DateTime?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+
+  contentHash String
+  raw         Json?
+  status      String @default("NEW")
+
+  matches   JobProfileMatch[]
+  proposals Proposal[]
+
+  @@unique([source, externalId])
+  @@index([status])
+  @@index([postedAt])
+  @@index([firstSeenAt])
+  @@index([contentHash])
+  @@map("jobs")
+}
+
+model JobProfileMatch {
+  id        String @id @default(cuid())
+  jobId     String
+  profileId String
+
+  score    Int
+  decision String
+
+  breakdown       Json
+  redFlags        Json
+  reasons         String[]
+  matchedKeywords String[]
+  matchedSkills   String[]
+
+  llmScore     Int?
+  llmRationale String? @db.Text
+
+  scoredAt DateTime @default(now())
+
+  job     Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, profileId])
+  @@index([decision])
+  @@index([score])
+  @@index([profileId, scoredAt])
+  @@map("job_profile_matches")
+}
+
+model Proposal {
+  id        String @id @default(cuid())
+  jobId     String
+  profileId String
+  status    String @default("DRAFT")
+
+  coverLetter            String  @db.Text
+  bidAmount              Float?
+  hourlyRate             Float?
+  estimatedDurationLabel String?
+  questionAnswers        Json
+  connectsCost           Int?
+
+  model            String?
+  promptTokens     Int?
+  completionTokens Int?
+  warnings         String[]
+  generationMs     Int?
+  editedByHuman    Boolean @default(false)
+
+  approvedAt      DateTime?
+  approvedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  job         Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  profile     Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([jobId, profileId])
+  @@map("proposals")
+}
+
+model Submission {
+  id         String @id @default(cuid())
+  proposalId String
+  submitter  String
+  status     String
+
+  externalRef  String?
+  message      String? @db.Text
+  attempt      Int     @default(1)
+  connectsSpent Int?
+  payload      Json?
+
+  createdAt DateTime @default(now())
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([proposalId])
+  @@map("submissions")
+}
+
+model SourceCheckpoint {
+  id        String  @id @default(cuid())
+  source    String
+  profileId String?
+
+  cursor        String?
+  lastRunAt     DateTime?
+  lastSuccessAt DateTime?
+  lastItemAt    DateTime?
+
+  consecutiveFailures Int       @default(0)
+  disabledUntil       DateTime?
+  state               Json?
+
+  profile Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([source, profileId])
+  @@index([profileId])
+  @@map("source_checkpoints")
+}
+
+model ConnectsLedger {
+  id           String @id @default(cuid())
+  profileId    String
+  delta        Int
+  balanceAfter Int?
+  reason       String
+  refId        String?
+
+  createdAt DateTime @default(now())
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, createdAt])
+  @@map("connects_ledger")
+}
+
+model NotificationLog {
+  id      String  @id @default(cuid())
+  channel String
+  target  String?
+  subject String?
+  body    String? @db.Text
+  refType String?
+  refId   String?
+  status  String
+  error   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([refType, refId])
+  @@map("notification_logs")
+}
+
+model AuditEvent {
+  id      String  @id @default(cuid())
+  actor   String  @default("system")
+  action  String
+  refType String?
+  refId   String?
+  details Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([createdAt])
+  @@index([refType, refId])
+  @@map("audit_events")
+}
+
+model Heartbeat {
+  id         String   @id @default(cuid())
+  component  String   @unique
+  lastBeatAt DateTime
+  status     String   @default("OK")
+  detail     String?
+  meta       Json?
+
+  @@map("heartbeats")
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model OAuthToken {
+  id           String    @id @default(cuid())
+  provider     String    @unique
+  accessToken  String    @db.Text
+  refreshToken String?   @db.Text
+  expiresAt    DateTime?
+  scope        String?
+  raw          Json?
+  updatedAt    DateTime  @updatedAt
+
+  @@map("oauth_tokens")
+}

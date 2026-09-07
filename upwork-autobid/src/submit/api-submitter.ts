@@ -284,6 +284,18 @@ export class ApiSubmitter implements ProposalSubmitter, PreparableSubmitter {
         if (attempt < MAX_ATTEMPTS) continue;
       }
 
+      if (status === 401) {
+        return {
+          status: 'FAILED',
+          message:
+            'upwork rejected the credentials (HTTP 401) even after refreshing the access token. ' +
+            'Reconnect the account at /oauth/upwork/start. Falling back to the review queue.',
+          payload,
+          attempt,
+          fallbackToReview: true,
+        };
+      }
+
       if (status === 429 && attempt < MAX_ATTEMPTS) {
         const retryAfterMs = parseRetryAfter(headerValue(response.headers, 'retry-after'));
         lastMessage = 'rate limited by upwork (429)';

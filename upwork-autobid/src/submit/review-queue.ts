@@ -260,7 +260,7 @@ export class ReviewQueueSubmitter implements ProposalSubmitter, SelfPersistingSu
     const existing = await prisma.submission.findFirst({
       where: { proposalId: ctx.proposalId, status: 'QUEUED_FOR_REVIEW' },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, attempt: true, createdAt: true },
+      select: { id: true, attempt: true },
     });
 
     const proposal = await prisma.proposal.findUnique({

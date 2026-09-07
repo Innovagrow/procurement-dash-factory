@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0e13" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>UpBid Console</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0e13'/%3E%3Cpath d='M8 21V11m0 10c0 0 8 2 8-4V11m0 10 8-10' stroke='%233fb950' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="topbar" id="topbar">
+      <div class="topbar-row">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">UB</span>
+          <span class="brand-name">UpBid</span>
+        </div>
+
+        <div class="status-cluster">
+          <span class="conn" id="conn" title="Event stream status">
+            <span class="conn-dot" id="conn-dot" data-state="connecting" aria-hidden="true"></span>
+            <span class="conn-label" id="conn-label">connecting</span>
+          </span>
+          <span class="badge" id="badge-autosubmit" data-state="unknown">AUTO_SUBMIT&nbsp;&mdash;</span>
+          <span class="badge" id="badge-dryrun" data-state="unknown">DRY_RUN&nbsp;&mdash;</span>
+          <a class="badge badge-link" id="badge-pending" href="#/queue" title="Proposals waiting for approval">
+            <span id="pending-count">0</span>&nbsp;pending
+          </a>
+        </div>
+
+        <button class="icon-btn" id="refresh-btn" type="button" title="Refresh data" aria-label="Refresh data">
+          <span aria-hidden="true">&#8635;</span>
+        </button>
+      </div>
+
+      <nav class="tabs" id="tabs" aria-label="Console views">
+        <a class="tab" href="#/live" data-route="#/live">Live</a>
+        <a class="tab" href="#/queue" data-route="#/queue">
+          Queue<span class="tab-count" id="tab-queue-count" hidden>0</span>
+        </a>
+        <a class="tab" href="#/jobs" data-route="#/jobs">Jobs</a>
+        <a class="tab" href="#/profiles" data-route="#/profiles">Profiles</a>
+        <a class="tab" href="#/settings" data-route="#/settings">Status</a>
+      </nav>
+    </header>
+
+    <main id="main" class="main">
+      <!-- ------------------------------------------------------------ LIVE -->
+      <section class="view" id="view-live" hidden aria-labelledby="live-heading">
+        <div class="view-head">
+          <h1 id="live-heading" class="view-title">Live feed</h1>
+          <div class="view-tools">
+            <button class="btn btn-sm" id="live-pause" type="button" aria-pressed="false">Pause</button>
+            <button class="btn btn-sm" id="live-sound" type="button" aria-pressed="false">Sound off</button>
+            <button class="btn btn-sm" id="live-notify" type="button" aria-pressed="false">Alerts off</button>
+            <button class="btn btn-sm btn-ghost" id="live-clear" type="button">Clear</button>
+          </div>
+        </div>
+
+        <div class="live-strip" id="live-strip">
+          <span class="live-stat"><b id="live-count">0</b> in feed</span>
+          <span class="live-stat"><b id="live-bid">0</b> bid</span>
+          <span class="live-stat"><b id="live-review">0</b> review</span>
+          <span class="live-stat"><b id="live-skip">0</b> skip</span>
+          <span class="live-stat live-buffer" id="live-buffered" hidden>
+            <button class="btn btn-xs" type="button" id="live-flush"><b id="live-buffer-count">0</b> held &mdash; show</button>
+          </span>
+        </div>
+
+        <div class="feed" id="feed" role="log" aria-live="polite" aria-relevant="additions" aria-label="Incoming jobs"></div>
+        <p class="empty" id="feed-empty">Waiting for the first event. Detection runs on the workers; nothing needs to be open for jobs to be found.</p>
+      </section>
+
+      <!-- ----------------------------------------------------------- QUEUE -->
+      <section class="view" id="view-queue" hidden aria-labelledby="queue-heading">
+        <div class="view-head">
+          <h1 id="queue-heading" class="view-title">Approval queue</h1>
+          <div class="view-tools">
+            <label class="field field-inline">
+              <span class="field-label">Profile</span>
+              <select id="queue-profile" class="input input-sm"><option value="">All</option></select>
+            </label>
+            <button class="btn btn-sm btn-ghost" id="queue-reload" type="button">Reload</button>
+          </div>
+        </div>
+        <p class="hint hint-keys">
+          Keys: <kbd>j</kbd>/<kbd>k</kbd> move &middot; <kbd>a</kbd> approve &middot; <kbd>r</kbd> reject &middot;
+          <kbd>e</kbd> edit &middot; <kbd>Esc</kbd> leave the editor
+        </p>
+        <div class="queue" id="queue"></div>
+        <p class="empty" id="queue-empty" hidden>Nothing is waiting. Drafts land here the moment a job clears the review threshold.</p>
+      </section>
+
+      <!-- ------------------------------------------------------------ JOBS -->
+      <section class="view" id="view-jobs" hidden aria-labelledby="jobs-heading">
+        <div class="view-head">
+          <h1 id="jobs-heading" class="view-title">Jobs</h1>
+          <div class="view-tools">
+            <span class="muted" id="jobs-summary">&mdash;</span>
+          </div>
+        </div>
+
+        <form class="filters" id="jobs-filters" autocomplete="off">
+          <label class="field">
+            <span class="field-label" for="f-q">Search</span>
+            <input class="input" id="f-q" name="q" type="search" placeholder="title or description" />
+          </label>
+          <label class="field">
+            <span class="field-label" for="f-status">Status</span>
+            <select class="input" id="f-status" name="status">
+              <option value="">Any</option>
+              <option value="NEW">NEW</option>
+              <option value="SCORED">SCORED</option>
+              <option value="DRAFTED">DRAFTED</option>
+              <option value="QUEUED">QUEUED</option>
+              <option value="SUBMITTED">SUBMITTED</option>
+              <option value="SKIPPED">SKIPPED</option>
+              <option value="EXPIRED">EXPIRED</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label" for="f-decision">Decision</span>
+            <select class="input" id="f-decision" name="decision">
+              <option value="">Any</option>
+              <option value="BID">BID</option>
+              <option value="REVIEW">REVIEW</option>
+              <option value="SKIP">SKIP</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label" for="f-profile">Profile</span>
+            <select class="input" id="f-profile" name="profileId"><option value="">Any</option></select>
+          </label>
+          <label class="field field-score">
+            <span class="field-label" for="f-minscore">Min score <b id="f-minscore-out">0</b></span>
+            <input class="range" id="f-minscore" name="minScore" type="range" min="0" max="100" step="5" value="0" />
+          </label>
+          <div class="filters-actions">
+            <button class="btn btn-sm btn-primary" type="submit">Apply</button>
+            <button class="btn btn-sm btn-ghost" type="reset">Reset</button>
+          </div>
+        </form>
+
+        <div class="table-wrap">
+          <table class="table" id="jobs-table">
+            <thead>
+              <tr>
+                <th class="th-sort" data-sort="score" scope="col"><button type="button">Score</button></th>
+                <th scope="col">Job</th>
+                <th class="th-sort num" data-sort="budget" scope="col"><button type="button">Budget</button></th>
+                <th class="th-sort num hide-sm" data-sort="proposals" scope="col"><button type="button">Bids</button></th>
+                <th class="hide-sm" scope="col">Client</th>
+                <th class="th-sort num" data-sort="posted" scope="col"><button type="button">Age</button></th>
+                <th class="hide-sm" scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody id="jobs-body"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <button class="btn" id="jobs-more" type="button" hidden>Load more</button>
+          <span class="muted" id="jobs-pager-note"></span>
+        </div>
+      </section>
+
+      <!-- -------------------------------------------------------- PROFILES -->
+      <section class="view" id="view-profiles" hidden aria-labelledby="profiles-heading">
+        <div class="view-head">
+          <h1 id="profiles-heading" class="view-title">Profiles</h1>
+          <div class="view-tools">
+            <button class="btn btn-sm btn-primary" id="profile-new" type="button">New profile</button>
+          </div>
+        </div>
+        <div class="profiles-layout">
+          <aside class="profile-list" id="profile-list" aria-label="Profiles"></aside>
+          <div class="profile-main">
+            <div id="profile-form-host"></div>
+            <div id="profile-test-host"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- -------------------------------------------------------- SETTINGS -->
+      <section class="view" id="view-settings" hidden aria-labelledby="settings-heading">
+        <div class="view-head">
+          <h1 id="settings-heading" class="view-title">Status</h1>
+          <div class="view-tools">
+            <button class="btn btn-sm btn-ghost" id="settings-reload" type="button">Refresh</button>
+            <button class="btn btn-sm btn-ghost" id="logout-btn" type="button">Sign out</button>
+          </div>
+        </div>
+        <div id="settings-host"></div>
+      </section>
+    </main>
+
+    <!-- ---------------------------------------------------------- OVERLAYS -->
+    <div class="drawer-scrim" id="drawer-scrim" hidden></div>
+    <aside class="drawer" id="drawer" hidden role="dialog" aria-modal="true" aria-labelledby="drawer-title" tabindex="-1">
+      <header class="drawer-head">
+        <h2 class="drawer-title" id="drawer-title">Job</h2>
+        <button class="icon-btn" id="drawer-close" type="button" aria-label="Close details">&times;</button>
+      </header>
+      <div class="drawer-body" id="drawer-body"></div>
+    </aside>
+
+    <div class="popover" id="popover" hidden role="dialog" aria-label="Score breakdown"></div>
+
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+    <div class="modal" id="login" hidden role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <form class="modal-card" id="login-form" autocomplete="off">
+        <h2 class="modal-title" id="login-title">Sign in</h2>
+        <p class="modal-note">This console talks to your UpBid instance. Paste the API key from <code>API_KEY</code>.</p>
+        <label class="field">
+          <span class="field-label" for="login-key">API key</span>
+          <input class="input" id="login-key" name="apiKey" type="password" required autocomplete="current-password" />
+        </label>
+        <p class="form-error" id="login-error" hidden></p>
+        <button class="btn btn-primary btn-block" type="submit" id="login-submit">Sign in</button>
+      </form>
+    </div>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

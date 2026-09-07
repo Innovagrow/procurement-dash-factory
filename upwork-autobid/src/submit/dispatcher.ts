@@ -492,6 +492,11 @@ async function dispatchLocked(
       return result;
     }
 
+    // QUEUED_FOR_REVIEW / SKIPPED straight from a submitter: never leave the
+    // proposal stranded in SUBMITTING.
+    await patchProposal(proposalId, {
+      status: result.status === 'QUEUED_FOR_REVIEW' ? 'PENDING_APPROVAL' : 'FAILED',
+    });
     await recordAudit('submission.other', proposalId, actor, {
       submitter: submitter.name,
       status: result.status,

@@ -139,12 +139,24 @@ export interface GuardrailResult {
 
 /* ------------------------------------------------------------ text helpers */
 
-/** Splits on sentence ends and hard line breaks. */
-function splitSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.!?])\s+|\n+/)
+/** Sentences within a single line. Line structure is handled by the caller. */
+function splitSentences(line: string): string[] {
+  return line
+    .split(/(?<=[.!?])\s+/)
     .map((part) => part.trim())
     .filter((part) => part !== '');
+}
+
+/**
+ * Applies a sentence-level filter without flattening the letter: bullets and
+ * paragraph breaks carry meaning in a proposal, so filtering happens inside
+ * each line and the line structure is put back untouched.
+ */
+function filterSentencesByLine(text: string, keep: (sentence: string) => boolean): string {
+  return text
+    .split('\n')
+    .map((line) => splitSentences(line).filter(keep).join(' '))
+    .join('\n');
 }
 
 function tidy(text: string): string {
@@ -152,7 +164,7 @@ function tidy(text: string): string {
     .replace(/[ \t]+/g, ' ')
     .replace(/ ?\n ?/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
-    .replace(/\s+([.,;:!?])/g, '$1')
+    .replace(/[ \t]+([.,;:!?])/g, '$1')
     .replace(/\(\s*\)/g, '')
     .trim();
 }
@@ -182,11 +194,16 @@ export function stripContacts(input: string): ContactStripResult {
   const findings: string[] = [];
   let text = input ?? '';
 
+  // Link and domain patterns run to the next space, so they swallow the period
+  // that ends the sentence. Putting it back keeps sentence splitting intact -
+  // otherwise a stripped URL merges two sentences and the next filter deletes
+  // twice as much text as it should.
   const replace = (pattern: RegExp, label: string): void => {
     let hit = false;
-    text = text.replace(pattern, () => {
+    text = text.replace(pattern, (match: string) => {
       hit = true;
-      return ' ';
+      const trailing = /[.,;:!?]+$/.exec(match);
+      return trailing === null ? ' ' : ` ${trailing[0]}`;
     });
     if (hit && !findings.includes(label)) findings.push(label);
   };
@@ -211,14 +228,14 @@ interface SentenceFilterResult {
 /** Drops whole sentences containing a term, so no dangling half-clause remains. */
 function dropSentencesContaining(text: string, terms: readonly string[]): SentenceFilterResult {
   const hits: string[] = [];
-  const kept = splitSentences(text).filter((sentence) => {
+  const kept = filterSentencesByLine(text, (sentence) => {
     const haystack = normalizeText(sentence);
     const hit = terms.find((term) => haystack.includes(term));
     if (hit === undefined) return true;
     if (!hits.includes(hit)) hits.push(hit);
     return false;
   });
-  return { text: tidy(kept.join(' ')), hits };
+  return { text: tidy(kept), hits };
 }
 
 /**
@@ -230,7 +247,7 @@ export function filterOffPlatform(text: string): SentenceFilterResult & { mentio
   const hits: string[] = [];
   const mentioned: string[] = [];
 
-  const kept = splitSentences(text).filter((sentence) => {
+  const kept = filterSentencesByLine(text, (sentence) => {
     const haystack = normalizeText(sentence);
 
     const solicitation = OFF_PLATFORM_SOLICITATIONS.find((term) => haystack.includes(term));
@@ -250,7 +267,7 @@ export function filterOffPlatform(text: string): SentenceFilterResult & { mentio
     return true;
   });
 
-  return { text: tidy(kept.join(' ')), hits, mentioned };
+  return { text: tidy(kept), hits, mentioned };
 }
 
 /** Trims to a sentence boundary when one is close enough, else to a word. */

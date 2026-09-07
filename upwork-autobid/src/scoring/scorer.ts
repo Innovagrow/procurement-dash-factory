@@ -334,7 +334,19 @@ const SPECIFICITY_SIGNALS = [
 function scoreClarity(job: ScorableJob, text: JobText): DimensionOutcome {
   const words = wordCount(job.description);
   const lengthScore =
-    words < 30 ? 0.1 : words < 80 ? 0.35 : words < 150 ? 0.6 : words <= 800 ? 1 : words <= 1500 ? 0.85 : 0.7;
+    words < 30
+      ? 0.1
+      : words < 60
+        ? 0.4
+        : words < 120
+          ? 0.65
+          : words < 200
+            ? 0.85
+            : words <= 800
+              ? 1
+              : words <= 1500
+                ? 0.85
+                : 0.7;
 
   const bullets = bulletCount(job.description);
   const questions = (job.screeningQuestions ?? []).filter((q) => normalizeText(q) !== '').length;
@@ -486,14 +498,19 @@ function formatMax(max: number): string {
 function buildReasons(breakdown: ScoreBreakdownItem[], redFlagLines: string[]): string[] {
   const scored = breakdown.filter((item) => item.max >= 1);
 
-  const positives = [...scored]
+  const strongest = [...scored]
     .filter((item) => item.max > 0 && item.points / item.max >= 0.6)
     .sort((a, b) => b.points - a.points)
-    .slice(0, 3)
-    .map((item) => `+ ${item.label} ${item.points.toFixed(1)}/${formatMax(item.max)}: ${item.detail}`);
+    .slice(0, 3);
+  const claimed = new Set(strongest.map((item) => item.key));
 
+  const positives = strongest.map(
+    (item) => `+ ${item.label} ${item.points.toFixed(1)}/${formatMax(item.max)}: ${item.detail}`,
+  );
+
+  // A dimension already named as a strength is not also reported as a weakness.
   const shortfalls = [...scored]
-    .filter((item) => item.max - item.points >= 1.5)
+    .filter((item) => !claimed.has(item.key) && item.max - item.points >= 1.5 && item.points / item.max < 0.8)
     .sort((a, b) => b.max - b.points - (a.max - a.points))
     .slice(0, 3)
     .map((item) => `- ${item.label} ${item.points.toFixed(1)}/${formatMax(item.max)}: ${item.detail}`);

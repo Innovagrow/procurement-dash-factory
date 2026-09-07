@@ -649,7 +649,9 @@ export function normalizeJob(input: NormalizeInput): RawJob {
   }
 
   const rawTitle = toStringOrNull(input.title);
-  const title = rawTitle === null ? null : collapseWhitespace(decodeEntities(rawTitle)).slice(0, MAX_TITLE);
+  // Titles occasionally arrive with markup (email subject lines, scraped DOM).
+  const title =
+    rawTitle === null ? null : stripHtml(rawTitle).replace(/\s*\n\s*/g, ' ').trim().slice(0, MAX_TITLE);
   if (title === null || title === '') {
     throw new ValidationError('normalizeJob: title is required', { details: { source, url } });
   }
@@ -664,6 +666,12 @@ export function normalizeJob(input: NormalizeInput): RawJob {
   const budgetAmount = toNumberOrNull(input.budgetAmount) ?? parseMoney(input.budgetText);
 
   const jobType = inferJobType(input.jobType, { hourlyMin, hourlyMax, budgetAmount });
+
+  // Upwork sends amount 0 on hourly postings (and an empty hourly range on
+  // fixed ones). Keeping the zeroes would read as "a job with a $0 budget".
+  const effectiveBudget = jobType === 'HOURLY' && budgetAmount === 0 ? null : budgetAmount;
+  const effectiveHourlyMin = jobType === 'FIXED' && hourlyMin === 0 ? null : hourlyMin;
+  const effectiveHourlyMax = jobType === 'FIXED' && hourlyMax === 0 ? null : hourlyMax;
 
   const currencyRaw = toStringOrNull(input.currency);
   const currency =
@@ -682,9 +690,9 @@ export function normalizeJob(input: NormalizeInput): RawJob {
     category: pickCleanString(input.category),
     subcategory: pickCleanString(input.subcategory),
     jobType,
-    budgetAmount: budgetAmount === null ? null : round2(Math.max(0, budgetAmount)),
-    hourlyMin: hourlyMin === null ? null : round2(Math.max(0, hourlyMin)),
-    hourlyMax: hourlyMax === null ? null : round2(Math.max(0, hourlyMax)),
+    budgetAmount: effectiveBudget === null ? null : round2(Math.max(0, effectiveBudget)),
+    hourlyMin: effectiveHourlyMin === null ? null : round2(Math.max(0, effectiveHourlyMin)),
+    hourlyMax: effectiveHourlyMax === null ? null : round2(Math.max(0, effectiveHourlyMax)),
     currency,
     durationLabel: pickCleanString(input.durationLabel),
     experienceLevel: normalizeExperienceLevel(input.experienceLevel),

@@ -385,7 +385,7 @@ export function formatMoney(amount: number | null | undefined, currency?: string
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: /^[A-Z]{3}$/.test(code) ? code : 'USD',
-      maximumFractionDigits: amount >= 100 ? 0 : 2,
+      maximumFractionDigits: Number.isInteger(amount) ? 0 : 2,
     }).format(amount);
   } catch {
     return `${Math.round(amount)} ${code}`;

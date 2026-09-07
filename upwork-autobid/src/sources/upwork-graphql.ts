@@ -347,7 +347,7 @@ export async function searchJobPostings(params: SearchParams): Promise<SearchPag
       // Some tiers return the node inline instead of wrapped in an edge.
       return record.node !== undefined ? record.node : record;
     })
-    .filter((node): node is unknown => node !== null && node !== undefined);
+    .filter((node) => node !== null && node !== undefined);
 
   const inlineNodes = nodes.length === 0 ? pickArray(root, 'nodes') : [];
 

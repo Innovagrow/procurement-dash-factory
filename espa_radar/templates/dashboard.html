@@ -221,6 +221,16 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:righ
       <legend>ΛΕΞΕΙΣ-ΚΛΕΙΔΙΑ</legend>
       <input type="text" id="kw" placeholder="ψηφιακός, e-shop, φωτοβολταϊκά" autocomplete="off">
     </fieldset>
+    <fieldset>
+      <legend>ΕΙΔΟΣ</legend>
+      <div class="checks" id="kinds"></div>
+      <p class="hint" id="hidden-note"></p>
+    </fieldset>
+    <fieldset>
+      <legend>ΦΟΡΕΑΣ</legend>
+      <div class="checks" id="bodies"></div>
+      <p class="hint">Κενό = όλοι οι φορείς.</p>
+    </fieldset>
     <fieldset><legend>ΚΛΑΔΟΣ</legend><div class="checks" id="sectors"></div></fieldset>
     <fieldset>
       <legend>ΠΕΡΙΦΕΡΕΙΑ</legend><div class="checks" id="regions"></div>
@@ -326,6 +336,8 @@ let DATA = null, shown = 40;
 function evaluate(p, c){
   const hay = norm([p.t, p.sum].filter(Boolean).join(" "));
   const reasons = [];
+  if (c.kinds.length && !c.kinds.includes(p.k || "UNKNOWN")) return null;
+  if (c.bodies.length && !c.bodies.includes(p.s)) return null;
   for (const t of c.exclude) if (t && hay.includes(norm(t))) return null;
   if (c.onlyLive && p.st === "CLOSED") return null;
   if (c.onlyDated && !p.dl) return null;
@@ -373,6 +385,12 @@ function evaluate(p, c){
   return {score: Math.min(100, Math.round(score*10)/10), reasons};
 }
 
+const KIND_LABELS = {CALL:"Προσκλήσεις / προγράμματα", DECISION:"Ατομικές αποφάσεις",
+                     NEWS:"Ανακοινώσεις", UNKNOWN:"Αταξινόμητα"};
+// Οι ατομικές αποφάσεις και οι ανακοινώσεις δεν δέχονται αιτήσεις — κρύβονται
+// εξ ορισμού, αλλά μένουν διαθέσιμες με ένα κλικ.
+const KIND_DEFAULT = ["CALL", "UNKNOWN"];
+
 const el = (t, c, x) => { const n = document.createElement(t); if(c) n.className=c; if(x!=null) n.textContent=x; return n; };
 
 function criteria(){
@@ -381,6 +399,7 @@ function criteria(){
   const box = (g) => Array.from(document.querySelectorAll(`input[data-group="${g}"]:checked`)).map(e=>e.value);
   return {keywords:csv("kw"), exclude:csv("exclude"), sectors:box("sectors"),
     regions:box("regions"), beneficiaries:box("beneficiaries"),
+    kinds:box("kinds"), bodies:box("bodies"),
     bmin:num("bmin"), bmax:num("bmax"), rate:num("rate"), days:num("days"),
     onlyLive:document.getElementById("only-live").checked,
     onlyDated:document.getElementById("only-dated").checked,
@@ -393,10 +412,12 @@ function applyCriteria(c){
   document.getElementById("only-live").checked = c.onlyLive !== false;
   document.getElementById("only-dated").checked = !!c.onlyDated;
   if (c.sort) document.getElementById("sort").value = c.sort;
-  for (const g of ["sectors","regions","beneficiaries"]){
+  for (const g of ["sectors","regions","beneficiaries","bodies"]){
     const want = c[g] || [];
     document.querySelectorAll(`input[data-group="${g}"]`).forEach(e => { e.checked = want.includes(e.value); });
   }
+  const kinds = c.kinds && c.kinds.length ? c.kinds : KIND_DEFAULT;
+  document.querySelectorAll('input[data-group="kinds"]').forEach(e => { e.checked = kinds.includes(e.value); });
 }
 const store = {
   get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
@@ -477,13 +498,26 @@ function render(){
   for (const r of rows.slice(0, shown)) reg.appendChild(buildEntry(r.p, r));
   if (!rows.length){
     const e = el("div","empty");
-    e.appendChild(el("b",null,"Κανένα πρόγραμμα με αυτά τα κριτήρια"));
-    e.appendChild(el("span",null,"Χαλάρωσε ένα φίλτρο — συνήθως φταίει ο προϋπολογισμός ή το ελάχιστο ποσοστό."));
+    if (!DATA.programs.length){
+      e.appendChild(el("b",null,"Η βάση είναι ακόμη άδεια"));
+      e.appendChild(el("span",null,"Δεν έχει τρέξει σάρωση. Πάτα «Σάρωση τώρα» πάνω δεξιά — παίρνει 3-5 λεπτά."));
+    } else {
+      e.appendChild(el("b",null,"Κανένα πρόγραμμα με αυτά τα κριτήρια"));
+      e.appendChild(el("span",null,"Χαλάρωσε ένα φίλτρο — συνήθως φταίει ο προϋπολογισμός ή το ελάχιστο ποσοστό."));
+    }
     reg.appendChild(e);
   }
   const cnt = document.getElementById("count"); cnt.replaceChildren();
   cnt.appendChild(el("b",null,String(rows.length)));
   cnt.appendChild(document.createTextNode(" προγράμματα"+(scored?", κατά σειρά ταιριάσματος":"")));
+  const note = document.getElementById("hidden-note");
+  if (note){
+    const hidden = DATA.programs.filter(p => c.kinds.length && !c.kinds.includes(p.k || "UNKNOWN")).length;
+    note.textContent = hidden
+      ? `Κρύβονται ${hidden} εγγραφές που δεν δέχονται αιτήσεις.`
+      : "Φαίνονται όλα τα είδη.";
+  }
+
   const more = document.getElementById("more");
   more.hidden = rows.length <= shown;
   more.textContent = `Περισσότερα (${Math.max(0, rows.length-shown)})`;
@@ -499,6 +533,19 @@ function buildChecks(id, values, counts){
     box.appendChild(l);
   }
 }
+/* Σαν το buildChecks, αλλά η τιμή που στέλνεται διαφέρει από την ετικέτα
+   (π.χ. «CALL» -> «Προσκλήσεις / προγράμματα», source_id -> όνομα φορέα). */
+function buildLabelledChecks(id, pairs, counts){
+  const box = document.getElementById(id); box.replaceChildren();
+  for (const [value, label] of pairs){
+    const n = counts.get(value) || 0; if (!n) continue;
+    const l = el("label","check");
+    const i = document.createElement("input"); i.type="checkbox"; i.value=value; i.dataset.group=id;
+    l.appendChild(i); l.appendChild(el("span",null,label)); l.appendChild(el("span","n",String(n)));
+    box.appendChild(l);
+  }
+}
+
 const tally = (field) => { const m = new Map();
   for (const p of DATA.programs) for (const v of p[field]) m.set(v,(m.get(v)||0)+1); return m; };
 
@@ -573,6 +620,19 @@ async function load(){
   if (!r.ok) throw new Error("HTTP " + r.status);
   DATA = await r.json();
   paintStatus();
+  const kindCounts = new Map();
+  for (const p of DATA.programs) kindCounts.set(p.k || "UNKNOWN", (kindCounts.get(p.k || "UNKNOWN") || 0) + 1);
+  buildLabelledChecks("kinds", Object.keys(KIND_LABELS).map(k => [k, KIND_LABELS[k]]), kindCounts);
+
+  const bodyCounts = new Map(), bodyNames = new Map();
+  for (const p of DATA.programs){
+    bodyCounts.set(p.s, (bodyCounts.get(p.s) || 0) + 1);
+    bodyNames.set(p.s, p.sn);
+  }
+  buildLabelledChecks("bodies",
+    [...bodyCounts.keys()].sort((a,b) => bodyCounts.get(b) - bodyCounts.get(a))
+      .map(id => [id, bodyNames.get(id) || id]), bodyCounts);
+
   buildChecks("sectors", DATA.taxonomy.sectors, tally("sec"));
   buildChecks("regions", DATA.taxonomy.regions, tally("reg"));
   buildChecks("beneficiaries", DATA.taxonomy.beneficiaries, tally("ben"));
@@ -594,20 +654,37 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("sort").addEventListener("change", rerender);
   document.getElementById("more").addEventListener("click", () => { shown += 40; render(); });
   document.getElementById("reset").addEventListener("click", () => {
-    applyCriteria({keywords:[],exclude:[],sectors:[],regions:[],beneficiaries:[],onlyLive:true});
+    applyCriteria({keywords:[],exclude:[],sectors:[],regions:[],beneficiaries:[],
+                   bodies:[],kinds:KIND_DEFAULT,onlyLive:true});
     rerender();
   });
   document.getElementById("btn-reload").addEventListener("click", () => location.reload());
 
   document.getElementById("btn-scan").addEventListener("click", async (ev) => {
-    const b = ev.target; const key2 = document.getElementById("pkey").value.trim();
-    b.disabled = true; b.textContent = "Σαρώνει… (λεπτά)";
+    const b = ev.target;
+    const field = document.getElementById("pkey");
+    const key2 = field.value.trim();
+    if (!key2){
+      // Χωρίς κλειδί το αίτημα θα γύριζε 401 χωρίς να λέει τι λείπει.
+      field.focus();
+      field.scrollIntoView({block:"center", behavior:"smooth"});
+      const m = document.getElementById("save-msg");
+      m.className = "msg err";
+      m.textContent = "Βάλε εδώ το API key (το τύπωσε η εγκατάσταση) και ξαναπάτα «Σάρωση τώρα».";
+      return;
+    }
+    store.set(API_KEY_STORE, key2);
+    b.disabled = true; b.textContent = "Σαρώνει… (3-5 λεπτά)";
     try{
       const r = await fetch("/api/scan", {method:"POST",
-        headers:{"Content-Type":"application/json", ...(key2 ? {"X-API-Key":key2} : {})},
+        headers:{"Content-Type":"application/json", "X-API-Key":key2},
         body: JSON.stringify({notify:true})});
-      b.textContent = r.ok ? "Ολοκληρώθηκε — ανανέωση…" : "Απέτυχε (" + r.status + ")";
-      if (r.ok) setTimeout(() => location.reload(), 1200);
+      if (r.ok){ b.textContent = "Ολοκληρώθηκε — ανανέωση…"; setTimeout(() => location.reload(), 1200); return; }
+      const m = document.getElementById("save-msg"); m.className = "msg err";
+      m.textContent = r.status === 401
+        ? "Λάθος API key — δες το στο /opt/espa-radar/.env"
+        : "Η σάρωση απέτυχε (" + r.status + ")";
+      b.textContent = "Απέτυχε (" + r.status + ")";
     } catch(e){ b.textContent = "Σφάλμα δικτύου"; }
     finally { setTimeout(() => { b.disabled = false; b.textContent = "Σάρωση τώρα"; }, 4000); }
   });
@@ -626,7 +703,7 @@ document.addEventListener("DOMContentLoaded", () => {
         headers:{"Content-Type":"application/json", ...(key3 ? {"X-API-Key":key3} : {})},
         body: JSON.stringify({name, notify_email: email || null,
           sectors:c.sectors, regions:c.regions, beneficiaries:c.beneficiaries,
-          keywords:c.keywords, exclude_keywords:c.exclude,
+          keywords:c.keywords, exclude_keywords:c.exclude, sources:c.bodies,
           budget_min:c.bmin, budget_max:c.bmax,
           min_subsidy_rate:c.rate, min_days_left:c.days,
           notify_channels: email ? ["email"] : []})});

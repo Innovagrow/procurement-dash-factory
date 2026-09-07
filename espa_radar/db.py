@@ -1,6 +1,7 @@
 """Σύνδεση με τη βάση και βοηθητικά session helpers."""
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from collections.abc import Iterator
 
@@ -18,12 +19,39 @@ def _engine_kwargs(url: str) -> dict:
     return {"pool_pre_ping": True, "pool_size": 5, "max_overflow": 10}
 
 
+logger = logging.getLogger(__name__)
+
 engine = create_engine(settings.database_url, future=True, **_engine_kwargs(settings.database_url))
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False, future=True)
 
 
+# Στήλες που προστέθηκαν μετά την πρώτη έκδοση. Το create_all φτιάχνει μόνο
+# πίνακες που λείπουν — δεν αγγίζει υπάρχοντες, οπότε μια εγκατάσταση που ήδη
+# τρέχει θα έσκαγε στο πρώτο query χωρίς αυτό.
+_ADDED_COLUMNS = (
+    ("programs", "kind", "VARCHAR(16) DEFAULT 'UNKNOWN'"),
+)
+
+
+def _apply_migrations() -> None:
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    with engine.begin() as conn:
+        for table, column, ddl in _ADDED_COLUMNS:
+            if table not in existing_tables:
+                continue
+            columns = {c["name"] for c in inspector.get_columns(table)}
+            if column in columns:
+                continue
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+            logger.info("Προστέθηκε η στήλη %s.%s", table, column)
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
+    _apply_migrations()
 
 
 @contextmanager

@@ -21,6 +21,7 @@ sources:
   - id: greece20_calls
     name: Ελλάδα 2.0 - Προσκλήσεις χρηματοδότησης
     type: json
+    kind: CALL          # το endpoint δημοσιεύει εξ ορισμού προσκλήσεις
     url: https://greece20.gov.gr/wp-json/wp/v2/calls
     params:
       per_page: 50
@@ -98,6 +99,7 @@ sources:
   - id: diavgeia_prosklisis
     name: Διαύγεια - Προσκλήσεις χρηματοδότησης
     type: diavgeia
+    kind: CALL          # το endpoint δημοσιεύει εξ ορισμού προσκλήσεις
     subject:
       - πρόσκληση υποβολής αιτήσεων χρηματοδότησης
       - πρόσκληση υποβολής προτάσεων

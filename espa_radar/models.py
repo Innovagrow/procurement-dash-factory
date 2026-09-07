@@ -43,6 +43,8 @@ class Program(Base):
 
     # Εξαγόμενα χαρακτηριστικά
     status: Mapped[str] = mapped_column(String(20), default="UNKNOWN", index=True)
+    # CALL = ανοιχτή πρόσκληση, DECISION = ατομική πράξη, NEWS = ανακοίνωση.
+    kind: Mapped[str] = mapped_column(String(16), default="UNKNOWN", index=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     opens_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)

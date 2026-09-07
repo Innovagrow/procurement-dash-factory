@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from .config import settings
 from .db import session_scope
+from .classify import classify
 from .extract import extract_budgets, extract_deadline, extract_opens_at, extract_subsidy_rate
 from .matching import evaluate
 from .messages import change_message, deadline_message, digest_message, instant_message
@@ -79,6 +80,7 @@ def enrich(raw: RawProgram) -> dict:
     # ώστε να μη γεμίζει ο χρήστης με δεκάδες «ευκαιρίες» για μία δράση.
     title = strip_amendment_prefix(raw.title) or raw.title
     extra = dict(raw.extra or {})
+    source_kind = extra.pop("source_kind", None)
     if title != raw.title.strip():
         extra["source_title"] = raw.title.strip()
 
@@ -97,6 +99,7 @@ def enrich(raw: RawProgram) -> dict:
         "body": (raw.body or "")[:60000] or None,
         "url": raw.url[:1000],
         "status": detect_status(f"{blob} {raw.status_hint or ''}", deadline),
+        "kind": classify(title, raw.summary, source_kind=source_kind),
         "published_at": raw.published_at,
         "opens_at": opens_at,
         "deadline": deadline,
@@ -120,6 +123,7 @@ def _content_hash(data: dict) -> str:
         str(data.get("budget_max")),
         str(data.get("subsidy_rate")),
         data.get("status") or "",
+        data.get("kind") or "",
     )
 
 
@@ -261,7 +265,7 @@ def _describe_change(field_name: str, old, new) -> str:
 
 def _run_source(source: Source) -> tuple[str, list[RawProgram], str | None]:
     try:
-        return source.source_id, source.apply_filters(source.fetch()), None
+        return source.source_id, source.apply_filters(source.tag_kind(source.fetch())), None
     except Exception as exc:  # noqa: BLE001 - μια πηγή δεν ρίχνει το scan
         logger.error("[%s] απέτυχε: %s", source.source_id, exc)
         return source.source_id, [], str(exc)
@@ -641,6 +645,36 @@ def close_expired() -> int:
     if closed:
         logger.info("Έκλεισαν %s ληγμένα προγράμματα", closed)
     return closed
+
+
+def reclassify_all() -> dict[str, int]:
+    """Ξαναπερνά τον ταξινομητή σε ό,τι υπάρχει ήδη στη βάση.
+
+    Χρήσιμο μετά από βελτίωση των κανόνων: μια πλήρης σάρωση παίρνει λεπτά και
+    χτυπά ξανά όλες τις πηγές χωρίς λόγο.
+    """
+    from collections import Counter
+
+    from .sources import load_source_config
+
+    # Ίδια υπόδειξη ανά πηγή με τη σάρωση, αλλιώς η επαναταξινόμηση θα έδινε
+    # διαφορετικό αποτέλεσμα από αυτό που παράγει ο κανονικός κύκλος.
+    source_kinds = {
+        entry["id"]: entry.get("kind")
+        for entry in load_source_config()
+        if entry.get("id") and entry.get("kind")
+    }
+
+    counts: Counter[str] = Counter()
+    with session_scope() as session:
+        for program in session.scalars(select(Program)).all():
+            kind = classify(program.title, program.summary,
+                            source_kind=source_kinds.get(program.source_id))
+            if program.kind != kind:
+                program.kind = kind
+            counts[kind] += 1
+    logger.info("Επαναταξινόμηση: %s", dict(counts))
+    return dict(counts)
 
 
 def purge_old_logs(days: int = 90) -> int:

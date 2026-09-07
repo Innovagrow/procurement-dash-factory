@@ -45,6 +45,20 @@ class Source:
     def fetch(self) -> list[RawProgram]:  # pragma: no cover - override
         raise NotImplementedError
 
+    def tag_kind(self, programs: list[RawProgram]) -> list[RawProgram]:
+        """Περνά το δηλωμένο «kind» της πηγής σε κάθε εγγραφή.
+
+        Κάποια endpoints δημοσιεύουν εξ ορισμού μόνο προσκλήσεις (π.χ. ο τύπος
+        «calls» του Ελλάδα 2.0), οπότε η πηγή ξέρει κάτι που ο τίτλος δεν λέει.
+        """
+        declared = self.options.get("kind")
+        if not declared:
+            return programs
+        for program in programs:
+            program.extra = dict(program.extra or {})
+            program.extra["source_kind"] = declared
+        return programs
+
     def apply_filters(self, programs: list[RawProgram]) -> list[RawProgram]:
         """Φιλτράρει με βάση τα options must_match / must_not_match.
 

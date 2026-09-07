@@ -13,7 +13,13 @@ from sqlalchemy.orm import Session
 from .config import BASE_DIR, settings
 from .db import get_session, init_db
 from .models import Match, NotificationLog, Profile, Program, SourceRun
-from .pipeline import run_matching, scan, send_deadline_reminders, send_digest
+from .pipeline import (
+    reclassify_all,
+    run_matching,
+    scan,
+    send_deadline_reminders,
+    send_digest,
+)
 from .schemas import MatchOut, ProfileIn, ProfileOut, ProgramOut, ScanRequest, SourceStatus
 from .scheduler import scheduler_status, start_scheduler, stop_scheduler
 from .sources import load_source_config
@@ -296,12 +302,99 @@ def _source_status(session: Session) -> list[SourceStatus]:
     return statuses
 
 
+@app.get("/api/sources/{source_id}/probe", dependencies=[Depends(require_api_key)])
+def probe_source(source_id: str):
+    """Τι βλέπει ο server σε μια πηγή — για διόρθωση selector από απόσταση.
+
+    Πολλά ελληνικά δημόσια sites μπλοκάρουν αιτήματα από άλλα δίκτυα, οπότε
+    όταν ένας selector σπάει δεν μπορεί να τον ελέγξει κανείς εκτός του
+    μηχανήματος. Το endpoint φέρνει ΜΟΝΟ URL που ήδη υπάρχουν στο sources.yml,
+    ώστε να μη γίνεται γενικός fetcher ξένων διευθύνσεων.
+    """
+    entry = next((e for e in load_source_config() if e.get("id") == source_id), None)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Άγνωστη πηγή")
+
+    url = entry.get("url")
+    if not url:
+        raise HTTPException(status_code=400, detail="Η πηγή δεν έχει url (π.χ. τύπου diavgeia)")
+
+    from .sources.http import get
+
+    try:
+        response = get(url, timeout=45, retries=1)
+    except Exception as exc:  # noqa: BLE001
+        return {"source_id": source_id, "url": url, "error": str(exc)[:500]}
+
+    from .sources.http import _decode
+
+    text = _decode(response.content, response.charset_encoding)
+    result = {
+        "source_id": source_id,
+        "url": url,
+        "status": response.status_code,
+        "content_type": response.headers.get("content-type"),
+        "bytes": len(response.content),
+        "head": text[:1500],
+    }
+
+    if "xml" in (response.headers.get("content-type") or "") or text.lstrip().startswith("<?xml"):
+        return result
+
+    try:
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(text, "lxml")
+    except Exception as exc:  # noqa: BLE001
+        result["parse_error"] = str(exc)[:200]
+        return result
+
+    # Υποψήφιοι selectors με πλήθος, ώστε να φαίνεται ποιος περιγράφει λίστα.
+    candidates = [
+        "article", "table tr", "tbody tr", "li", ".row", ".card", ".item",
+        ".news-item", ".list-item", ".views-row", ".post", ".entry",
+        ".proclamation", ".call", "div.result", "ul li a", "h2 a", "h3 a",
+        ".panel", ".accordion-item", "[class*=item]", "[class*=list]", "[class*=row]",
+    ]
+    counts = {}
+    for sel in candidates:
+        try:
+            n = len(soup.select(sel))
+        except Exception:  # noqa: BLE001
+            continue
+        if n:
+            counts[sel] = n
+    result["selector_counts"] = dict(sorted(counts.items(), key=lambda kv: -kv[1])[:25])
+
+    links = []
+    for a in soup.find_all("a", href=True)[:400]:
+        label = " ".join(a.get_text(" ", strip=True).split())
+        if len(label) >= 25:
+            links.append({"text": label[:130], "href": a["href"][:220],
+                          "parent": a.parent.name,
+                          "parent_class": " ".join(a.parent.get("class") or [])[:60]})
+    result["long_links"] = links[:30]
+
+    classes = {}
+    for node in soup.find_all(class_=True)[:3000]:
+        for cls in node.get("class") or []:
+            classes[cls] = classes.get(cls, 0) + 1
+    result["common_classes"] = dict(sorted(classes.items(), key=lambda kv: -kv[1])[:30])
+    return result
+
+
 @app.post("/api/scan", dependencies=[Depends(require_api_key)])
 def trigger_scan(payload: ScanRequest | None = None):
     """Χειροκίνητη σάρωση (σύγχρονη — μπορεί να πάρει λεπτά)."""
     payload = payload or ScanRequest()
     report = scan(only=payload.sources, notify_matches=payload.notify)
     return report.as_dict()
+
+
+@app.post("/api/reclassify", dependencies=[Depends(require_api_key)])
+def trigger_reclassify():
+    """Ξαναταξινομεί ό,τι υπάρχει, χωρίς νέα σάρωση."""
+    return reclassify_all()
 
 
 @app.post("/api/digest", dependencies=[Depends(require_api_key)])
@@ -385,6 +478,7 @@ def dashboard_data(
                 "s": p.source_id,
                 "sn": p.source_name,
                 "st": p.status,
+                "k": p.kind,
                 "dl": p.deadline.date().isoformat() if p.deadline else None,
                 "pd": p.published_at.date().isoformat() if p.published_at else None,
                 "bmin": p.budget_min,

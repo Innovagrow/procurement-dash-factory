@@ -11,6 +11,7 @@ from .db import init_db, session_scope
 from .models import Match, Profile, Program
 from .pipeline import (
     close_expired,
+    reclassify_all,
     run_matching,
     scan,
     send_deadline_reminders,
@@ -151,6 +152,14 @@ def cmd_reminders(args) -> int:
     return 0
 
 
+def cmd_reclassify(args) -> int:
+    from .classify import KIND_LABELS
+
+    for kind, count in sorted(reclassify_all().items(), key=lambda kv: -kv[1]):
+        print(f"  {count:5}  {KIND_LABELS.get(kind, kind)}")
+    return 0
+
+
 def cmd_stats(args) -> int:
     close_expired()
     with session_scope() as session:
@@ -219,6 +228,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("digest", help="Αποστολή ημερήσιας σύνοψης").set_defaults(func=cmd_digest)
     sub.add_parser("reminders", help="Αποστολή υπενθυμίσεων").set_defaults(func=cmd_reminders)
+    sub.add_parser("reclassify", help="Επαναταξινόμηση χωρίς σάρωση").set_defaults(func=cmd_reclassify)
     sub.add_parser("stats", help="Στατιστικά").set_defaults(func=cmd_stats)
 
     p_serve = sub.add_parser("serve", help="Web dashboard + API + scheduler")

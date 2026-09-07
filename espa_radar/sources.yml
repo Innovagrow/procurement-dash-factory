@@ -170,56 +170,75 @@ sources:
 
   # ------------------------------------------------------------
   # Επίσημη πύλη ΕΣΠΑ
-  # Σημείωση: το espa.gr μπλοκάρει αιτήματα από ορισμένα datacenter IPs.
-  # Δούλεψε κανονικά από δικό σου VPS/σπίτι· αν δεις «σφάλμα» στο dashboard
-  # και το site ανοίγει από browser, είναι φραγή IP, όχι bug.
+  #
+  # Το espa.gr είναι SharePoint και εκθέτει RSS μέσω του _layouts endpoint.
+  # Το «/el/Pages/RSS.aspx» ΔΕΝ είναι feed — είναι η σελίδα που περιγράφει τα
+  # feeds, και επιστρέφει 63 KB HTML. Η σωστή διεύθυνση παίρνει παραμέτρους
+  # List, Language, Days, Items.
+  #
+  # Προσοχή: το espa.gr μπλοκάρει αιτήματα εκτός Ελλάδας (503/reset). Από
+  # ελληνικό VPS ή γραφείο απαντά κανονικά.
   # ------------------------------------------------------------
   - id: espa_rss
-    name: ΕΣΠΑ - Νέα & Προσκλήσεις (RSS)
+    name: ΕΣΠΑ - Προσκλήσεις & Προκηρύξεις
     type: rss
     framework: ESPA
-    url: https://www.espa.gr/el/Pages/RSS.aspx
-    limit: 120
+    kind: CALL
+    url: "https://www.espa.gr/_layouts/15/Miscellaneous/RSSFeeds.aspx?List=proclamations&Language=el&Days=180&Items=100"
+    limit: 100
 
+  - id: espa_news
+    name: ΕΣΠΑ - Νέα
+    type: rss
+    framework: ESPA
+    url: "https://www.espa.gr/_layouts/15/Miscellaneous/RSSFeeds.aspx?List=news&Language=el&Days=90&Items=50"
+    limit: 50
+
+  # Η σελίδα προσκλήσεων ως εφεδρεία του feed. Η σωστή διεύθυνση είναι
+  # Proclamations.aspx — το ProclamationsFS.aspx που δοκιμάστηκε πρώτο δεν
+  # περιέχει τη λίστα. Απενεργοποιημένη όσο το RSS δουλεύει, γιατί ένα feed
+  # δεν σπάει όταν αλλάξει το θέμα του SharePoint.
   - id: espa_proclamations
-    name: ΕΣΠΑ - Ενεργές Προσκλήσεις
+    name: ΕΣΠΑ - Σελίδα προσκλήσεων
     type: html
     framework: ESPA
-    url: https://www.espa.gr/el/Pages/ProclamationsFS.aspx
-    item: "table tr, .proclamation-item, .row-proclamation"
+    enabled: false
+    url: https://www.espa.gr/el/Pages/Proclamations.aspx
+    item: "ul li a, table tr"
     title: "a"
-    summary: "td:nth-of-type(2)"
-    meta: "td"
-    max_details: 6
-    detail_body: "#content, .main-content, main"
+    meta: "td, .date"
 
   # ------------------------------------------------------------
-  # ΕΠΑνΕΚ / Ανταγωνιστικότητα
+  # ΕΠΑνΕΚ και ΔΥΠΑ
+  #
+  # Και οι δύο αρνούνται τη σύνδεση από IP κέντρων δεδομένων — δοκιμασμένο
+  # από δύο διαφορετικά δίκτυα. Δεν είναι θέμα selector: η λήψη δεν φτάνει
+  # καν σε απάντηση.
+  #
+  # Το περιεχόμενό τους καλύπτεται εν μέρει αλλού: το ΕΠΑνΕΚ είναι πρόγραμμα
+  # του ΕΣΠΑ και οι προσκλήσεις του βγαίνουν στο feed παραπάνω· οι δράσεις
+  # ΔΥΠΑ δημοσιεύονται και στη Διαύγεια. Ενεργοποίησέ τα αν τρέξεις τη σάρωση
+  # από ελληνικό δίκτυο.
   # ------------------------------------------------------------
   - id: antagonistikotita
     name: ΕΠΑνΕΚ - Προκηρύξεις
     type: html
     framework: ESPA
+    enabled: false
     url: https://antagonistikotita.gr/epanek/proclamations.asp
     item: ".proclamation, .list-item, table tr"
     title: "a"
     meta: "td, .date"
-    max_details: 6
-    detail_body: "#content, .content, main"
 
-  # ------------------------------------------------------------
-  # ΔΥΠΑ (πρώην ΟΑΕΔ) — προγράμματα απασχόλησης & επιχειρηματικότητας
-  # ------------------------------------------------------------
   - id: dypa
-    name: ΔΥΠΑ - Προγράμματα Απασχόλησης & Επιχειρηματικότητας
+    name: ΔΥΠΑ - Προγράμματα Απασχόλησης
     type: html
     framework: DYPA
+    enabled: false
     url: https://www.dypa.gov.gr/programmata-apascholisis
     item: ".views-row, article, .card, li.node"
     title: "h2 a, h3 a, .title a, a"
     summary: ".field-content, p"
-    max_details: 6
-    detail_body: ".node__content, article, main"
 
   # ------------------------------------------------------------
   # Αναπτυξιακός Νόμος / Υπ. Ανάπτυξης

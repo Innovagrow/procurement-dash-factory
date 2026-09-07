@@ -22,7 +22,9 @@ import jobRoutes from './routes/jobs';
 import oauthRoutes from './routes/oauth';
 import profileRoutes from './routes/profiles';
 import proposalRoutes from './routes/proposals';
+import settingsRoutes from './routes/settings';
 import statsRoutes from './routes/stats';
+import templateRoutes from './routes/templates';
 import { closeSse, registerSse, sseClientCount } from './sse';
 
 const log = child('api');
@@ -112,6 +114,8 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(statsRoutes, { prefix: '/api' });
   await app.register(inboxRoutes, { prefix: '/api' });
   await app.register(oauthRoutes, { prefix: '/api' });
+  await app.register(templateRoutes, { prefix: '/api' });
+  await app.register(settingsRoutes, { prefix: '/api' });
   await app.register(actionRoutes, { prefix: '/api' });
 
   // Upwork redirect URIs are registered by hand and are just as often set to

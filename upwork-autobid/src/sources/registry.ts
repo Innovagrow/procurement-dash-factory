@@ -5,6 +5,7 @@
 
 import pLimit from 'p-limit';
 import { env, sourcesEnabled } from '../config/env';
+import { getRuntimeConfig } from '../config/runtime';
 import { toErrorMessage } from '../lib/errors';
 import { child } from '../lib/logger';
 import type { JobSource, RawJob, SourceContext, SourceResult } from '../types';
@@ -64,6 +65,11 @@ export function sourceSnapshots(): ReturnType<BaseSource['snapshot']>[] {
 /** Starts long-lived watchers (currently only IMAP IDLE). Never throws. */
 export async function startSourceWatchers(): Promise<string[]> {
   const started: string[] = [];
+  // isEnabled() reads the runtime config synchronously, so it has to be loaded
+  // once before the check or a mailbox configured only in the dashboard would
+  // not get its watcher until the next restart. This never rejects.
+  await getRuntimeConfig();
+
   for (const source of REGISTRY) {
     if (!(source instanceof ImapSource)) continue;
     if (!source.isEnabled()) continue;

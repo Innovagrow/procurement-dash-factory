@@ -262,6 +262,21 @@ export async function getRuntimeConfig(): Promise<RuntimeConfig> {
   return pending;
 }
 
+/**
+ * The last resolved configuration, without awaiting one. Callers that cannot be
+ * async - a channel's isConfigured(), a source's isEnabled() - use this and get
+ * the environment layer only until the first load lands, which is exactly what
+ * they read before runtime overrides existed.
+ */
+export function peekRuntimeConfig(): RuntimeConfig | null {
+  const cached = cache;
+  if (!cached || cached.expiresAt <= Date.now()) {
+    // getRuntimeConfig never rejects, so this cannot become an unhandled error.
+    void getRuntimeConfig();
+  }
+  return cached?.value ?? null;
+}
+
 /** Drops the cache so the next read sees a write immediately. */
 export function invalidateRuntimeConfig(): void {
   cache = null;

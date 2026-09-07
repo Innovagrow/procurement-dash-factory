@@ -5,6 +5,7 @@
  */
 
 import { env } from '../config/env';
+import { peekRuntimeConfig } from '../config/runtime';
 import { ConfigError } from '../lib/errors';
 import { requestWithRetry } from '../lib/http';
 import { child } from '../lib/logger';
@@ -150,16 +151,26 @@ export function buildSlackPayload(msg: NotificationMessage): SlackPayload {
   return { text: truncate(subject, MAX_FALLBACK_CHARS), blocks };
 }
 
+/**
+ * The webhook the operator saved in the dashboard, falling back to the
+ * environment until the runtime config has been read once in this process.
+ */
+function webhookUrl(): string {
+  const notify = peekRuntimeConfig()?.notify;
+  if (notify) return notify.slackWebhookUrl;
+  return env.SLACK_WEBHOOK_URL ?? '';
+}
+
 export class SlackChannel implements NotificationChannel {
   readonly name = CHANNEL_NAME;
 
   isConfigured(): boolean {
-    return Boolean(env.SLACK_WEBHOOK_URL);
+    return Boolean(webhookUrl());
   }
 
   /** Host only: the webhook URL itself is a secret. */
   describeTarget(): string | null {
-    const url = env.SLACK_WEBHOOK_URL;
+    const url = webhookUrl();
     if (!url) return null;
     try {
       return new URL(url).host;
@@ -169,14 +180,14 @@ export class SlackChannel implements NotificationChannel {
   }
 
   async send(msg: NotificationMessage): Promise<void> {
-    const webhookUrl = env.SLACK_WEBHOOK_URL;
-    if (!webhookUrl) throw new ConfigError('SLACK_WEBHOOK_URL is not set');
+    const url = webhookUrl();
+    if (!url) throw new ConfigError('SLACK_WEBHOOK_URL is not set');
 
     const payload = buildSlackPayload(msg);
 
     await requestWithRetry(
       {
-        url: webhookUrl,
+        url,
         method: 'POST',
         data: payload,
         headers: { 'Content-Type': 'application/json' },

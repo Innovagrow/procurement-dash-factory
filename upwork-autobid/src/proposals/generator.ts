@@ -14,7 +14,7 @@ import {
   computeBid,
   describeBid,
 } from './pricing';
-import { type ScoreSummary, buildPrompts, languageName, screeningQuestions } from './prompt';
+import { type ScoreSummary, buildPromptsForJob, languageName, screeningQuestions } from './prompt';
 import { type ProposalTemplate, type TemplateVars, pickTemplate, renderTemplate } from './templates';
 
 const log = child('proposals.generator');
@@ -491,7 +491,9 @@ export async function generateProposal(
   }
 
   const model = env.ANTHROPIC_MODEL;
-  const prompts = buildPrompts({ job, profile, bid, template, score: score ?? null });
+  // Awaits the Template table so an operator template written in the dashboard
+  // is followed; `template` stays the built-in floor for the fallback letter.
+  const prompts = await buildPromptsForJob({ job, profile, bid, score: score ?? null });
   let lastReason = 'model call failed';
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
@@ -555,7 +557,9 @@ export async function generateProposal(
         warnings: [...warnings, ...validated.warnings],
         generationMs: Date.now() - startedAt,
         source: 'model',
-        templateId: template.id,
+        // The skeleton the model actually followed, which is a Template row id
+        // whenever one applied and the built-in id otherwise.
+        templateId: prompts.template.id ?? template.id,
         connectsCost: bid.connectsCost,
         confidence,
         errors: validated.errors,

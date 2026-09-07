@@ -6,6 +6,7 @@
 
 import type { AxiosInstance } from 'axios';
 import { env } from '../config/env';
+import { peekRuntimeConfig } from '../config/runtime';
 import { ConfigError, UpstreamError, toErrorMessage } from '../lib/errors';
 import { RateLimiter, backoffDelay, createHttpClient, sleep } from '../lib/http';
 import { child } from '../lib/logger';
@@ -175,8 +176,28 @@ function retryAfterMs(response: TelegramResponse | null): number | null {
   return Math.min(MAX_RETRY_AFTER_MS, Math.max(1000, Math.ceil(seconds * 1000)));
 }
 
-async function callSendMessage(payload: TelegramPayload, mode: string): Promise<void> {
-  const token = env.TELEGRAM_BOT_TOKEN;
+interface TelegramCredentials {
+  token: string;
+  chatId: string;
+}
+
+/**
+ * What the operator saved in the dashboard, falling back to the environment
+ * until the runtime config has been read once. getRuntimeConfig already merges
+ * env underneath the stored override, so the peeked values are the effective
+ * ones; null only means "no load has completed in this process yet".
+ */
+function telegramCredentials(): TelegramCredentials {
+  const notify = peekRuntimeConfig()?.notify;
+  if (notify) return { token: notify.telegramBotToken, chatId: notify.telegramChatId };
+  return { token: env.TELEGRAM_BOT_TOKEN ?? '', chatId: env.TELEGRAM_CHAT_ID ?? '' };
+}
+
+async function callSendMessage(
+  payload: TelegramPayload,
+  mode: string,
+  token: string,
+): Promise<void> {
   if (!token) throw new ConfigError('TELEGRAM_BOT_TOKEN is not set');
 
   // The token lives in the path, so the URL is never logged.
@@ -252,27 +273,29 @@ export class TelegramChannel implements NotificationChannel {
   readonly name = CHANNEL_NAME;
 
   isConfigured(): boolean {
-    return Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID);
+    const { token, chatId } = telegramCredentials();
+    return Boolean(token && chatId);
   }
 
   /** Destination recorded on NotificationLog.target. */
   describeTarget(): string | null {
-    return env.TELEGRAM_CHAT_ID ?? null;
+    const { chatId } = telegramCredentials();
+    return chatId === '' ? null : chatId;
   }
 
   async send(msg: NotificationMessage): Promise<void> {
-    const chatId = env.TELEGRAM_CHAT_ID;
-    if (!chatId || !env.TELEGRAM_BOT_TOKEN) {
+    const { token, chatId } = telegramCredentials();
+    if (!chatId || !token) {
       throw new ConfigError('telegram channel is not configured (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID)');
     }
 
     try {
-      await callSendMessage(buildTelegramPayload(msg, chatId, true), 'markdown');
+      await callSendMessage(buildTelegramPayload(msg, chatId, true), 'markdown', token);
     } catch (err) {
       if (!isParseError(err)) throw err;
       // An unescaped character slipped through; the operator still needs the alert.
       log.warn({ err, refId: msg.refId }, 'markdown rejected, resending as plain text');
-      await callSendMessage(buildTelegramPayload(msg, chatId, false), 'plain');
+      await callSendMessage(buildTelegramPayload(msg, chatId, false), 'plain', token);
     }
 
     log.debug({ refType: msg.refType, refId: msg.refId }, 'telegram notification sent');

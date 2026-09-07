@@ -8,7 +8,15 @@ import {
   truncate,
 } from '../scoring/weights';
 import { type BidComputation, type DraftJob, type DraftProfile, currencyOf } from './pricing';
-import { type ProposalTemplate, normalizeTone, templateSkeleton } from './templates';
+import {
+  type ProposalTemplate,
+  type ProposalTone,
+  type SelectedTemplate,
+  normalizeTone,
+  recordTemplateUse,
+  selectTemplate,
+  selectTemplateCached,
+} from './templates';
 
 /**
  * Prompt construction for the drafting call. Everything the model is allowed to
@@ -25,6 +33,9 @@ export const MAX_QUESTIONS = 8;
 export const MAX_QUESTION_CHARS = 400;
 export const MAX_CUSTOM_INSTRUCTION_CHARS = 800;
 export const MAX_ANSWER_CHARS = 600;
+/** An operator template body may be far longer than a skeleton usefully is. */
+export const MAX_SKELETON_CHARS = 4000;
+export const MAX_TEMPLATE_NAME_CHARS = 120;
 
 export const DEFAULT_PROPOSAL_MAX_CHARS = 1500;
 export const MIN_PROPOSAL_MAX_CHARS = 400;
@@ -44,7 +55,13 @@ export interface PromptContext {
   job: DraftJob;
   profile: DraftProfile;
   bid: BidComputation;
-  template: ProposalTemplate;
+  /**
+   * A resolved selection is used exactly as given. A built-in skeleton is only
+   * a floor - the generator picks one up front for its deterministic fallback
+   * draft - so the operator's templates are consulted first and the built-in
+   * stands in when the table has nothing that applies.
+   */
+  template: ProposalTemplate | SelectedTemplate;
   score?: ScoreSummary | null;
 }
 
@@ -52,6 +69,11 @@ export interface BuiltPrompts {
   system: string;
   user: string;
   maxChars: number;
+}
+
+/** BuiltPrompts plus the skeleton that was actually followed. */
+export interface PromptBuild extends BuiltPrompts {
+  template: SelectedTemplate;
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -116,8 +138,13 @@ export const HARD_RULES: readonly string[] = [
   'Ask exactly one clarifying question, and make it specific to this brief.',
 ];
 
-export function buildSystemPrompt(profile: DraftProfile): string {
-  const tone = normalizeTone(profile.proposalTone);
+/**
+ * `tone` overrides the profile's, so an operator template written in one voice
+ * is not narrated in another. Built-in skeletons are picked by profile tone, so
+ * passing theirs changes nothing.
+ */
+export function buildSystemPrompt(profile: DraftProfile, tone?: ProposalTone | null): string {
+  const resolvedTone = tone ?? normalizeTone(profile.proposalTone);
   const language = languageName(profile.proposalLanguage);
   const maxChars = resolveMaxChars(profile);
 
@@ -125,7 +152,7 @@ export function buildSystemPrompt(profile: DraftProfile): string {
     'You write Upwork proposals for one specific freelancer. You are writing as that freelancer, in the first person.',
     'A proposal that wins is specific about the client problem, honest about the plan, and short.',
     '',
-    `Tone: ${tone}. ${TONE_GUIDANCE[tone] ?? TONE_GUIDANCE.professional}`,
+    `Tone: ${resolvedTone}. ${TONE_GUIDANCE[resolvedTone] ?? TONE_GUIDANCE.professional}`,
     `Language: write the cover letter and all answers in ${language}.`,
     `Length: the cover letter must be under ${maxChars} characters including whitespace. Shorter is better.`,
     '',
@@ -284,13 +311,24 @@ function scoreSection(score: ScoreSummary | null | undefined): string {
   return lines.filter((line) => line !== '').join('\n');
 }
 
-function templateSection(template: ProposalTemplate): string {
-  return [
+function templateSection(template: SelectedTemplate): string {
+  const origin = template.source === 'db' ? 'operator template' : 'built-in structure';
+  const lines = [
     '<skeleton>',
-    `Structure to follow (${template.label}). Keep the order and the intent of each block, replace every {{slot}} with real content, and rewrite the wording so it reads naturally for this brief:`,
-    templateSkeleton(template),
-    '</skeleton>',
-  ].join('\n');
+    `Structure to follow (${truncate(template.name, MAX_TEMPLATE_NAME_CHARS)}, ${origin}). Keep the order and the intent of each block, and rewrite the wording so it reads naturally for this brief:`,
+    truncate(template.body, MAX_SKELETON_CHARS),
+  ];
+
+  if (template.variables.length > 0) {
+    lines.push(
+      `Replace every slot with real content drawn from the sections above: ${template.variables
+        .map((name) => `{{${name}}}`)
+        .join(', ')}. No {{...}} may survive into the output.`,
+    );
+  }
+
+  lines.push('</skeleton>');
+  return lines.join('\n');
 }
 
 function questionsSection(job: DraftJob): string {
@@ -324,7 +362,29 @@ export const RESPONSE_CONTRACT = [
   '</output>',
 ].join('\n');
 
-export function buildUserPrompt(ctx: PromptContext): string {
+function isSelected(template: ProposalTemplate | SelectedTemplate): template is SelectedTemplate {
+  return 'source' in template;
+}
+
+/**
+ * Building a prompt around a stored template is the one moment we know it was
+ * used, so the counter is stamped here: one prompt is one drafting attempt.
+ * Built-in ids are not rows and are left alone.
+ */
+function recordSelection(template: SelectedTemplate): SelectedTemplate {
+  if (template.source === 'db' && template.id !== undefined) recordTemplateUse(template.id);
+  return template;
+}
+
+/** The skeleton this prompt is built around. */
+function resolveTemplate(ctx: PromptContext): SelectedTemplate {
+  if (isSelected(ctx.template)) return recordSelection(ctx.template);
+  return recordSelection(selectTemplateCached(ctx.job, ctx.profile, ctx.score?.score));
+}
+
+type PromptInput = Omit<PromptContext, 'template'>;
+
+function renderUserPrompt(ctx: PromptInput, template: SelectedTemplate): string {
   const maxChars = resolveMaxChars(ctx.profile);
   const sections = [
     freelancerSection(ctx.profile),
@@ -332,7 +392,7 @@ export function buildUserPrompt(ctx: PromptContext): string {
     clientSection(ctx.job),
     scoreSection(ctx.score),
     pricingSection(ctx.bid, ctx.profile),
-    templateSection(ctx.template),
+    templateSection(template),
     questionsSection(ctx.job),
     `Write the proposal now. Hard limit: ${maxChars} characters for coverLetter.`,
     RESPONSE_CONTRACT,
@@ -341,10 +401,32 @@ export function buildUserPrompt(ctx: PromptContext): string {
   return sections.filter((section) => section !== '').join('\n\n');
 }
 
+export function buildUserPrompt(ctx: PromptContext): string {
+  return renderUserPrompt(ctx, resolveTemplate(ctx));
+}
+
 export function buildPrompts(ctx: PromptContext): BuiltPrompts {
+  const template = resolveTemplate(ctx);
   return {
-    system: buildSystemPrompt(ctx.profile),
-    user: buildUserPrompt(ctx),
+    system: buildSystemPrompt(ctx.profile, template.tone),
+    user: renderUserPrompt(ctx, template),
     maxChars: resolveMaxChars(ctx.profile),
+  };
+}
+
+/**
+ * Awaits the template table instead of reading whatever the cache already
+ * holds, so the very first draft after a boot also sees the operator's
+ * templates. Returns the selection alongside the prompts because the caller
+ * records which skeleton the finished proposal was written against.
+ */
+export async function buildPromptsForJob(ctx: PromptInput): Promise<PromptBuild> {
+  const template = recordSelection(await selectTemplate(ctx.job, ctx.profile, ctx.score?.score));
+
+  return {
+    system: buildSystemPrompt(ctx.profile, template.tone),
+    user: renderUserPrompt(ctx, template),
+    maxChars: resolveMaxChars(ctx.profile),
+    template,
   };
 }

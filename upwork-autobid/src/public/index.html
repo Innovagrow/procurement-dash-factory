@@ -44,7 +44,9 @@
         </a>
         <a class="tab" href="#/jobs" data-route="#/jobs">Jobs</a>
         <a class="tab" href="#/profiles" data-route="#/profiles">Profiles</a>
-        <a class="tab" href="#/settings" data-route="#/settings">Status</a>
+        <a class="tab" href="#/templates" data-route="#/templates">Templates</a>
+        <a class="tab" href="#/settings" data-route="#/settings">Settings</a>
+        <a class="tab" href="#/status" data-route="#/status">Status</a>
       </nav>
     </header>
 
@@ -184,16 +186,54 @@
         </div>
       </section>
 
+      <!-- ------------------------------------------------------- TEMPLATES -->
+      <section class="view" id="view-templates" hidden aria-labelledby="templates-heading">
+        <div class="view-head">
+          <h1 id="templates-heading" class="view-title">Proposal templates</h1>
+          <div class="view-tools">
+            <span class="muted" id="templates-summary">&mdash;</span>
+            <button class="btn btn-sm btn-primary" id="template-new" type="button">New template</button>
+            <button class="btn btn-sm btn-ghost" id="templates-reload" type="button">Reload</button>
+          </div>
+        </div>
+        <div class="templates-layout">
+          <aside class="template-list" id="template-list" aria-label="Templates"></aside>
+          <div class="template-split">
+            <div class="template-editor" id="template-form-host"></div>
+            <div class="template-preview" id="template-preview-host"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- -------------------------------------------------------- SETTINGS -->
       <section class="view" id="view-settings" hidden aria-labelledby="settings-heading">
         <div class="view-head">
-          <h1 id="settings-heading" class="view-title">Status</h1>
+          <h1 id="settings-heading" class="view-title">Connections</h1>
           <div class="view-tools">
-            <button class="btn btn-sm btn-ghost" id="settings-reload" type="button">Refresh</button>
+            <button class="btn btn-sm btn-ghost" id="connections-reload" type="button">Reload</button>
+          </div>
+        </div>
+        <div id="settings-source-strip"></div>
+        <div class="grid-2">
+          <div id="settings-imap-host"></div>
+          <div>
+            <div id="settings-notify-host"></div>
+            <div class="conn-results" id="settings-notify-result"></div>
+          </div>
+        </div>
+        <div class="conn-results" id="settings-diag-host"></div>
+      </section>
+
+      <!-- ---------------------------------------------------------- STATUS -->
+      <section class="view" id="view-status" hidden aria-labelledby="status-heading">
+        <div class="view-head">
+          <h1 id="status-heading" class="view-title">Status</h1>
+          <div class="view-tools">
+            <button class="btn btn-sm btn-ghost" id="status-reload" type="button">Refresh</button>
             <button class="btn btn-sm btn-ghost" id="logout-btn" type="button">Sign out</button>
           </div>
         </div>
-        <div id="settings-host"></div>
+        <div id="status-host"></div>
       </section>
     </main>
 

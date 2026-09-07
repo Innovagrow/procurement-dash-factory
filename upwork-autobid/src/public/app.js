@@ -14,7 +14,7 @@
   var POLL_MS = 15000;
   var REFRESH_MS = 30000;
 
-  var ROUTES = ['#/live', '#/queue', '#/jobs', '#/profiles', '#/settings'];
+  var ROUTES = ['#/live', '#/queue', '#/jobs', '#/profiles', '#/templates', '#/settings', '#/status'];
   var DEFAULT_ROUTE = '#/live';
 
   /* Every event name the API is known to publish, plus the short aliases the
@@ -49,6 +49,12 @@
     'profile.updated',
     'profile.deleted',
     'profile.toggled',
+    'template.created',
+    'template.updated',
+    'template.deleted',
+    'template.toggled',
+    'template.default',
+    'settings.updated',
     'inbox.received',
     'heartbeat'
   ];
@@ -69,6 +75,35 @@
     'experienceFit',
     'llmRerank'
   ];
+  /* The closed vocabulary the drafter can fill. The preview endpoint returns
+     the authoritative list; this is what the chips fall back to before the
+     first preview comes back. */
+  var TEMPLATE_SLOTS = [
+    'jobTitle',
+    'focus',
+    'primarySkill',
+    'proofPoint',
+    'planStep1',
+    'planStep2',
+    'planStep3',
+    'clarifyingQuestion',
+    'availability',
+    'priceLine'
+  ];
+
+  /* Mirrors SLOT_PATTERN in src/proposals/templates.ts. Kept in step so the
+     chips in the editor name exactly the slots the server will resolve. */
+  var SLOT_PATTERN = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+
+  /* Host and port only. Every one of these providers wants an app password
+     rather than the account password, which the card says out loud. */
+  var IMAP_PRESETS = [
+    { id: 'gmail', label: 'Gmail', host: 'imap.gmail.com', port: 993 },
+    { id: 'outlook', label: 'Outlook', host: 'outlook.office365.com', port: 993 },
+    { id: 'yahoo', label: 'Yahoo', host: 'imap.mail.yahoo.com', port: 993 },
+    { id: 'icloud', label: 'iCloud', host: 'imap.mail.me.com', port: 993 }
+  ];
+
   var DEFAULT_WEIGHTS = {
     keywordMatch: 18,
     skillMatch: 18,
@@ -287,6 +322,40 @@
       filters: { q: '', status: '', decision: '', profileId: '', minScore: 0 }
     },
     profileView: { selectedId: null, draft: null, formKey: '', saving: false, testing: false, test: null },
+    templateView: {
+      items: [],
+      loading: false,
+      error: null,
+      totalUses: 0,
+      selectedId: null,
+      draft: null,
+      formKey: '',
+      saving: false,
+      jobs: [],
+      jobId: '',
+      formError: null,
+      preview: null,
+      previewing: false,
+      previewError: null
+    },
+    connView: {
+      loaded: false,
+      loading: false,
+      error: null,
+      settings: null,
+      channels: [],
+      imap: null,
+      notify: null,
+      formKey: '',
+      savingImap: false,
+      savingNotify: false,
+      testing: false,
+      test: null,
+      previewing: false,
+      preview: null,
+      notifyTesting: false,
+      notifyTest: null
+    },
     pendingCount: 0
   };
 
@@ -311,7 +380,9 @@
     if (sections.queue) Queue.render();
     if (sections.jobs) Jobs.render();
     if (sections.profiles) Profiles.render();
+    if (sections.templates) Templates.render();
     if (sections.settings) Settings.render();
+    if (sections.status) Status.render();
   }
 
   /* ===================================================================== api */
@@ -490,6 +561,51 @@
     },
     oauthDisconnect: function () {
       return request('/oauth/upwork/disconnect', { method: 'POST' });
+    },
+    templates: function () {
+      return request('/templates');
+    },
+    createTemplate: function (body) {
+      return request('/templates', { method: 'POST', body: body });
+    },
+    updateTemplate: function (id, body) {
+      return request('/templates/' + encodeURIComponent(id), { method: 'PUT', body: body });
+    },
+    deleteTemplate: function (id) {
+      return request('/templates/' + encodeURIComponent(id), { method: 'DELETE' });
+    },
+    duplicateTemplate: function (id) {
+      return request('/templates/' + encodeURIComponent(id) + '/duplicate', { method: 'POST', body: {} });
+    },
+    toggleTemplate: function (id, isActive) {
+      return request('/templates/' + encodeURIComponent(id) + '/toggle', {
+        method: 'POST',
+        body: isActive === undefined ? {} : { isActive: isActive }
+      });
+    },
+    defaultTemplate: function (id) {
+      return request('/templates/' + encodeURIComponent(id) + '/default', { method: 'POST', body: {} });
+    },
+    previewTemplate: function (body) {
+      return request('/templates/preview', { method: 'POST', body: body, timeout: 15000 });
+    },
+    settings: function () {
+      return request('/settings');
+    },
+    saveImap: function (body) {
+      return request('/settings/imap', { method: 'PUT', body: body });
+    },
+    testImap: function (body) {
+      return request('/settings/imap/test', { method: 'POST', body: body, timeout: 45000 });
+    },
+    previewImap: function (body) {
+      return request('/settings/imap/preview', { method: 'POST', body: body, timeout: 60000 });
+    },
+    saveNotify: function (body) {
+      return request('/settings/notify', { method: 'PUT', body: body });
+    },
+    testNotify: function (body) {
+      return request('/settings/notify/test', { method: 'POST', body: body, timeout: 45000 });
     }
   };
 
@@ -2790,11 +2906,1736 @@
     }
   };
 
-  /* ============================================================ settings view */
+  /* =========================================================== templates view */
+
+  var TEMPLATE_FIELDS = [
+    { key: 'name', type: 'text', label: 'Name', required: true },
+    { key: 'description', type: 'text', label: 'Description' },
+    { key: 'tone', type: 'select', label: 'Tone', options: PROPOSAL_TONES },
+    { key: 'minScore', type: 'number', label: 'Minimum score to use it', nullable: true, step: 1 },
+    { key: 'jobTypes', type: 'multi', label: 'Job types (none ticked means any)', options: JOB_TYPES },
+    { key: 'categories', type: 'list', label: 'Categories (blank means any)', span: true },
+    { key: 'notes', type: 'textarea', label: 'Notes to yourself (never sent to the client)', span: true }
+  ];
+
+  /* A starting point that already uses the slots the drafter knows how to fill,
+     so a new template previews as a real letter instead of an empty box. */
+  var STARTER_BODY = [
+    'Hi — {{focus}} is the part of this I would start with.',
+    '',
+    '{{proofPoint}}',
+    '',
+    'How I would run it:',
+    '1. {{planStep1}}',
+    '2. {{planStep2}}',
+    '3. {{planStep3}}',
+    '',
+    'One thing I would want to pin down first: {{clarifyingQuestion}}',
+    '',
+    '{{availability}} {{priceLine}}'
+  ].join('\n');
+
+  function defaultTemplate() {
+    return {
+      name: '',
+      description: '',
+      jobTypes: [],
+      tone: 'professional',
+      categories: [],
+      minScore: null,
+      body: STARTER_BODY,
+      variables: slotsIn(STARTER_BODY),
+      notes: ''
+    };
+  }
+
+  function draftFromTemplate(template) {
+    var draft = defaultTemplate();
+    if (!template) return draft;
+    draft.name = template.name || '';
+    draft.description = template.description === null || template.description === undefined ? '' : template.description;
+    draft.jobTypes = asArray(template.jobTypes);
+    draft.tone = template.tone || 'professional';
+    draft.categories = asArray(template.categories);
+    draft.minScore = typeof template.minScore === 'number' ? template.minScore : null;
+    draft.body = template.body || '';
+    draft.variables = asArray(template.variables);
+    draft.notes = template.notes === null || template.notes === undefined ? '' : template.notes;
+    return draft;
+  }
+
+  /* Same grammar the server uses, so the chips name exactly the slots it will
+     try to resolve. The regex is global, so lastIndex has to be reset. */
+  function slotsIn(text) {
+    var source = typeof text === 'string' ? text : '';
+    var found = [];
+    SLOT_PATTERN.lastIndex = 0;
+    var match = SLOT_PATTERN.exec(source);
+    while (match !== null) {
+      if (found.indexOf(match[1]) < 0) found.push(match[1]);
+      match = SLOT_PATTERN.exec(source);
+    }
+    return found;
+  }
+
+  function highlightSlots(text) {
+    /* esc() first: the pattern below only ever matches braces, whitespace and
+       [A-Za-z0-9_], none of which esc() rewrites, so the marks land correctly. */
+    return esc(text).replace(/\{\{\s*[a-zA-Z0-9_]+\s*\}\}/g, function (match) {
+      return '<mark class="slot-open">' + match + '</mark>';
+    });
+  }
+
+  var Templates = {
+    previewTimer: null,
+    previewSeq: 0,
+
+    init: function () {
+      $('#template-new').addEventListener('click', function () {
+        state.templateView.selectedId = null;
+        state.templateView.draft = defaultTemplate();
+        state.templateView.formKey = 'new:' + Date.now();
+        state.templateView.formError = null;
+        state.templateView.preview = null;
+        state.templateView.previewError = null;
+        markDirty('templates');
+        Templates.schedulePreview();
+      });
+
+      $('#templates-reload').addEventListener('click', function () {
+        Templates.load();
+        Templates.loadJobs();
+      });
+
+      $('#template-list').addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-id]');
+        if (!button) return;
+        Templates.select(button.getAttribute('data-id'));
+      });
+
+      var host = $('#template-form-host');
+
+      host.addEventListener('submit', function (event) {
+        event.preventDefault();
+        Templates.save();
+      });
+
+      host.addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-action]');
+        if (!button) return;
+        var action = button.getAttribute('data-action');
+        if (action === 'declare-slot') Templates.declare(button.getAttribute('data-slot'), true);
+        else if (action === 'undeclare-slot') Templates.declare(button.getAttribute('data-slot'), false);
+        else if (action === 'sync-slots') Templates.syncSlots();
+        else if (action === 'duplicate') Templates.duplicate();
+        else if (action === 'make-default') Templates.makeDefault();
+        else if (action === 'toggle') Templates.toggle();
+        else if (action === 'delete') Templates.remove();
+        else if (action === 'revert') {
+          state.templateView.draft = draftFromTemplate(Templates.selected());
+          state.templateView.formKey = 'revert:' + Date.now();
+          state.templateView.formError = null;
+          markDirty('templates');
+          Templates.schedulePreview();
+        }
+      });
+
+      host.addEventListener('input', function (event) {
+        var field = event.target;
+        var key = field.getAttribute('data-key');
+        if (!key) return;
+        Templates.readField(field, key);
+        if (key === 'body' || key === 'variables') {
+          Templates.renderSlots();
+          Templates.schedulePreview();
+        }
+      });
+
+      host.addEventListener('change', function (event) {
+        var field = event.target;
+        var key = field.getAttribute('data-key');
+        if (key) Templates.readField(field, key);
+      });
+
+      $('#template-preview-host').addEventListener('change', function (event) {
+        var select = event.target.closest('#template-preview-job');
+        if (!select) return;
+        state.templateView.jobId = select.value;
+        Templates.runPreview();
+      });
+
+      $('#template-preview-host').addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-action="preview-now"]');
+        if (button) Templates.runPreview();
+      });
+    },
+
+    enter: function () {
+      markDirty('templates');
+      if (!state.templateView.loading && state.templateView.items.length === 0) Templates.load();
+      if (state.templateView.jobs.length === 0) Templates.loadJobs();
+    },
+
+    load: function () {
+      state.templateView.loading = true;
+      markDirty('templates');
+      return api
+        .templates()
+        .then(function (data) {
+          state.templateView.loading = false;
+          state.templateView.error = null;
+          state.templateView.items = asArray(data && data.items);
+          state.templateView.totalUses = data && typeof data.totalUses === 'number' ? data.totalUses : 0;
+          /* A template that was deleted elsewhere must not leave a stale editor
+             pointing at an id the server no longer knows. */
+          if (state.templateView.selectedId && !Templates.selected()) {
+            state.templateView.selectedId = null;
+            state.templateView.draft = null;
+            state.templateView.formKey = 'none';
+          }
+          markDirty('templates');
+        })
+        .catch(function (err) {
+          state.templateView.loading = false;
+          state.templateView.error = err.message;
+          markDirty('templates');
+          reportError(err, 'templates');
+        });
+    },
+
+    loadJobs: function () {
+      return api
+        .jobs({ limit: 25 })
+        .then(function (data) {
+          state.templateView.jobs = asArray(data && data.items);
+          markDirty('templates');
+        })
+        .catch(function () {
+          /* The preview falls back to the built-in sample posting. */
+        });
+    },
+
+    selected: function () {
+      var found = null;
+      state.templateView.items.forEach(function (template) {
+        if (template.id === state.templateView.selectedId) found = template;
+      });
+      return found;
+    },
+
+    select: function (id) {
+      state.templateView.selectedId = id;
+      state.templateView.draft = draftFromTemplate(Templates.selected());
+      state.templateView.formKey = 'edit:' + id;
+      state.templateView.formError = null;
+      state.templateView.preview = null;
+      state.templateView.previewError = null;
+      markDirty('templates');
+      Templates.schedulePreview();
+    },
+
+    readField: function (field, key) {
+      var draft = state.templateView.draft;
+      if (!draft) return;
+      var type = field.getAttribute('data-type');
+
+      if (type === 'multi') {
+        var values = [];
+        $$('[data-key="' + key + '"]', $('#template-form-host')).forEach(function (box) {
+          if (box.checked) values.push(box.value);
+        });
+        draft[key] = values;
+        return;
+      }
+
+      if (type === 'list') {
+        draft[key] = field.value
+          .split(/[,\n]/)
+          .map(function (part) {
+            return part.trim();
+          })
+          .filter(function (part) {
+            return part !== '';
+          });
+        return;
+      }
+
+      if (type === 'number') {
+        var raw = field.value.trim();
+        if (raw === '') {
+          draft[key] = field.getAttribute('data-nullable') === 'true' ? null : 0;
+          return;
+        }
+        var parsed = parseFloat(raw);
+        draft[key] = isNaN(parsed) ? null : parsed;
+        return;
+      }
+
+      draft[key] = field.value;
+    },
+
+    /* Adds or removes one declared variable and writes the change straight into
+       the textarea, so the operator does not lose their place in the body. */
+    declare: function (slot, wanted) {
+      var draft = state.templateView.draft;
+      if (!draft || !slot) return;
+      var index = draft.variables.indexOf(slot);
+      if (wanted && index < 0) draft.variables = draft.variables.concat([slot]);
+      else if (!wanted && index >= 0) draft.variables = draft.variables.slice(0, index).concat(draft.variables.slice(index + 1));
+      else return;
+      Templates.writeVariablesField();
+      Templates.renderSlots();
+      Templates.schedulePreview();
+    },
+
+    syncSlots: function () {
+      var draft = state.templateView.draft;
+      if (!draft) return;
+      draft.variables = slotsIn(draft.body);
+      Templates.writeVariablesField();
+      Templates.renderSlots();
+      Templates.schedulePreview();
+    },
+
+    writeVariablesField: function () {
+      var input = $('#tf-variables');
+      if (input) input.value = state.templateView.draft.variables.join(', ');
+    },
+
+    fieldHtml: function (field, draft) {
+      var value = draft[field.key];
+      var id = 'tf-' + field.key;
+      var span = field.span ? ' span-2' : '';
+
+      if (field.type === 'multi') {
+        var chosen = asArray(value);
+        return (
+          '<div class="field' + span + '"><span class="field-label">' +
+          esc(field.label) +
+          '</span><div class="checks">' +
+          field.options
+            .map(function (option) {
+              return (
+                '<label class="check"><input type="checkbox" data-key="' +
+                field.key +
+                '" data-type="multi" value="' +
+                esc(option) +
+                '"' +
+                (chosen.indexOf(option) >= 0 ? ' checked' : '') +
+                ' /><span>' +
+                esc(option) +
+                '</span></label>'
+              );
+            })
+            .join('') +
+          '</div></div>'
+        );
+      }
+
+      if (field.type === 'select') {
+        return (
+          '<label class="field' + span + '"><span class="field-label" for="' + id + '">' +
+          esc(field.label) +
+          '</span><select class="input" id="' + id + '" data-key="' + field.key + '" data-type="select">' +
+          field.options
+            .map(function (option) {
+              return '<option value="' + esc(option) + '"' + (value === option ? ' selected' : '') + '>' + esc(option) + '</option>';
+            })
+            .join('') +
+          '</select></label>'
+        );
+      }
+
+      if (field.type === 'number') {
+        return (
+          '<label class="field' + span + '"><span class="field-label" for="' + id + '">' +
+          esc(field.label) +
+          '</span><input class="input" type="number" inputmode="numeric" min="0" max="100" step="' +
+          (field.step || 'any') +
+          '" id="' + id + '" data-key="' + field.key + '" data-type="number" data-nullable="' +
+          (field.nullable ? 'true' : 'false') +
+          '" value="' +
+          esc(value === null || value === undefined ? '' : value) +
+          '" placeholder="any score" /></label>'
+        );
+      }
+
+      if (field.type === 'textarea') {
+        return (
+          '<label class="field' + span + '"><span class="field-label" for="' + id + '">' +
+          esc(field.label) +
+          '</span><textarea class="textarea" style="min-height:80px" id="' + id + '" data-key="' + field.key + '" data-type="text">' +
+          esc(value === null || value === undefined ? '' : value) +
+          '</textarea></label>'
+        );
+      }
+
+      if (field.type === 'list') {
+        return (
+          '<label class="field' + span + '"><span class="field-label" for="' + id + '">' +
+          esc(field.label) +
+          '</span><textarea class="textarea" style="min-height:64px" id="' + id + '" data-key="' + field.key + '" data-type="list">' +
+          esc(asArray(value).join(', ')) +
+          '</textarea></label>'
+        );
+      }
+
+      return (
+        '<label class="field' + span + '"><span class="field-label" for="' + id + '">' +
+        esc(field.label) +
+        '</span><input class="input" type="text" id="' + id + '" data-key="' + field.key + '" data-type="text" value="' +
+        esc(value === null || value === undefined ? '' : value) +
+        '"' +
+        (field.required ? ' required' : '') +
+        ' /></label>'
+      );
+    },
+
+    /* Chips for every slot in the body plus every declared variable, each
+       carrying the one fact that matters: will the drafter fill it. */
+    slotsHtml: function () {
+      var draft = state.templateView.draft;
+      if (!draft) return '';
+
+      var preview = state.templateView.preview;
+      var known = preview && asArray(preview.knownVariables).length > 0 ? asArray(preview.knownVariables) : TEMPLATE_SLOTS;
+      var used = slotsIn(draft.body);
+      var declared = draft.variables;
+
+      var undeclared = used.filter(function (slot) {
+        return declared.indexOf(slot) < 0;
+      });
+      var unused = declared.filter(function (name) {
+        return used.indexOf(name) < 0;
+      });
+      var unfillable = used.filter(function (slot) {
+        return known.indexOf(slot) < 0;
+      });
+
+      var chips = used
+        .map(function (slot) {
+          if (declared.indexOf(slot) < 0) {
+            return (
+              '<button class="slot" type="button" data-state="bad" data-action="declare-slot" data-slot="' +
+              esc(slot) +
+              '" title="Used in the body but not declared. Click to declare it.">{{' +
+              esc(slot) +
+              '}} <span aria-hidden="true">+</span></button>'
+            );
+          }
+          if (known.indexOf(slot) < 0) {
+            return (
+              '<span class="slot" data-state="warn" title="Declared, but the drafter has no value for this name; it would stay in the letter.">{{' +
+              esc(slot) +
+              '}}</span>'
+            );
+          }
+          return '<span class="slot" data-state="ok">{{' + esc(slot) + '}}</span>';
+        })
+        .concat(
+          unused.map(function (name) {
+            return (
+              '<button class="slot" type="button" data-state="stale" data-action="undeclare-slot" data-slot="' +
+              esc(name) +
+              '" title="Declared but never used in the body. Click to drop it.">' +
+              esc(name) +
+              ' <span aria-hidden="true">&times;</span></button>'
+            );
+          })
+        )
+        .join('');
+
+      var notes = [];
+      if (undeclared.length > 0) {
+        notes.push(
+          undeclared.length + (undeclared.length === 1 ? ' slot is' : ' slots are') + ' not declared. Saving is refused until they are.'
+        );
+      }
+      if (unused.length > 0) {
+        notes.push(unused.length + (unused.length === 1 ? ' variable is' : ' variables are') + ' declared but never used.');
+      }
+      if (unfillable.length > 0) {
+        notes.push(
+          unfillable.join(', ') + (unfillable.length === 1 ? ' is not a name' : ' are not names') + ' the drafter can fill.'
+        );
+      }
+      if (notes.length === 0 && used.length > 0) notes.push('Every slot is declared and the drafter has a value for each.');
+      if (used.length === 0 && unused.length === 0) notes.push('No {{slots}} yet. The letter would go out exactly as written.');
+
+      return (
+        '<div class="slots">' +
+        '<div class="slots-head"><span class="field-label">Slots</span>' +
+        '<button class="btn btn-xs btn-ghost" type="button" data-action="sync-slots">Match variables to body</button></div>' +
+        '<div class="slot-chips">' + (chips || '<span class="muted">none</span>') + '</div>' +
+        '<p class="slot-note' + (undeclared.length > 0 ? ' is-bad' : '') + '">' + esc(notes.join(' ')) + '</p>' +
+        '<p class="hint">The drafter can fill: ' + esc(known.join(', ')) + '.</p>' +
+        '</div>'
+      );
+    },
+
+    renderSlots: function () {
+      var node = $('#template-slots');
+      if (node) setHtml(node, Templates.slotsHtml());
+    },
+
+    formHtml: function () {
+      var draft = state.templateView.draft;
+      if (!draft) {
+        return (
+          '<p class="empty">Pick a template on the left, or make a new one. A template is the skeleton the drafter fills in ' +
+          'before the Claude pass; the slots in it are what gets replaced per job.</p>'
+        );
+      }
+
+      var template = Templates.selected();
+      var isNew = state.templateView.selectedId === null;
+      var saving = state.templateView.saving;
+
+      var about =
+        '<fieldset class="fieldset"><legend class="legend">When this template applies</legend><div class="form-grid">' +
+        TEMPLATE_FIELDS.map(function (field) {
+          return Templates.fieldHtml(field, draft);
+        }).join('') +
+        '</div></fieldset>';
+
+      var body =
+        '<fieldset class="fieldset"><legend class="legend">Letter body</legend>' +
+        '<label class="field"><span class="field-label" for="tf-body">Body &mdash; write {{slots}} where the drafter should fill in</span>' +
+        '<textarea class="textarea mono t-body" id="tf-body" data-key="body" data-type="text" spellcheck="true">' +
+        esc(draft.body) +
+        '</textarea></label>' +
+        '<div id="template-slots">' + Templates.slotsHtml() + '</div>' +
+        '<label class="field mt3"><span class="field-label" for="tf-variables">Declared variables</span>' +
+        '<textarea class="textarea" style="min-height:56px" id="tf-variables" data-key="variables" data-type="list">' +
+        esc(draft.variables.join(', ')) +
+        '</textarea></label>' +
+        '</fieldset>';
+
+      return (
+        '<form id="template-form" autocomplete="off">' +
+        about +
+        body +
+        (state.templateView.formError
+          ? '<p class="form-error">' + esc(state.templateView.formError) + '</p>'
+          : '') +
+        '<div class="form-actions">' +
+        '<button class="btn btn-primary" type="submit"' + (saving ? ' disabled' : '') + '>' +
+        (isNew ? 'Create template' : 'Save changes') +
+        '</button>' +
+        (isNew
+          ? ''
+          : '<button class="btn" type="button" data-action="duplicate">Duplicate</button>' +
+            (template && template.isDefault
+              ? '<button class="btn" type="button" disabled title="This is already the default.">Default</button>'
+              : '<button class="btn" type="button" data-action="make-default">Make default</button>') +
+            '<button class="btn" type="button" data-action="toggle">' +
+            (template && template.isActive ? 'Deactivate' : 'Activate') +
+            '</button>' +
+            '<button class="btn btn-ghost" type="button" data-action="revert">Revert</button>' +
+            '<button class="btn btn-danger" type="button" data-action="delete">Delete</button>') +
+        '</div>' +
+        '</form>' +
+        (isNew
+          ? '<p class="hint">Duplicating, making it the default and deactivating all act on a stored template, so create this one first.</p>'
+          : '')
+      );
+    },
+
+    listHtml: function () {
+      if (state.templateView.loading && state.templateView.items.length === 0) {
+        return '<p class="muted">Loading templates…</p>';
+      }
+      if (state.templateView.error && state.templateView.items.length === 0) {
+        return '<p class="muted">' + esc(state.templateView.error) + '</p>';
+      }
+      if (state.templateView.items.length === 0) {
+        return '<p class="muted">No template yet. The drafter falls back to its built-in letters until you add one.</p>';
+      }
+
+      return state.templateView.items
+        .map(function (template) {
+          var usage = template.usage || {};
+          var applies = asArray(template.jobTypes);
+          var categories = asArray(template.categories);
+          var scope = applies.length > 0 ? applies.join('/') : 'any job type';
+          if (categories.length > 0) {
+            scope += ' · ' + categories.slice(0, 2).join(', ') + (categories.length > 2 ? ' +' + (categories.length - 2) : '');
+          }
+          if (typeof template.minScore === 'number') scope += ' · score ' + template.minScore + '+';
+
+          var badges =
+            (template.isDefault ? '<span class="pill ok">default</span>' : '') +
+            (template.isActive ? '' : '<span class="pill">off</span>');
+
+          var uses =
+            (usage.timesUsed || 0) +
+            (usage.timesUsed === 1 ? ' use' : ' uses') +
+            (typeof usage.sharePercent === 'number' ? ' · ' + usage.sharePercent + '% of drafts' : '');
+
+          return (
+            '<div class="t-item' + (template.id === state.templateView.selectedId ? ' is-active' : '') + '">' +
+            '<button class="t-open" type="button" data-id="' + esc(template.id) + '">' +
+            '<span class="t-name">' + esc(template.name) + badges + '</span>' +
+            '<span class="t-sub">' + esc(template.tone) + ' · ' + esc(scope) + '</span>' +
+            '<span class="t-sub faint">' +
+            esc(uses) +
+            ' · ' +
+            (template.lastUsedAt ? ageSpan(template.lastUsedAt, 'last', 'faint') : 'never used') +
+            '</span>' +
+            '</button></div>'
+          );
+        })
+        .join('');
+    },
+
+    previewHtml: function () {
+      var draft = state.templateView.draft;
+      if (!draft) return '';
+
+      var view = state.templateView;
+      var preview = view.preview;
+
+      var options =
+        '<option value="">Sample posting (built in)</option>' +
+        view.jobs
+          .map(function (job) {
+            var label = job.title || job.id;
+            if (label.length > 70) label = label.slice(0, 69) + '…';
+            return '<option value="' + esc(job.id) + '"' + (job.id === view.jobId ? ' selected' : '') + '>' + esc(label) + '</option>';
+          })
+          .join('');
+
+      var head =
+        '<div class="panel-head"><h3 class="panel-title">Live preview</h3>' +
+        (view.previewing ? '<span class="muted">rendering…</span>' : '') +
+        '<button class="btn btn-xs btn-ghost" type="button" data-action="preview-now">Refresh</button></div>' +
+        '<label class="field"><span class="field-label" for="template-preview-job">Render against</span>' +
+        '<select class="input input-sm" id="template-preview-job">' + options + '</select></label>';
+
+      if (view.previewError) {
+        return '<div class="panel">' + head + '<p class="form-error mt3">' + esc(view.previewError) + '</p></div>';
+      }
+
+      if (!preview) {
+        return (
+          '<div class="panel">' +
+          head +
+          '<p class="empty mt3">The preview renders as you type, against a real posting and your active profile. Nothing is written.</p>' +
+          '</div>'
+        );
+      }
+
+      var unresolved = asArray(preview.unresolved);
+      var limit = Templates.charLimit(preview);
+      var count = typeof preview.charCount === 'number' ? preview.charCount : 0;
+      var counterClass = count > limit ? 'counter over' : count > limit * 0.9 ? 'counter near' : 'counter';
+
+      var against = preview.sample
+        ? 'the built-in sample posting'
+        : preview.job
+          ? preview.job.title
+          : 'a stored posting';
+      var profileName = preview.profile ? preview.profile.name : 'the sample profile';
+
+      return (
+        '<div class="panel">' +
+        head +
+        '<p class="hint mt2">Against ' + esc(against) + ', as ' + esc(profileName) + '.</p>' +
+        '<div class="preview-letter mt2">' + highlightSlots(preview.rendered || '') + '</div>' +
+        '<div class="' + counterClass + '"><span><b>' + count + '</b> / ' + limit + ' characters</span>' +
+        '<span>' +
+        (unresolved.length === 0 ? 'every slot filled' : unresolved.length + ' unfilled') +
+        '</span></div>' +
+        (count > limit
+          ? '<p class="hint">Over the cover letter limit on ' + esc(profileName) + '. The drafter trims, but it trims blind.</p>'
+          : '') +
+        (unresolved.length > 0
+          ? '<div class="mt3"><span class="field-label">Left unfilled</span><div class="slot-chips mt2">' +
+            unresolved
+              .map(function (slot) {
+                return '<span class="slot" data-state="bad">{{' + esc(slot) + '}}</span>';
+              })
+              .join('') +
+            '</div><p class="hint">These stay in the letter as written. Rename them to a slot the drafter fills, or drop them.</p></div>'
+          : '') +
+        '</div>'
+      );
+    },
+
+    /* The preview is rendered against a stored profile, so the character budget
+       is that profile's, not a constant. */
+    charLimit: function (preview) {
+      var fallback = 1500;
+      if (!preview || !preview.profile) return fallback;
+      var limit = fallback;
+      state.profiles.forEach(function (profile) {
+        if (profile.id === preview.profile.id && typeof profile.proposalMaxChars === 'number') {
+          limit = profile.proposalMaxChars;
+        }
+      });
+      return limit;
+    },
+
+    render: function () {
+      var list = $('#template-list');
+      if (!list) return;
+      setHtml(list, Templates.listHtml());
+
+      var summary = $('#templates-summary');
+      if (summary) {
+        var items = state.templateView.items;
+        var active = items.filter(function (template) {
+          return template.isActive;
+        }).length;
+        summary.textContent = items.length === 0 ? '—' : items.length + ' templates · ' + active + ' active · ' + state.templateView.totalUses + ' drafts';
+      }
+
+      var host = $('#template-form-host');
+      var key =
+        state.templateView.formKey + '|' + (state.templateView.saving ? 's' : '-') + '|' + (state.templateView.formError || '');
+      if (host.getAttribute('data-key') !== key) {
+        host.setAttribute('data-key', key);
+        setHtml(host, Templates.formHtml());
+      }
+
+      setHtml($('#template-preview-host'), Templates.previewHtml());
+    },
+
+    schedulePreview: function () {
+      if (Templates.previewTimer) window.clearTimeout(Templates.previewTimer);
+      Templates.previewTimer = window.setTimeout(function () {
+        Templates.previewTimer = null;
+        Templates.runPreview();
+      }, 600);
+    },
+
+    runPreview: function () {
+      var draft = state.templateView.draft;
+      if (!draft) return;
+      if (draft.body.trim() === '') {
+        state.templateView.preview = null;
+        state.templateView.previewError = 'Write a body to preview it.';
+        markDirty('templates');
+        return;
+      }
+
+      var body = { body: draft.body, variables: draft.variables };
+      if (state.templateView.jobId) body.jobId = state.templateView.jobId;
+
+      Templates.previewSeq += 1;
+      var seq = Templates.previewSeq;
+      state.templateView.previewing = true;
+      markDirty('templates');
+
+      api
+        .previewTemplate(body)
+        .then(function (data) {
+          if (seq !== Templates.previewSeq) return;
+          state.templateView.previewing = false;
+          state.templateView.preview = data;
+          state.templateView.previewError = null;
+          markDirty('templates');
+        })
+        .catch(function (err) {
+          if (seq !== Templates.previewSeq) return;
+          state.templateView.previewing = false;
+          state.templateView.previewError = err.message;
+          markDirty('templates');
+        });
+    },
+
+    payload: function () {
+      var draft = state.templateView.draft;
+      return {
+        name: draft.name.trim(),
+        description: draft.description.trim() === '' ? null : draft.description.trim(),
+        jobTypes: draft.jobTypes,
+        tone: draft.tone,
+        categories: draft.categories,
+        minScore: draft.minScore === null || draft.minScore === undefined ? null : Math.round(draft.minScore),
+        body: draft.body,
+        variables: draft.variables,
+        notes: draft.notes.trim() === '' ? null : draft.notes.trim()
+      };
+    },
+
+    validate: function () {
+      var draft = state.templateView.draft;
+      if (draft.name.trim() === '') return 'a template needs a name';
+      if (draft.body.trim() === '') return 'a template needs a body';
+
+      var used = slotsIn(draft.body);
+      var undeclared = used.filter(function (slot) {
+        return draft.variables.indexOf(slot) < 0;
+      });
+      if (undeclared.length > 0) {
+        return 'declare ' + undeclared.join(', ') + ' first, or use "Match variables to body"';
+      }
+      var unused = draft.variables.filter(function (name) {
+        return used.indexOf(name) < 0;
+      });
+      if (unused.length > 0) {
+        return unused.join(', ') + ' is declared but never used in the body';
+      }
+      return null;
+    },
+
+    save: function () {
+      var problem = Templates.validate();
+      if (problem) {
+        state.templateView.formError = problem;
+        markDirty('templates');
+        return;
+      }
+
+      state.templateView.formError = null;
+      state.templateView.saving = true;
+      markDirty('templates');
+
+      var id = state.templateView.selectedId;
+      var body = Templates.payload();
+      var work = id ? api.updateTemplate(id, body) : api.createTemplate(body);
+
+      work
+        .then(function (data) {
+          state.templateView.saving = false;
+          toast(id ? 'template saved' : 'template created', 'success');
+          return Templates.load().then(function () {
+            if (!id && data && data.template) Templates.select(data.template.id);
+            else markDirty('templates');
+          });
+        })
+        .catch(function (err) {
+          state.templateView.saving = false;
+          state.templateView.formError = err.message;
+          markDirty('templates');
+          reportError(err, 'saving the template');
+        });
+    },
+
+    duplicate: function () {
+      var id = state.templateView.selectedId;
+      if (!id) return;
+      api
+        .duplicateTemplate(id)
+        .then(function (data) {
+          toast('template duplicated', 'success');
+          return Templates.load().then(function () {
+            if (data && data.template) Templates.select(data.template.id);
+          });
+        })
+        .catch(function (err) {
+          reportError(err, 'duplicating the template');
+        });
+    },
+
+    makeDefault: function () {
+      var id = state.templateView.selectedId;
+      if (!id) return;
+      api
+        .defaultTemplate(id)
+        .then(function (data) {
+          toast((data && data.template ? data.template.name : 'template') + ' is the default now', 'success');
+          return Templates.load();
+        })
+        .catch(function (err) {
+          reportError(err, 'setting the default template');
+        });
+    },
+
+    toggle: function () {
+      var id = state.templateView.selectedId;
+      if (!id) return;
+      api
+        .toggleTemplate(id)
+        .then(function (data) {
+          if (data && data.template) {
+            toast(data.template.name + ' is now ' + (data.template.isActive ? 'active' : 'inactive'), 'success');
+          }
+          return Templates.load();
+        })
+        .catch(function (err) {
+          reportError(err, 'toggling the template');
+        });
+    },
+
+    remove: function () {
+      var id = state.templateView.selectedId;
+      if (!id) return;
+      var template = Templates.selected();
+      var name = template ? template.name : id;
+      if (!window.confirm('Delete the template "' + name + '"? Drafts already written keep their text; nothing else uses it again.')) return;
+
+      api
+        .deleteTemplate(id)
+        .then(function () {
+          toast('template deleted', 'success');
+          state.templateView.selectedId = null;
+          state.templateView.draft = null;
+          state.templateView.formKey = 'none';
+          state.templateView.preview = null;
+          return Templates.load();
+        })
+        .catch(function (err) {
+          reportError(err, 'deleting the template');
+        });
+    }
+  };
+
+  /* ========================================================= connections view */
+
+  var IMAP_STAGES = [
+    { id: 'connect', label: 'Reach the server' },
+    { id: 'auth', label: 'Sign in' },
+    { id: 'mailbox', label: 'Open the mailbox' },
+    { id: 'search', label: 'Find alert mail' },
+    { id: 'parse', label: 'Read a message' }
+  ];
+
+  var IMAP_STAGE_HELP = {
+    connect:
+      'The mail server did not answer. Check the host and port, and that this box is allowed to make outbound IMAP connections.',
+    auth: 'The server refused the sign-in. Check the user name, and use an app password rather than your account password.',
+    mailbox: 'Signed in, but that mailbox could not be opened. Check the mailbox name — it is case sensitive on most servers.',
+    search: 'Signed in and the mailbox opened, but searching it failed. Try a different mailbox.',
+    parse: 'A message was found but could not be read. The alert may be in an unusual format.',
+    done: 'The connection failed after the checks had run.'
+  };
+
+  function sourceLabel(source) {
+    if (source === 'db') return 'dashboard';
+    if (source === 'env') return 'environment';
+    return 'not set';
+  }
+
+  function sourcePill(source) {
+    var klass = source === 'db' ? 'pill ok' : source === 'env' ? 'pill warn' : 'pill';
+    return '<span class="' + klass + '">' + esc(sourceLabel(source)) + '</span>';
+  }
+
+  /* "client.totalSpent" reads as "client total spent". The API speaks in RawJob
+     field paths; the operator should not have to. */
+  function prettyField(path) {
+    return String(path)
+      .replace(/^client\./, 'client ')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .toLowerCase();
+  }
+
+  function imapDraftFrom(config) {
+    var imap = config && config.imap ? config.imap : {};
+    return {
+      host: typeof imap.host === 'string' ? imap.host : '',
+      port: typeof imap.port === 'number' ? imap.port : 993,
+      user: typeof imap.user === 'string' ? imap.user : '',
+      password: '',
+      mailbox: typeof imap.mailbox === 'string' && imap.mailbox !== '' ? imap.mailbox : 'INBOX',
+      searchFrom: typeof imap.searchFrom === 'string' ? imap.searchFrom : '',
+      tls: imap.tls !== false
+    };
+  }
+
+  function notifyDraftFrom(config) {
+    var notify = config && config.notify ? config.notify : {};
+    return {
+      telegramBotToken: '',
+      telegramChatId: typeof notify.telegramChatId === 'string' ? notify.telegramChatId : '',
+      slackWebhookUrl: ''
+    };
+  }
 
   var Settings = {
     init: function () {
-      $('#settings-reload').addEventListener('click', function () {
+      $('#connections-reload').addEventListener('click', function () {
+        Settings.load();
+      });
+
+      var imapHost = $('#settings-imap-host');
+
+      imapHost.addEventListener('submit', function (event) {
+        event.preventDefault();
+        Settings.saveImap();
+      });
+
+      imapHost.addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-action]');
+        if (!button) return;
+        var action = button.getAttribute('data-action');
+        if (action === 'preset') Settings.applyPreset(button.getAttribute('data-preset'));
+        else if (action === 'test-imap') Settings.testImap();
+        else if (action === 'preview-imap') Settings.previewImap();
+        else if (action === 'clear-imap-password') Settings.clearSecret('imap', 'password');
+      });
+
+      imapHost.addEventListener('input', function (event) {
+        var field = event.target;
+        var key = field.getAttribute('data-key');
+        if (key) Settings.readField(state.connView.imap, field, key);
+      });
+
+      imapHost.addEventListener('change', function (event) {
+        var field = event.target;
+        var key = field.getAttribute('data-key');
+        if (key) Settings.readField(state.connView.imap, field, key);
+      });
+
+      var notifyHost = $('#settings-notify-host');
+
+      notifyHost.addEventListener('submit', function (event) {
+        event.preventDefault();
+        Settings.saveNotify();
+      });
+
+      notifyHost.addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-action]');
+        if (!button) return;
+        var action = button.getAttribute('data-action');
+        if (action === 'test-notify') Settings.testNotify(button.getAttribute('data-channel'));
+        else if (action === 'clear-telegram-token') Settings.clearSecret('notify', 'telegramBotToken');
+        else if (action === 'clear-slack-webhook') Settings.clearSecret('notify', 'slackWebhookUrl');
+      });
+
+      notifyHost.addEventListener('input', function (event) {
+        var field = event.target;
+        var key = field.getAttribute('data-key');
+        if (key) Settings.readField(state.connView.notify, field, key);
+      });
+    },
+
+    enter: function () {
+      markDirty('settings');
+      if (!state.connView.loaded && !state.connView.loading) Settings.load();
+    },
+
+    load: function () {
+      state.connView.loading = true;
+      markDirty('settings');
+      return api
+        .settings()
+        .then(function (data) {
+          Settings.adopt(data && data.settings, data && data.channels);
+          state.connView.loading = false;
+          state.connView.error = null;
+          markDirty('settings');
+        })
+        .catch(function (err) {
+          state.connView.loading = false;
+          state.connView.error = err.message;
+          markDirty('settings');
+          reportError(err, 'settings');
+        });
+    },
+
+    /* Replaces the drafts from a server response. Secrets always come back
+       masked, so the inputs stay empty and the mask becomes the placeholder. */
+    adopt: function (settings, channels) {
+      if (!settings) return;
+      state.connView.settings = settings;
+      if (channels) state.connView.channels = asArray(channels);
+      state.connView.imap = imapDraftFrom(settings);
+      state.connView.notify = notifyDraftFrom(settings);
+      state.connView.loaded = true;
+      state.connView.formKey = 'loaded:' + Date.now();
+    },
+
+    readField: function (draft, field, key) {
+      if (!draft) return;
+      var type = field.getAttribute('data-type');
+      if (type === 'bool') draft[key] = field.checked;
+      else if (type === 'number') {
+        var raw = field.value.trim();
+        if (raw === '') draft[key] = null;
+        else {
+          var parsed = parseInt(raw, 10);
+          draft[key] = isNaN(parsed) ? null : parsed;
+        }
+      } else draft[key] = field.value;
+    },
+
+    applyPreset: function (id) {
+      var preset = null;
+      IMAP_PRESETS.forEach(function (candidate) {
+        if (candidate.id === id) preset = candidate;
+      });
+      if (!preset) return;
+
+      var draft = state.connView.imap;
+      draft.host = preset.host;
+      draft.port = preset.port;
+      draft.tls = true;
+
+      /* Written straight into the DOM so the rest of the form, including a
+         half-typed password, is left exactly as it was. */
+      var hostField = $('#im-host');
+      var portField = $('#im-port');
+      var tlsField = $('#im-tls');
+      if (hostField) hostField.value = preset.host;
+      if (portField) portField.value = String(preset.port);
+      if (tlsField) tlsField.checked = true;
+      toast(preset.label + ' server filled in — the password must be an app password', 'info', 5000);
+    },
+
+    sourceStripHtml: function () {
+      var settings = state.connView.settings;
+      if (!settings) return '';
+      var channels = state.connView.channels.filter(function (channel) {
+        return channel.active;
+      });
+      return (
+        '<div class="src-strip">' +
+        '<span class="src-item"><span class="src-k">Mail</span>' + sourcePill(settings.imap.source) + '</span>' +
+        '<span class="src-item"><span class="src-k">Notifications</span>' + sourcePill(settings.notify.source) + '</span>' +
+        '<span class="src-item"><span class="src-k">Watching</span>' +
+        (settings.imap.enabled ? '<span class="pill ok">on</span>' : '<span class="pill">off</span>') +
+        '</span>' +
+        '<span class="src-item"><span class="src-k">Delivering to</span><span class="muted">' +
+        esc(
+          channels.length > 0
+            ? channels
+                .map(function (channel) {
+                  return channel.name;
+                })
+                .join(', ')
+            : 'nothing yet'
+        ) +
+        '</span></span>' +
+        '<span class="src-item muted">Dashboard values win over environment variables; blank a field to fall back.</span>' +
+        '</div>'
+      );
+    },
+
+    imapHtml: function () {
+      var view = state.connView;
+      if (!view.settings) {
+        return '<div class="panel"><p class="empty">' + esc(view.error || 'Reading the saved connection…') + '</p></div>';
+      }
+
+      var draft = view.imap;
+      var stored = view.settings.imap;
+      var busy = view.savingImap || view.testing || view.previewing;
+
+      var presets = IMAP_PRESETS.map(function (preset) {
+        return (
+          '<button class="btn btn-xs" type="button" data-action="preset" data-preset="' +
+          esc(preset.id) +
+          '">' +
+          esc(preset.label) +
+          '</button>'
+        );
+      }).join('');
+
+      return (
+        '<form class="panel" id="imap-form" autocomplete="off">' +
+        '<div class="panel-head"><h3 class="panel-title">Mail (IMAP)</h3>' + sourcePill(stored.source) + '</div>' +
+        '<div class="row">' + presets + '</div>' +
+        '<p class="hint mt2">Gmail, Outlook, Yahoo and iCloud all reject your account password over IMAP. Create an app password in your account security settings and paste that.</p>' +
+        '<div class="form-grid mt3">' +
+        '<label class="field span-2"><span class="field-label" for="im-host">Host</span>' +
+        '<input class="input" id="im-host" type="text" data-key="host" data-type="text" value="' + esc(draft.host) + '" placeholder="imap.gmail.com" /></label>' +
+        '<label class="field"><span class="field-label" for="im-port">Port</span>' +
+        '<input class="input" id="im-port" type="number" inputmode="numeric" min="1" max="65535" step="1" data-key="port" data-type="number" value="' +
+        esc(draft.port === null || draft.port === undefined ? '' : draft.port) +
+        '" /></label>' +
+        '<div class="field"><label class="check"><input type="checkbox" id="im-tls" data-key="tls" data-type="bool"' +
+        (draft.tls ? ' checked' : '') +
+        ' /><span>TLS on connect</span></label></div>' +
+        '<label class="field span-2"><span class="field-label" for="im-user">User</span>' +
+        '<input class="input" id="im-user" type="text" data-key="user" data-type="text" value="' + esc(draft.user) + '" placeholder="you@example.com" /></label>' +
+        '<label class="field span-2"><span class="field-label" for="im-password">Password</span>' +
+        '<input class="input" id="im-password" type="password" autocomplete="new-password" data-key="password" data-type="text" value="" placeholder="' +
+        esc(stored.password === '' ? 'not set' : stored.password) +
+        '" /></label>' +
+        '<label class="field"><span class="field-label" for="im-mailbox">Mailbox</span>' +
+        '<input class="input" id="im-mailbox" type="text" data-key="mailbox" data-type="text" value="' + esc(draft.mailbox) + '" placeholder="INBOX" /></label>' +
+        '<label class="field"><span class="field-label" for="im-searchfrom">Sender to match</span>' +
+        '<input class="input" id="im-searchfrom" type="text" data-key="searchFrom" data-type="text" value="' +
+        esc(draft.searchFrom) +
+        '" placeholder="notifications@upwork.com" /></label>' +
+        '</div>' +
+        '<p class="hint mt2">' +
+        (stored.password === ''
+          ? 'No password stored yet.'
+          : 'A password is stored (' + esc(stored.password) + '). Leave the field empty and it stays as it is.') +
+        ' Detection starts once a host, user and password are all set.</p>' +
+        '<div class="row mt3">' +
+        '<button class="btn btn-primary" type="submit"' + (view.savingImap ? ' disabled' : '') + '>' +
+        (view.savingImap ? 'Saving…' : 'Save mail settings') +
+        '</button>' +
+        '<button class="btn" type="button" data-action="test-imap"' + (busy ? ' disabled' : '') + '>' +
+        (view.testing ? 'Testing…' : 'Test connection') +
+        '</button>' +
+        '<button class="btn" type="button" data-action="preview-imap"' + (busy ? ' disabled' : '') + '>' +
+        (view.previewing ? 'Reading…' : 'Show me a parsed alert') +
+        '</button>' +
+        (stored.source === 'db' && stored.password !== ''
+          ? '<button class="btn btn-ghost" type="button" data-action="clear-imap-password">Forget password</button>'
+          : '') +
+        '</div>' +
+        '<p class="hint">The test uses whatever is on this form, so a password can be proved before it is saved. Reading an alert uses the saved settings.</p>' +
+        '</form>'
+      );
+    },
+
+    notifyHtml: function () {
+      var view = state.connView;
+      if (!view.settings) return '';
+
+      var draft = view.notify;
+      var stored = view.settings.notify;
+
+      return (
+        '<form class="panel" id="notify-form" autocomplete="off">' +
+        '<div class="panel-head"><h3 class="panel-title">Notifications</h3>' + sourcePill(stored.source) + '</div>' +
+        '<div class="form-grid">' +
+        '<label class="field span-2"><span class="field-label" for="nt-token">Telegram bot token</span>' +
+        '<input class="input" id="nt-token" type="password" autocomplete="new-password" data-key="telegramBotToken" data-type="text" value="" placeholder="' +
+        esc(stored.telegramBotToken === '' ? 'not set' : stored.telegramBotToken) +
+        '" /></label>' +
+        '<label class="field span-2"><span class="field-label" for="nt-chat">Telegram chat id</span>' +
+        '<input class="input" id="nt-chat" type="text" data-key="telegramChatId" data-type="text" value="' +
+        esc(draft.telegramChatId) +
+        '" placeholder="123456789" /></label>' +
+        '<div class="field span-2"><div class="row">' +
+        '<button class="btn btn-sm" type="button" data-action="test-notify" data-channel="telegram"' +
+        (view.notifyTesting ? ' disabled' : '') +
+        '>Send test</button>' +
+        (stored.source === 'db' && stored.telegramBotToken !== ''
+          ? '<button class="btn btn-sm btn-ghost" type="button" data-action="clear-telegram-token">Forget token</button>'
+          : '') +
+        '</div></div>' +
+        '<label class="field span-2"><span class="field-label" for="nt-slack">Slack webhook URL</span>' +
+        '<input class="input" id="nt-slack" type="password" autocomplete="new-password" data-key="slackWebhookUrl" data-type="text" value="" placeholder="' +
+        esc(stored.slackWebhookUrl === '' ? 'not set' : stored.slackWebhookUrl) +
+        '" /></label>' +
+        '<div class="field span-2"><div class="row">' +
+        '<button class="btn btn-sm" type="button" data-action="test-notify" data-channel="slack"' +
+        (view.notifyTesting ? ' disabled' : '') +
+        '>Send test</button>' +
+        (stored.source === 'db' && stored.slackWebhookUrl !== ''
+          ? '<button class="btn btn-sm btn-ghost" type="button" data-action="clear-slack-webhook">Forget webhook</button>'
+          : '') +
+        '</div></div>' +
+        '</div>' +
+        '<p class="hint mt2">Both secrets are stored encrypted and only ever come back masked. Leave a field empty to keep what is already there. A test goes out on every configured channel at once, and each one reports back separately.</p>' +
+        '<div class="row mt3">' +
+        '<button class="btn btn-primary" type="submit"' + (view.savingNotify ? ' disabled' : '') + '>' +
+        (view.savingNotify ? 'Saving…' : 'Save notifications') +
+        '</button>' +
+        '</div>' +
+        Settings.channelsHtml() +
+        '</form>'
+      );
+    },
+
+    channelsHtml: function () {
+      var channels = state.connView.channels;
+      if (channels.length === 0) return '';
+      return (
+        '<div class="kv mt3">' +
+        channels
+          .map(function (channel) {
+            var pill = channel.active
+              ? '<span class="pill ok">in use</span>'
+              : channel.configured
+                ? '<span class="pill warn">configured, idle</span>'
+                : '<span class="pill">not set up</span>';
+            return (
+              '<div class="kv-row"><span class="kv-k">' +
+              esc(channel.name) +
+              '</span><span class="kv-v">' +
+              pill +
+              (channel.target ? ' <span class="muted">' + esc(channel.target) + '</span>' : '') +
+              '</span></div>'
+            );
+          })
+          .join('') +
+        '</div>'
+      );
+    },
+
+    notifyResultHtml: function () {
+      var result = state.connView.notifyTest;
+      if (!result) return '';
+
+      var rows = asArray(result.results);
+      return (
+        '<div class="panel">' +
+        '<div class="panel-head"><h3 class="panel-title">Test message</h3>' +
+        (result.ok ? '<span class="pill ok">delivered</span>' : '<span class="pill bad">nothing delivered</span>') +
+        '</div>' +
+        (result.error ? '<p class="form-error">' + esc(result.error) + '</p>' : '') +
+        (rows.length > 0
+          ? '<div class="kv">' +
+            rows
+              .map(function (row) {
+                var state_ = row.skipped
+                  ? '<span class="pill">skipped, not configured</span>'
+                  : row.ok
+                    ? '<span class="pill ok">sent in ' + esc(row.durationMs) + 'ms</span>'
+                    : '<span class="pill bad">failed</span>';
+                return (
+                  '<div class="kv-row"><span class="kv-k">' +
+                  esc(row.channel) +
+                  '</span><span class="kv-v">' +
+                  state_ +
+                  (row.error ? ' <span class="muted">' + esc(row.error) + '</span>' : '') +
+                  '</span></div>'
+                );
+              })
+              .join('') +
+            '</div>'
+          : '') +
+        '</div>'
+      );
+    },
+
+    stageLadderHtml: function (result) {
+      var failedAt = -1;
+      if (!result.ok) {
+        IMAP_STAGES.forEach(function (stage, index) {
+          if (stage.id === result.stage) failedAt = index;
+        });
+      }
+      /* A failure reported at a stage this ladder does not list ('done') still
+         means every step here got through. */
+      var allPassed = result.ok || failedAt < 0;
+
+      return (
+        '<ol class="stages">' +
+        IMAP_STAGES.map(function (stage, index) {
+          var mark;
+          var tone;
+          var said;
+          if (allPassed || index < failedAt) {
+            mark = '✓';
+            tone = 'ok';
+            said = 'passed';
+          } else if (index === failedAt) {
+            mark = '✕';
+            tone = 'bad';
+            said = 'failed';
+          } else {
+            mark = '·';
+            tone = 'idle';
+            said = 'not reached';
+          }
+          return (
+            '<li class="stage" data-tone="' + tone + '"><span class="stage-mark" aria-hidden="true">' +
+            mark +
+            '</span><span>' +
+            esc(stage.label) +
+            '<span class="sr-only"> — ' +
+            said +
+            '</span></span></li>'
+          );
+        }).join('') +
+        '</ol>'
+      );
+    },
+
+    testResultHtml: function () {
+      var view = state.connView;
+      if (!view.test) return '';
+
+      var payload = view.test;
+      var result = payload.result || null;
+      var ok = payload.ok === true;
+
+      /* No result means the request never got as far as a connection: a missing
+         field, the ten-second cooldown, or the API itself being unreachable.
+         Naming a stage there would blame the mail server for our own refusal. */
+      if (!result) {
+        return (
+          '<div class="panel">' +
+          '<div class="panel-head"><h3 class="panel-title">Connection test</h3>' +
+          '<span class="pill warn">not run</span></div>' +
+          '<p>' + esc(payload.error || 'The test could not be started.') + '</p>' +
+          '</div>'
+        );
+      }
+
+      var stage = result.stage;
+      var detail = result.error ? result.error : payload.error || '';
+
+      var summary = ok
+        ? 'Connected, signed in and read the mailbox.'
+        : IMAP_STAGE_HELP[stage] || 'The connection did not complete.';
+
+      var mailbox = result.mailbox ? result.mailbox : null;
+      var newest = result.newest ? result.newest : null;
+
+      return (
+        '<div class="panel">' +
+        '<div class="panel-head"><h3 class="panel-title">Connection test</h3>' +
+        (ok ? '<span class="pill ok">working</span>' : '<span class="pill bad">stopped at ' + esc(stage) + '</span>') +
+        '</div>' +
+        Settings.stageLadderHtml(result) +
+        '<p class="mt3">' + esc(summary) + '</p>' +
+        (detail ? '<p class="hint mono">' + esc(detail) + '</p>' : '') +
+        (mailbox || typeof result.matchedMessages === 'number' || newest
+          ? '<div class="kv mt3">' +
+            (mailbox
+              ? '<div class="kv-row"><span class="kv-k">mailbox</span><span class="kv-v">' +
+                esc(mailbox.name) +
+                ' <span class="muted">' +
+                esc(mailbox.exists) +
+                ' messages, ' +
+                esc(mailbox.unseen) +
+                ' unread</span></span></div>'
+              : '') +
+            (typeof result.matchedMessages === 'number'
+              ? '<div class="kv-row"><span class="kv-k">alerts from that sender</span><span class="kv-v">' +
+                esc(result.matchedMessages) +
+                ' recently</span></div>'
+              : '') +
+            (newest
+              ? '<div class="kv-row"><span class="kv-k">newest</span><span class="kv-v">' +
+                esc(newest.subject || 'no subject') +
+                ' <span class="muted">' +
+                esc(newest.date ? absTime(newest.date) : 'undated') +
+                '</span></span></div>'
+              : '') +
+            '</div>'
+          : '') +
+        (payload.tested
+          ? '<p class="hint mt2">Tested ' +
+            esc(payload.tested.user || 'no user') +
+            ' at ' +
+            esc(payload.tested.host || 'no host') +
+            ':' +
+            esc(payload.tested.port) +
+            ', mailbox ' +
+            esc(payload.tested.mailbox || 'INBOX') +
+            '.</p>'
+          : '') +
+        '</div>'
+      );
+    },
+
+    /* One parsed alert, written for someone deciding whether their alert emails
+       carry enough to bid on. The missing fields are the point. */
+    alertHtml: function (preview) {
+      var jobs = asArray(preview.jobs);
+      var missing = asArray(preview.fieldsMissing);
+      var present = asArray(preview.fieldsPresent);
+
+      var jobsHtml = jobs
+        .map(function (job) {
+          var rows = [
+            ['type', job.jobType],
+            ['budget', budgetLabel(job)],
+            ['skills', asArray(job.skills).join(', ')],
+            ['category', [job.category, job.subcategory].filter(Boolean).join(' / ')],
+            ['experience', job.experienceLevel],
+            ['workload', job.workload],
+            ['duration', job.durationLabel],
+            ['connects', job.connectsRequired],
+            ['proposals so far', job.proposalsCount],
+            ['posted', job.postedAt ? absTime(job.postedAt) : null],
+            ['client country', job.client ? job.client.country : null],
+            ['payment verified', job.client && job.client.paymentVerified === true ? 'yes' : job.client && job.client.paymentVerified === false ? 'no' : null],
+            ['client spend', job.client ? compactMoney(job.client.totalSpent) : null],
+            ['client rating', job.client ? job.client.avgRating : null],
+            ['screening questions', asArray(job.screeningQuestions).length || null]
+          ].filter(function (pair) {
+            return pair[1] !== null && pair[1] !== undefined && pair[1] !== '' && pair[1] !== 'UNKNOWN';
+          });
+
+          /* The link comes out of an email, so anything that is not plainly
+             http(s) is shown as text rather than turned into an anchor. */
+          var url = typeof job.url === 'string' && /^https?:\/\//i.test(job.url) ? job.url : '';
+          var title = esc(job.title || 'untitled');
+
+          return (
+            '<div class="alert-job">' +
+            (url === ''
+              ? '<span class="alert-job-title">' + title + '</span>'
+              : '<a class="alert-job-title" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + title + '</a>') +
+            (rows.length > 0
+              ? '<div class="kv mt2">' +
+                rows
+                  .map(function (pair) {
+                    return (
+                      '<div class="kv-row"><span class="kv-k">' + esc(pair[0]) + '</span><span class="kv-v">' + esc(pair[1]) + '</span></div>'
+                    );
+                  })
+                  .join('') +
+                '</div>'
+              : '<p class="muted mt2">Nothing beyond the title and link.</p>') +
+            (job.description
+              ? '<p class="hint mt2">' + esc(String(job.description).slice(0, 240)) + (String(job.description).length > 240 ? '…' : '') + '</p>'
+              : '') +
+            '</div>'
+          );
+        })
+        .join('');
+
+      return (
+        '<div class="alert-msg">' +
+        '<div class="am-head">' +
+        '<div class="am-subject">' + esc(preview.subject || 'no subject') + '</div>' +
+        '<div class="am-meta">' +
+        esc(preview.from || 'unknown sender') +
+        ' · ' +
+        esc(preview.date ? absTime(preview.date) : 'undated') +
+        ' · <b>' +
+        esc(preview.jobsFound) +
+        '</b> ' +
+        (preview.jobsFound === 1 ? 'job parsed' : 'jobs parsed') +
+        '</div></div>' +
+        (jobs.length > 0 ? jobsHtml : '<p class="empty">Nothing was parsed out of this message. The excerpt below is what the parser saw.</p>') +
+        (missing.length > 0
+          ? '<div class="am-missing"><span class="field-label">Not in this alert</span><div class="fi-flags mt2">' +
+            missing
+              .map(function (path) {
+                return '<span class="flag" data-sev="MEDIUM">' + esc(prettyField(path)) + '</span>';
+              })
+              .join('') +
+            '</div><p class="hint">Scoring treats every one of these as unknown. That is why alert-driven detection scores lower than the API.</p></div>'
+          : '<p class="hint mt2">Every field the pipeline looks for is present in this alert.</p>') +
+        (present.length > 0
+          ? '<div class="mt3"><span class="field-label">Present</span><div class="fi-flags mt2">' +
+            present
+              .map(function (path) {
+                return '<span class="chip ok">' + esc(prettyField(path)) + '</span>';
+              })
+              .join('') +
+            '</div></div>'
+          : '') +
+        '<details class="am-raw"><summary>Raw text the parser read</summary><pre class="raw-pre">' +
+        esc(preview.rawTextExcerpt || '(empty)') +
+        '</pre></details>' +
+        '</div>'
+      );
+    },
+
+    previewResultHtml: function () {
+      var payload = state.connView.preview;
+      if (!payload) return '';
+
+      if (payload.ok === false) {
+        return (
+          '<div class="panel"><div class="panel-head"><h3 class="panel-title">Parsed alerts</h3>' +
+          '<span class="pill bad">could not read</span></div>' +
+          '<p class="form-error">' + esc(payload.error || 'the mailbox could not be read') + '</p></div>'
+        );
+      }
+
+      var previews = asArray(payload.previews);
+      return (
+        '<div class="panel">' +
+        '<div class="panel-head"><h3 class="panel-title">Parsed alerts</h3>' +
+        '<span class="muted">' +
+        esc(payload.count) +
+        (payload.count === 1 ? ' message · ' : ' messages · ') +
+        esc(payload.jobsFound) +
+        (payload.jobsFound === 1 ? ' job' : ' jobs') +
+        '</span></div>' +
+        (previews.length === 0
+          ? '<p class="empty">Connected, but no alert from that sender was found. Check the sender to match, or wait for the next alert.</p>'
+          : previews.map(Settings.alertHtml).join('')) +
+        '<p class="hint mt2">Nothing here was stored and no message was marked read.</p>' +
+        '</div>'
+      );
+    },
+
+    render: function () {
+      var strip = $('#settings-source-strip');
+      if (!strip) return;
+      setHtml(strip, Settings.sourceStripHtml());
+
+      var view = state.connView;
+      var key =
+        view.formKey +
+        '|' +
+        (view.savingImap ? 's' : '-') +
+        (view.savingNotify ? 'n' : '-') +
+        (view.testing ? 't' : '-') +
+        (view.previewing ? 'p' : '-') +
+        (view.notifyTesting ? 'm' : '-');
+
+      var imapHost = $('#settings-imap-host');
+      if (imapHost.getAttribute('data-key') !== key) {
+        imapHost.setAttribute('data-key', key);
+        setHtml(imapHost, Settings.imapHtml());
+      }
+
+      var notifyHost = $('#settings-notify-host');
+      if (notifyHost.getAttribute('data-key') !== key) {
+        notifyHost.setAttribute('data-key', key);
+        setHtml(notifyHost, Settings.notifyHtml());
+      }
+
+      setHtml($('#settings-notify-result'), Settings.notifyResultHtml());
+      setHtml($('#settings-diag-host'), Settings.testResultHtml() + Settings.previewResultHtml());
+    },
+
+    imapPayload: function () {
+      var draft = state.connView.imap;
+      var body = {
+        host: draft.host.trim(),
+        port: draft.port === null || draft.port === undefined ? null : draft.port,
+        user: draft.user.trim(),
+        mailbox: draft.mailbox.trim(),
+        searchFrom: draft.searchFrom.trim(),
+        tls: draft.tls
+      };
+      /* An empty box means "leave the stored password alone", never "wipe it". */
+      if (draft.password !== '') body.password = draft.password;
+      return body;
+    },
+
+    saveImap: function () {
+      var view = state.connView;
+      if (view.savingImap) return;
+      view.savingImap = true;
+      markDirty('settings');
+
+      api
+        .saveImap(Settings.imapPayload())
+        .then(function (data) {
+          view.savingImap = false;
+          Settings.adopt(data && data.settings, null);
+          toast('mail settings saved', 'success');
+          markDirty('settings');
+        })
+        .catch(function (err) {
+          view.savingImap = false;
+          markDirty('settings');
+          reportError(err, 'saving the mail settings');
+        });
+    },
+
+    testImap: function () {
+      var view = state.connView;
+      if (view.testing) return;
+      var draft = view.imap;
+
+      var body = { tls: draft.tls };
+      if (draft.host.trim() !== '') body.host = draft.host.trim();
+      if (typeof draft.port === 'number') body.port = draft.port;
+      if (draft.user.trim() !== '') body.user = draft.user.trim();
+      if (draft.password !== '') body.password = draft.password;
+      if (draft.mailbox.trim() !== '') body.mailbox = draft.mailbox.trim();
+      if (draft.searchFrom.trim() !== '') body.searchFrom = draft.searchFrom.trim();
+
+      view.testing = true;
+      view.test = null;
+      markDirty('settings');
+
+      api
+        .testImap(body)
+        .then(function (data) {
+          view.testing = false;
+          view.test = data;
+          markDirty('settings');
+          toast(data && data.ok ? 'mail connection works' : 'mail connection failed', data && data.ok ? 'success' : 'error');
+        })
+        .catch(function (err) {
+          view.testing = false;
+          /* A 400 or a 429 is an answer, not a fault: render it in the panel. */
+          view.test = { ok: false, error: err.message, result: null };
+          markDirty('settings');
+        });
+    },
+
+    previewImap: function () {
+      var view = state.connView;
+      if (view.previewing) return;
+      view.previewing = true;
+      view.preview = null;
+      markDirty('settings');
+
+      api
+        .previewImap({ limit: 3 })
+        .then(function (data) {
+          view.previewing = false;
+          view.preview = data;
+          markDirty('settings');
+        })
+        .catch(function (err) {
+          view.previewing = false;
+          view.preview = { ok: false, error: err.message, count: 0, jobsFound: 0, previews: [] };
+          markDirty('settings');
+        });
+    },
+
+    notifyPayload: function () {
+      var draft = state.connView.notify;
+      var body = { telegramChatId: draft.telegramChatId.trim() };
+      if (draft.telegramBotToken !== '') body.telegramBotToken = draft.telegramBotToken.trim();
+      if (draft.slackWebhookUrl !== '') body.slackWebhookUrl = draft.slackWebhookUrl.trim();
+      return body;
+    },
+
+    saveNotify: function () {
+      var view = state.connView;
+      if (view.savingNotify) return;
+      view.savingNotify = true;
+      markDirty('settings');
+
+      api
+        .saveNotify(Settings.notifyPayload())
+        .then(function (data) {
+          view.savingNotify = false;
+          Settings.adopt(data && data.settings, null);
+          toast('notification settings saved', 'success');
+          markDirty('settings');
+        })
+        .catch(function (err) {
+          view.savingNotify = false;
+          markDirty('settings');
+          reportError(err, 'saving the notification settings');
+        });
+    },
+
+    testNotify: function (channel) {
+      var view = state.connView;
+      if (view.notifyTesting) return;
+      view.notifyTesting = true;
+      view.notifyTest = null;
+      markDirty('settings');
+
+      api
+        .testNotify({ message: 'Test from the ' + (channel || 'settings') + ' button in the UpBid console.' })
+        .then(function (data) {
+          view.notifyTesting = false;
+          view.notifyTest = data;
+          if (data && asArray(data.channels).length > 0) view.channels = asArray(data.channels);
+          markDirty('settings');
+        })
+        .catch(function (err) {
+          view.notifyTesting = false;
+          view.notifyTest = { ok: false, error: err.message, results: [] };
+          markDirty('settings');
+        });
+    },
+
+    /* Blanking a secret in the form keeps the stored one, so dropping one for
+       good needs an explicit null. */
+    clearSecret: function (section, field) {
+      if (!window.confirm('Forget the stored value? Any environment variable for it takes over again.')) return;
+      var body = {};
+      body[field] = null;
+      var work = section === 'imap' ? api.saveImap(body) : api.saveNotify(body);
+
+      work
+        .then(function (data) {
+          Settings.adopt(data && data.settings, null);
+          toast('stored value cleared', 'success');
+          markDirty('settings');
+        })
+        .catch(function (err) {
+          reportError(err, 'clearing the stored value');
+        });
+    }
+  };
+
+  /* ============================================================== status view */
+
+  var Status = {
+    init: function () {
+      $('#status-reload').addEventListener('click', function () {
         refreshHealth();
         refreshStats();
       });
@@ -2809,7 +4650,7 @@
         openLogin('signed out');
       });
 
-      $('#settings-host').addEventListener('click', function (event) {
+      $('#status-host').addEventListener('click', function (event) {
         var button = event.target.closest('button[data-action]');
         if (!button) return;
         if (button.getAttribute('data-action') === 'oauth-disconnect') {
@@ -2873,7 +4714,7 @@
     },
 
     render: function () {
-      var host = $('#settings-host');
+      var host = $('#status-host');
       if (!host) return;
 
       var health = state.health;
@@ -3027,9 +4868,9 @@
 
       var windows = stats && stats.windows ? stats.windows : null;
       var statsHtml = windows
-        ? Settings.windowTiles('Today', windows.today) +
-          Settings.windowTiles('Last 7 days', windows['7d']) +
-          Settings.windowTiles('Last 30 days', windows['30d'])
+        ? Status.windowTiles('Today', windows.today) +
+          Status.windowTiles('Last 7 days', windows['7d']) +
+          Status.windowTiles('Last 30 days', windows['30d'])
         : '<div class="panel"><p class="muted">Stats are loading…</p></div>';
 
       setHtml(
@@ -3109,6 +4950,16 @@
       var text = data && (data.message || data.subject) ? String(data.message || data.subject) : 'alert';
       toast(text, 'warn', 9000);
       desktopNotify('UpBid alert', text);
+      return;
+    }
+
+    if (head === 'template') {
+      if (state.templateView.items.length > 0 || state.route === '#/templates') Templates.load();
+      return;
+    }
+
+    if (head === 'settings') {
+      if (state.connView.loaded) Settings.load();
       return;
     }
 
@@ -3294,16 +5145,16 @@
       .then(function (data) {
         state.health = data;
         markDirty('chrome');
-        markDirty('settings');
+        markDirty('status');
       })
       .catch(function (err) {
         if (err instanceof ApiError && err.payload) {
           state.health = err.payload;
           markDirty('chrome');
-          markDirty('settings');
+          markDirty('status');
           return;
         }
-        markDirty('settings');
+        markDirty('status');
       });
   }
 
@@ -3316,7 +5167,7 @@
           state.pendingCount = data.pipeline.pendingApproval;
         }
         markDirty('chrome');
-        markDirty('settings');
+        markDirty('status');
       })
       .catch(function () {
         /* Stats are informational; a failure must not interrupt the operator. */
@@ -3378,7 +5229,9 @@
     if (route === '#/queue') Queue.load(false);
     else if (route === '#/jobs' && state.jobs.items.length === 0) Jobs.load(true);
     else if (route === '#/profiles') markDirty('profiles');
-    else if (route === '#/settings') {
+    else if (route === '#/templates') Templates.enter();
+    else if (route === '#/settings') Settings.enter();
+    else if (route === '#/status') {
       refreshHealth();
       refreshStats();
     }
@@ -3529,7 +5382,9 @@
     Queue.init();
     Jobs.init();
     Profiles.init();
+    Templates.init();
     Settings.init();
+    Status.init();
 
     $('#refresh-btn').addEventListener('click', function () {
       refreshHealth();
@@ -3537,6 +5392,8 @@
       if (state.route === '#/queue') Queue.load(true);
       else if (state.route === '#/jobs') Jobs.load(true);
       else if (state.route === '#/profiles') loadProfiles();
+      else if (state.route === '#/templates') Templates.load();
+      else if (state.route === '#/settings') Settings.load();
       else pollOnce();
       toast('refreshed', 'info', 1500);
     });

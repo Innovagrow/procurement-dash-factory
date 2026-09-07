@@ -23,15 +23,33 @@ _BARE_AMP = re.compile(rb"&(?!(?:[a-zA-Z][a-zA-Z0-9]{1,7}|#[0-9]{1,7}|#x[0-9a-fA
 
 
 def _readable_sample(content: bytes, length: int = 320) -> str:
-    """Τα πρώτα χρήσιμα bytes ως κείμενο, για μήνυμα σφάλματος."""
+    """Τι λέει στην πραγματικότητα η απάντηση.
+
+    Όταν ένας server απαντά HTML αντί για feed, τα πρώτα bytes είναι doctype
+    και meta tags — άχρηστα. Αν πρόκειται για HTML, επιστρέφεται ο τίτλος και
+    το ορατό κείμενο, που είναι εκεί που γράφει «Access Denied» ή «Not Found».
+    """
     for encoding in ("utf-8", "windows-1253", "iso-8859-7"):
         try:
-            text = content[: length * 4].decode(encoding)
+            text = content.decode(encoding)
             break
         except UnicodeDecodeError:
             continue
     else:
-        text = content[: length * 4].decode("utf-8", errors="replace")
+        text = content.decode("utf-8", errors="replace")
+
+    if "<html" in text[:2000].lower():
+        try:
+            from bs4 import BeautifulSoup
+
+            soup = BeautifulSoup(text, "html.parser")
+            for node in soup(["script", "style", "noscript"]):
+                node.decompose()
+            title = soup.title.get_text(strip=True) if soup.title else "—"
+            body = " ".join(soup.get_text(" ", strip=True).split())
+            return f"τίτλος='{title[:90]}' κείμενο='{body[:length]}'"
+        except Exception:  # noqa: BLE001
+            pass
     return " ".join(text.split())[:length]
 
 

@@ -22,6 +22,19 @@ _ILLEGAL_XML = re.compile(
 _BARE_AMP = re.compile(rb"&(?!(?:[a-zA-Z][a-zA-Z0-9]{1,7}|#[0-9]{1,7}|#x[0-9a-fA-F]{1,6});)")
 
 
+def _readable_sample(content: bytes, length: int = 320) -> str:
+    """Τα πρώτα χρήσιμα bytes ως κείμενο, για μήνυμα σφάλματος."""
+    for encoding in ("utf-8", "windows-1253", "iso-8859-7"):
+        try:
+            text = content[: length * 4].decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        text = content[: length * 4].decode("utf-8", errors="replace")
+    return " ".join(text.split())[:length]
+
+
 def _parse_tolerantly(content: bytes):
     """Διαβάζει το feed· αν το XML είναι χαλασμένο, το καθαρίζει και ξαναδοκιμάζει.
 
@@ -122,8 +135,15 @@ class RssSource(Source):
 
         feed = _parse_tolerantly(response.content)
         if not feed.entries:
+            # Το «μη έγκυρο XML» δεν λέει τίποτα από μόνο του: συχνά ο server
+            # απαντά σελίδα σφάλματος ή HTML αντί για feed. Το δείγμα δείχνει τι
+            # ήρθε πραγματικά, χωρίς να χρειάζεται πρόσβαση στο μηχάνημα.
+            sample = _readable_sample(response.content)
             raise SourceError(
-                f"[{self.source_id}] μη έγκυρο feed: {getattr(feed, 'bozo_exception', 'χωρίς εγγραφές')}"
+                f"[{self.source_id}] χωρίς εγγραφές "
+                f"({getattr(feed, 'bozo_exception', 'άγνωστο')}) | "
+                f"content-type={response.headers.get('content-type')} "
+                f"bytes={len(response.content)} | αρχή: {sample}"
             )
 
         limit = int(self.options.get("limit", 100))

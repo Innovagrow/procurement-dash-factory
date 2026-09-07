@@ -13,6 +13,27 @@ from .http import get_text
 logger = logging.getLogger(__name__)
 
 
+# Selectors που περιγράφουν συνήθως λίστα εγγραφών, με το πλήθος τους.
+_CANDIDATES = (
+    "article", "table tr", "tbody tr", ".views-row", ".news-item", ".list-item",
+    ".card", ".item", ".post", ".entry", ".proclamation", ".call", ".panel",
+    ".row", "ul li a", "h2 a", "h3 a",
+)
+
+
+def _selector_hints(soup, top: int = 6) -> str:
+    counts = []
+    for selector in _CANDIDATES:
+        try:
+            n = len(soup.select(selector))
+        except Exception:  # noqa: BLE001
+            continue
+        if n >= 3:
+            counts.append((n, selector))
+    counts.sort(reverse=True)
+    return ", ".join(f"{sel}={n}" for n, sel in counts[:top]) or "κανένας"
+
+
 def _select_text(node, selector: str | None) -> str:
     if not selector:
         return ""
@@ -56,8 +77,15 @@ class HtmlListSource(Source):
             soup = BeautifulSoup(html, "lxml")
             nodes = soup.select(item_selector)
             if not nodes:
-                logger.warning("[%s] ο selector '%s' δεν βρήκε τίποτα στο %s",
-                               self.source_id, item_selector, page_url)
+                # Καταγράφουμε ποιοι selectors ΘΑ έπιαναν κάτι, ώστε η διόρθωση
+                # να μη χρειάζεται πρόσβαση στο μηχάνημα που τρέχει τη σάρωση.
+                hints = _selector_hints(soup)
+                logger.warning("[%s] ο selector '%s' δεν βρήκε τίποτα στο %s | "
+                               "τίτλος='%s' | υποψήφιοι: %s",
+                               self.source_id, item_selector, page_url,
+                               (soup.title.get_text(strip=True)[:60] if soup.title else "—"),
+                               hints)
+                self._last_hints = hints
                 continue
 
             for node in nodes:
@@ -67,7 +95,10 @@ class HtmlListSource(Source):
                     results.append(program)
 
         if not results:
-            raise SourceError(f"[{self.source_id}] καμία εγγραφή — πιθανή αλλαγή στη δομή της σελίδας")
+            raise SourceError(
+                f"[{self.source_id}] καμία εγγραφή με selector '{item_selector}' — "
+                f"υποψήφιοι selectors: {getattr(self, '_last_hints', 'δεν διαβάστηκε σελίδα')}"
+            )
 
         self._enrich_details(results)
         logger.info("[%s] %s εγγραφές από HTML", self.source_id, len(results))

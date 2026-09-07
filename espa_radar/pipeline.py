@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import session_scope
 from .classify import classify
+from .framework import detect_framework
 from .extract import extract_budgets, extract_deadline, extract_opens_at, extract_subsidy_rate
 from .matching import evaluate
 from .messages import change_message, deadline_message, digest_message, instant_message
@@ -81,6 +82,7 @@ def enrich(raw: RawProgram) -> dict:
     title = strip_amendment_prefix(raw.title) or raw.title
     extra = dict(raw.extra or {})
     source_kind = extra.pop("source_kind", None)
+    source_framework = extra.pop("source_framework", None)
     if title != raw.title.strip():
         extra["source_title"] = raw.title.strip()
 
@@ -100,6 +102,9 @@ def enrich(raw: RawProgram) -> dict:
         "url": raw.url[:1000],
         "status": detect_status(f"{blob} {raw.status_hint or ''}", deadline),
         "kind": classify(title, raw.summary, source_kind=source_kind),
+        # Το κείμενο υπερισχύει· η πηγή είναι εφεδρεία όταν δεν λέει τίποτα.
+        "framework": _framework_or(detect_framework(title, raw.summary, raw.body),
+                                   source_framework),
         "published_at": raw.published_at,
         "opens_at": opens_at,
         "deadline": deadline,
@@ -115,6 +120,10 @@ def enrich(raw: RawProgram) -> dict:
     }
 
 
+def _framework_or(detected: str, fallback: str | None) -> str:
+    return fallback if detected == "OTHER" and fallback else detected
+
+
 def _content_hash(data: dict) -> str:
     return fingerprint(
         data["title"],
@@ -124,6 +133,7 @@ def _content_hash(data: dict) -> str:
         str(data.get("subsidy_rate")),
         data.get("status") or "",
         data.get("kind") or "",
+        data.get("framework") or "",
     )
 
 
@@ -659,11 +669,10 @@ def reclassify_all() -> dict[str, int]:
 
     # Ίδια υπόδειξη ανά πηγή με τη σάρωση, αλλιώς η επαναταξινόμηση θα έδινε
     # διαφορετικό αποτέλεσμα από αυτό που παράγει ο κανονικός κύκλος.
-    source_kinds = {
-        entry["id"]: entry.get("kind")
-        for entry in load_source_config()
-        if entry.get("id") and entry.get("kind")
-    }
+    config = load_source_config()
+    source_kinds = {e["id"]: e.get("kind") for e in config if e.get("id") and e.get("kind")}
+    source_frameworks = {e["id"]: e.get("framework") for e in config
+                         if e.get("id") and e.get("framework")}
 
     counts: Counter[str] = Counter()
     with session_scope() as session:
@@ -672,7 +681,14 @@ def reclassify_all() -> dict[str, int]:
                             source_kind=source_kinds.get(program.source_id))
             if program.kind != kind:
                 program.kind = kind
+            framework = _framework_or(
+                detect_framework(program.title, program.summary, program.body),
+                source_frameworks.get(program.source_id),
+            )
+            if program.framework != framework:
+                program.framework = framework
             counts[kind] += 1
+            counts[framework] += 1
     logger.info("Επαναταξινόμηση: %s", dict(counts))
     return dict(counts)
 

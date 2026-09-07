@@ -21,6 +21,7 @@ sources:
   - id: greece20_calls
     name: Ελλάδα 2.0 - Προσκλήσεις χρηματοδότησης
     type: json
+    framework: RRF
     kind: CALL          # το endpoint δημοσιεύει εξ ορισμού προσκλήσεις
     url: https://greece20.gov.gr/wp-json/wp/v2/calls
     params:
@@ -41,6 +42,7 @@ sources:
   - id: greece20_decisions
     name: Ελλάδα 2.0 - Αποφάσεις
     type: json
+    framework: RRF
     url: https://greece20.gov.gr/wp-json/wp/v2/decisions
     params:
       per_page: 30
@@ -62,12 +64,14 @@ sources:
   - id: elidek_rss
     name: ΕΛΙΔΕΚ - Προκηρύξεις & Νέα
     type: rss
+    framework: RESEARCH
     url: https://www.elidek.gr/feed/
     limit: 60
 
   - id: elidek_posts
     name: ΕΛΙΔΕΚ - Ανακοινώσεις (REST)
     type: json
+    framework: RESEARCH
     url: https://www.elidek.gr/wp-json/wp/v2/posts
     params:
       per_page: 30
@@ -88,6 +92,7 @@ sources:
   - id: agrotiki_rss
     name: Αγροτική Ανάπτυξη - Προσκλήσεις & Νέα
     type: rss
+    framework: KAP
     url: https://www.agrotikianaptixi.gr/feed/
     limit: 60
 
@@ -132,6 +137,7 @@ sources:
   - id: diavgeia_kathestos
     name: Διαύγεια - Καθεστώτα ενίσχυσης (Αναπτυξιακός Νόμος)
     type: diavgeia
+    framework: ANAPTYXIAKOS
     subject:
       - καθεστώς ενίσχυσης
       - υπαγωγή επενδυτικού σχεδίου
@@ -171,12 +177,14 @@ sources:
   - id: espa_rss
     name: ΕΣΠΑ - Νέα & Προσκλήσεις (RSS)
     type: rss
+    framework: ESPA
     url: https://www.espa.gr/el/Pages/RSS.aspx
     limit: 120
 
   - id: espa_proclamations
     name: ΕΣΠΑ - Ενεργές Προσκλήσεις
     type: html
+    framework: ESPA
     url: https://www.espa.gr/el/Pages/ProclamationsFS.aspx
     item: "table tr, .proclamation-item, .row-proclamation"
     title: "a"
@@ -191,6 +199,7 @@ sources:
   - id: antagonistikotita
     name: ΕΠΑνΕΚ - Προκηρύξεις
     type: html
+    framework: ESPA
     url: https://antagonistikotita.gr/epanek/proclamations.asp
     item: ".proclamation, .list-item, table tr"
     title: "a"
@@ -204,6 +213,7 @@ sources:
   - id: dypa
     name: ΔΥΠΑ - Προγράμματα Απασχόλησης & Επιχειρηματικότητας
     type: html
+    framework: DYPA
     url: https://www.dypa.gov.gr/programmata-apascholisis
     item: ".views-row, article, .card, li.node"
     title: "h2 a, h3 a, .title a, a"

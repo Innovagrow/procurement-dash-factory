@@ -30,6 +30,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 # τρέχει θα έσκαγε στο πρώτο query χωρίς αυτό.
 _ADDED_COLUMNS = (
     ("programs", "kind", "VARCHAR(16) DEFAULT 'UNKNOWN'"),
+    ("programs", "framework", "VARCHAR(20) DEFAULT 'OTHER'"),
 )
 
 

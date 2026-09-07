@@ -61,6 +61,7 @@ class ProgramOut(BaseModel):
     url: str
     status: str
     kind: str
+    framework: str
     published_at: datetime | None
     deadline: datetime | None
     budget_total: float | None

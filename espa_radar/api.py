@@ -23,6 +23,7 @@ from .pipeline import (
 from .schemas import MatchOut, ProfileIn, ProfileOut, ProgramOut, ScanRequest, SourceStatus
 from .scheduler import scheduler_status, start_scheduler, stop_scheduler
 from .sources import load_source_config
+from .framework import FRAMEWORK_LABELS
 from .taxonomy import ALL_AID_TYPES, ALL_BENEFICIARIES, ALL_REGIONS, ALL_SECTORS
 from .textutils import utcnow
 
@@ -469,6 +470,7 @@ def dashboard_data(
             "sectors": ALL_SECTORS,
             "beneficiaries": ALL_BENEFICIARIES,
             "aid_types": ALL_AID_TYPES,
+            "frameworks": FRAMEWORK_LABELS,
         },
         "programs": [
             {
@@ -479,6 +481,7 @@ def dashboard_data(
                 "sn": p.source_name,
                 "st": p.status,
                 "k": p.kind,
+                "f": p.framework,
                 "dl": p.deadline.date().isoformat() if p.deadline else None,
                 "pd": p.published_at.date().isoformat() if p.published_at else None,
                 "bmin": p.budget_min,

@@ -51,12 +51,16 @@ class Source:
         Κάποια endpoints δημοσιεύουν εξ ορισμού μόνο προσκλήσεις (π.χ. ο τύπος
         «calls» του Ελλάδα 2.0), οπότε η πηγή ξέρει κάτι που ο τίτλος δεν λέει.
         """
-        declared = self.options.get("kind")
-        if not declared:
+        declared_kind = self.options.get("kind")
+        declared_framework = self.options.get("framework")
+        if not declared_kind and not declared_framework:
             return programs
         for program in programs:
             program.extra = dict(program.extra or {})
-            program.extra["source_kind"] = declared
+            if declared_kind:
+                program.extra["source_kind"] = declared_kind
+            if declared_framework:
+                program.extra["source_framework"] = declared_framework
         return programs
 
     def apply_filters(self, programs: list[RawProgram]) -> list[RawProgram]:

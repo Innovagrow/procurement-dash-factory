@@ -140,6 +140,7 @@ input[type="text"],input[type="number"],input[type="password"],select{width:100%
 .tag{font-size:11px;padding:1.5px 7px;border-radius:999px;background:var(--sunken);
   color:var(--ink-2);white-space:nowrap}
 .tag.reg{background:transparent;border:1px solid var(--line-strong);color:var(--ink-3)}
+.tag.fw{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
 .why{font-size:12.5px;color:var(--open)}
 .excerpt{font-size:13px;color:var(--ink-2);margin:0;max-width:72ch}
 .when{display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:130px;text-align:right}
@@ -227,7 +228,12 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:righ
       <p class="hint" id="hidden-note"></p>
     </fieldset>
     <fieldset>
-      <legend>ΦΟΡΕΑΣ</legend>
+      <legend>ΤΑΜΕΙΟ</legend>
+      <div class="checks" id="frameworks"></div>
+      <p class="hint">ΕΣΠΑ, Ταμείο Ανάκαμψης, Αναπτυξιακός Νόμος…</p>
+    </fieldset>
+    <fieldset>
+      <legend>ΦΟΡΕΑΣ (από πού βρέθηκε)</legend>
       <div class="checks" id="bodies"></div>
       <p class="hint">Κενό = όλοι οι φορείς.</p>
     </fieldset>
@@ -338,6 +344,7 @@ function evaluate(p, c){
   const reasons = [];
   if (c.kinds.length && !c.kinds.includes(p.k || "UNKNOWN")) return null;
   if (c.bodies.length && !c.bodies.includes(p.s)) return null;
+  if (c.frameworks.length && !c.frameworks.includes(p.f || "OTHER")) return null;
   for (const t of c.exclude) if (t && hay.includes(norm(t))) return null;
   if (c.onlyLive && p.st === "CLOSED") return null;
   if (c.onlyDated && !p.dl) return null;
@@ -399,7 +406,7 @@ function criteria(){
   const box = (g) => Array.from(document.querySelectorAll(`input[data-group="${g}"]:checked`)).map(e=>e.value);
   return {keywords:csv("kw"), exclude:csv("exclude"), sectors:box("sectors"),
     regions:box("regions"), beneficiaries:box("beneficiaries"),
-    kinds:box("kinds"), bodies:box("bodies"),
+    kinds:box("kinds"), bodies:box("bodies"), frameworks:box("frameworks"),
     bmin:num("bmin"), bmax:num("bmax"), rate:num("rate"), days:num("days"),
     onlyLive:document.getElementById("only-live").checked,
     onlyDated:document.getElementById("only-dated").checked,
@@ -412,7 +419,7 @@ function applyCriteria(c){
   document.getElementById("only-live").checked = c.onlyLive !== false;
   document.getElementById("only-dated").checked = !!c.onlyDated;
   if (c.sort) document.getElementById("sort").value = c.sort;
-  for (const g of ["sectors","regions","beneficiaries","bodies"]){
+  for (const g of ["sectors","regions","beneficiaries","bodies","frameworks"]){
     const want = c[g] || [];
     document.querySelectorAll(`input[data-group="${g}"]`).forEach(e => { e.checked = want.includes(e.value); });
   }
@@ -445,6 +452,8 @@ function buildEntry(p, r){
   if (p.pd) meta.appendChild(el("span","ada","δημ. "+fmtDate(p.pd)));
   b.appendChild(meta);
   const tags = el("div","tags");
+  if (p.f && p.f !== "OTHER" && DATA && DATA.taxonomy.frameworks)
+    tags.appendChild(el("span","tag fw", DATA.taxonomy.frameworks[p.f] || p.f));
   for (const s of p.sec.slice(0,3)) tags.appendChild(el("span","tag",s));
   for (const g of p.reg.slice(0,3)) tags.appendChild(el("span","tag reg",g));
   if (p.reg.length > 3) tags.appendChild(el("span","tag reg",`+${p.reg.length-3}`));
@@ -624,6 +633,13 @@ async function load(){
   for (const p of DATA.programs) kindCounts.set(p.k || "UNKNOWN", (kindCounts.get(p.k || "UNKNOWN") || 0) + 1);
   buildLabelledChecks("kinds", Object.keys(KIND_LABELS).map(k => [k, KIND_LABELS[k]]), kindCounts);
 
+  const fwCounts = new Map();
+  for (const p of DATA.programs) fwCounts.set(p.f || "OTHER", (fwCounts.get(p.f || "OTHER") || 0) + 1);
+  const fwLabels = DATA.taxonomy.frameworks || {};
+  buildLabelledChecks("frameworks",
+    [...fwCounts.keys()].sort((a,b) => fwCounts.get(b) - fwCounts.get(a))
+      .map(code => [code, fwLabels[code] || code]), fwCounts);
+
   const bodyCounts = new Map(), bodyNames = new Map();
   for (const p of DATA.programs){
     bodyCounts.set(p.s, (bodyCounts.get(p.s) || 0) + 1);
@@ -655,7 +671,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("more").addEventListener("click", () => { shown += 40; render(); });
   document.getElementById("reset").addEventListener("click", () => {
     applyCriteria({keywords:[],exclude:[],sectors:[],regions:[],beneficiaries:[],
-                   bodies:[],kinds:KIND_DEFAULT,onlyLive:true});
+                   bodies:[],frameworks:[],kinds:KIND_DEFAULT,onlyLive:true});
     rerender();
   });
   document.getElementById("btn-reload").addEventListener("click", () => location.reload());

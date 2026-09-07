@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .config import settings
@@ -25,7 +26,15 @@ from .taxonomy import (
     detect_sectors,
     detect_status,
 )
-from .textutils import canonical_url, fingerprint, fmt_date, fmt_money, similarity, utcnow
+from .textutils import (
+    canonical_url,
+    fingerprint,
+    fmt_date,
+    fmt_money,
+    similarity,
+    strip_amendment_prefix,
+    utcnow,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +74,14 @@ def enrich(raw: RawProgram) -> dict:
     """Από ακατέργαστη εγγραφή σε δομημένα πεδία προγράμματος."""
     blob = raw.text_blob()
 
+    # Οι διαδοχικές τροποποιήσεις μιας πρόσκλησης («8η», «13η», «27η
+    # ΤΡΟΠΟΠΟΙΗΣΗ…») είναι το ίδιο πρόγραμμα. Αποθηκεύουμε τον βασικό τίτλο,
+    # ώστε να μη γεμίζει ο χρήστης με δεκάδες «ευκαιρίες» για μία δράση.
+    title = strip_amendment_prefix(raw.title) or raw.title
+    extra = dict(raw.extra or {})
+    if title != raw.title.strip():
+        extra["source_title"] = raw.title.strip()
+
     deadline = raw.deadline or extract_deadline(blob)
     opens_at = raw.opens_at or extract_opens_at(blob)
     budget_total, budget_min, budget_max = extract_budgets(blob)
@@ -75,7 +92,7 @@ def enrich(raw: RawProgram) -> dict:
         "source_id": raw.source_id,
         "source_name": raw.source_name,
         "external_id": (raw.external_id or raw.url)[:255],
-        "title": raw.title[:600],
+        "title": title[:600],
         "summary": raw.summary,
         "body": (raw.body or "")[:60000] or None,
         "url": raw.url[:1000],
@@ -91,7 +108,7 @@ def enrich(raw: RawProgram) -> dict:
         "sectors": detect_sectors(blob),
         "beneficiaries": detect_beneficiaries(blob),
         "aid_types": detect_aid_types(blob),
-        "raw": raw.extra or {},
+        "raw": extra,
     }
 
 
@@ -151,8 +168,20 @@ def upsert_program(session: Session, data: dict) -> tuple[Program, bool, list[st
     if program is None:
         program = Program(fingerprint=fp, content_hash=content_hash, first_seen_at=now, last_seen_at=now, **data)
         session.add(program)
-        session.flush()
-        return program, True, []
+        try:
+            session.flush()
+        except IntegrityError:
+            # Άλλη σάρωση (π.χ. χειροκίνητο POST /api/scan ενώ τρέχει ο
+            # scheduler) πρόλαβε να εισάγει το ίδιο πρόγραμμα. Χωρίς αυτό, η
+            # εγγραφή θα χανόταν σιωπηλά από τη σάρωση και η ειδοποίηση θα
+            # καθυστερούσε ως τον επόμενο κύκλο.
+            session.rollback()
+            program = session.scalar(select(Program).where(Program.fingerprint == fp))
+            if program is None:
+                raise
+            logger.debug("Το πρόγραμμα %s εισήχθη παράλληλα — συνεχίζουμε ως ενημέρωση", fp)
+        else:
+            return program, True, []
 
     program.last_seen_at = now
     _record_extra_source(program, data)
@@ -314,6 +343,7 @@ def scan(only: list[str] | None = None, notify_matches: bool = True) -> ScanRepo
 def run_matching(profile_id: int | None = None) -> int:
     """Αξιολογεί όλα τα ενεργά προγράμματα για κάθε ενεργό προφίλ."""
     created = 0
+    removed = 0
     with session_scope() as session:
         profiles_query = select(Profile).where(Profile.is_active.is_(True))
         if profile_id is not None:
@@ -338,7 +368,13 @@ def run_matching(profile_id: int | None = None) -> int:
                 current = existing.get(key)
 
                 if not result.matched:
-                    # Αν έπαψε να ταιριάζει, το κρατάμε αλλά δεν το ξαναστέλνουμε.
+                    # Άλλαξαν τα κριτήρια και δεν ταιριάζει πια: το αφαιρούμε,
+                    # αλλιώς θα συνέχιζε να εμφανίζεται και να στέλνεται παρότι
+                    # ο χρήστης το έχει αποκλείσει. Ό,τι έχει σώσει ρητά μένει.
+                    if current is not None and not current.is_saved:
+                        session.delete(current)
+                        existing.pop(key, None)
+                        removed += 1
                     continue
 
                 if current is None:
@@ -357,8 +393,9 @@ def run_matching(profile_id: int | None = None) -> int:
                     current.reasons = result.reasons
                     current.breakdown = result.breakdown
 
-    if created:
-        logger.info("Δημιουργήθηκαν %s νέα ταιριάσματα", created)
+    if created or removed:
+        logger.info("Ταιριάσματα: %s νέα, %s αφαιρέθηκαν (δεν πληρούν πια τα κριτήρια)",
+                    created, removed)
     return created
 
 
@@ -418,9 +455,11 @@ def send_instant_notifications() -> int:
                     },
                 ),
             )
-            results = notify(notification, _channels_for(profile))
-            if any(results.values()):
+            result = notify(notification, _channels_for(profile))
+            if result.handled:
+                # Σημαδεύεται και όταν είχε ήδη σταλεί, ώστε να μην ξαναδοκιμάζεται.
                 match.notified_at = utcnow()
+            if result.delivered:
                 sent += 1
 
     if sent:
@@ -461,7 +500,7 @@ def notify_program_changes(changed: list[tuple[int, list[str]]]) -> int:
                     data={"program_id": match.program_id, "changes": changes, "url": match.program.url},
                 ),
             )
-            if any(notify(notification, _channels_for(profile)).values()):
+            if notify(notification, _channels_for(profile)).delivered:
                 sent += 1
 
     return sent
@@ -507,10 +546,12 @@ def send_digest() -> int:
                     },
                 ),
             )
-            if any(notify(notification, _channels_for(profile)).values()):
+            result = notify(notification, _channels_for(profile))
+            if result.handled:
                 stamp = utcnow()
                 for match in matches:
                     match.digested_at = stamp
+            if result.delivered:
                 sent += 1
 
     if sent:
@@ -568,8 +609,10 @@ def send_deadline_reminders() -> int:
                     },
                 ),
             )
-            if any(notify(notification, _channels_for(profile)).values()):
+            result = notify(notification, _channels_for(profile))
+            if result.handled:
                 match.last_reminder_day = milestone
+            if result.delivered:
                 sent += 1
 
     if sent:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import html as _html
 import re
 import unicodedata
 from datetime import date, datetime, timezone
@@ -14,17 +15,15 @@ _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
 
 def strip_html(value: str | None) -> str:
+    """Αφαιρεί tags και αποκωδικοποιεί ΟΛΑ τα HTML entities.
+
+    Τα WordPress REST APIs επιστρέφουν τίτλους με αριθμητικά entities
+    (&#8220;, &#8217;, &#8211;), που αλλιώς θα εμφανίζονταν αυτούσια.
+    """
     if not value:
         return ""
     text = _HTML_TAG_RE.sub(" ", value)
-    text = (
-        text.replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&quot;", '"')
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&#039;", "'")
-    )
+    text = _html.unescape(text).replace("\xa0", " ")
     return _WS_RE.sub(" ", text).strip()
 
 
@@ -39,8 +38,22 @@ def normalize(value: str | None) -> str:
     return text.strip()
 
 
+# Άρθρα/προθέσεις που δεν ξεχωρίζουν δύο τίτλους μεταξύ τους.
+_STOPWORDS = frozenset("""
+ο η το τα οι του τησ των στο στη στην στον στουσ στισ σε και με για απο ωσ
+προσ που τουσ τισ ενα μια εναν το τη την τον μεταξυ κατα ανα επι υπο δια
+""".split())
+
+
 def tokens(value: str | None) -> set[str]:
-    return {t for t in re.split(r"[^0-9a-zα-ω]+", normalize(value)) if len(t) > 2}
+    """Λέξεις-κλειδιά ενός κειμένου, για σύγκριση ομοιότητας.
+
+    Τα σύντομα tokens ΔΕΝ πετιούνται: το «Δράση 1» και το «Δράση 2», όπως και
+    το «Α΄ Φάση» και το «Β΄ Φάση», ξεχωρίζουν ακριβώς σε αυτά. Φιλτράρονται
+    μόνο τα κενά άρθρα/προθέσεις.
+    """
+    parts = re.split(r"[^0-9a-zα-ω]+", normalize(value))
+    return {t for t in parts if t and t not in _STOPWORDS}
 
 
 def similarity(a: str, b: str) -> float:
@@ -281,3 +294,69 @@ def canonical_url(url: str | None) -> str:
     query = urlencode(sorted(kept))
 
     return urlunsplit(("https", host, path, query, ""))
+
+
+# --- Τροποποιήσεις προσκλήσεων ----------------------------------------------
+
+_ORDINAL_WORDS = (
+    "πρωτη|δευτερη|τριτη|τεταρτη|πεμπτη|εκτη|εβδομη|ογδοη|ενατη|δεκατη"
+    "|ενδεκατη|δωδεκατη|δεκατη τριτη|δεκατη τεταρτη"
+)
+
+# «9η Τροποποίηση της Πρόσκλησης…», «Τέταρτη (4η) τροποποίηση της…»,
+# «ΟΡΘΗ ΕΠΑΝΑΛΗΨΗ…» — όλα δείχνουν στην ίδια πρόσκληση.
+_AMENDMENT_RE = re.compile(
+    r"^\s*(?:(?:" + _ORDINAL_WORDS + r")\s*)?"
+    r"(?:\(?\s*\d{1,3}\s*[ηο]?\s*\)?\s*)?"
+    r"(?:τροποποιηση|ορθη επαναληψη|επαναληψη|συμπληρωση|διορθωση|παραταση)"
+    r"\s*(?:τησ|του|των|στη|στην|στο)?\s*",
+    re.IGNORECASE,
+)
+
+
+# Μετά την αφαίρεση του «…τροποποίηση ΤΗΣ», η πρώτη λέξη μένει σε γενική
+# («Πρόσκλησης υποβολής…»). Την επαναφέρουμε σε ονομαστική.
+_GENITIVE_TO_NOMINATIVE = {
+    "προσκλησησ": "Πρόσκληση",
+    "αποφασησ": "Απόφαση",
+    "προκηρυξησ": "Προκήρυξη",
+    "δρασησ": "Δράση",
+    "διακηρυξησ": "Διακήρυξη",
+    "υπ": None,  # «υπ. αριθμ. …» — αφήνεται ως έχει
+}
+
+
+def _fix_leading_case(text: str) -> str:
+    if not text:
+        return text
+    first, _, rest = text.partition(" ")
+    replacement = _GENITIVE_TO_NOMINATIVE.get(normalize(first).strip(".,"))
+    if not replacement:
+        return text
+    if first.isupper():
+        # Τα ελληνικά κεφαλαία δεν παίρνουν τόνο: «ΠΡΟΣΚΛΗΣΗ», όχι «ΠΡΌΣΚΛΗΣΗ».
+        replacement = replacement.upper().translate(_GREEK_TONOS)
+    return f"{replacement} {rest}".strip()
+
+
+def strip_amendment_prefix(title: str | None) -> str:
+    """Αφαιρεί το πρόθεμα τροποποίησης από τον τίτλο πρόσκλησης.
+
+    Χωρίς αυτό, η «8η», «13η» και «27η ΤΡΟΠΟΠΟΙΗΣΗ» της ίδιας πρόσκλησης
+    εμφανίζονταν ως τρεις ξεχωριστές ευκαιρίες.
+    """
+    if not title:
+        return ""
+
+    text = title.strip()
+    # Επαναληπτικά: «2η τροποποίηση της 1ης τροποποίησης της Πρόσκλησης…»
+    for _ in range(3):
+        normalized = normalize(text)
+        match = _AMENDMENT_RE.match(normalized)
+        if not match or match.end() == 0:
+            break
+        # Κόβουμε το ίδιο μήκος από το αρχικό κείμενο (η normalize διατηρεί θέσεις).
+        text = text[match.end():].lstrip(" -–—:·")
+        if not text:
+            return title.strip()
+    return _fix_leading_case(text) or title.strip()

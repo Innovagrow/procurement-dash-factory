@@ -110,7 +110,8 @@
           {% if p.regions %}<span>{{ p.regions[:3] | join(', ') }}</span>{% endif %}
         </div>
         {% if match.reasons %}<div class="why">✓ {{ match.reasons[:4] | join(' · ') }}</div>{% endif %}
-        {% if p.summary %}<div class="summary">{{ p.summary[:260] }}{% if p.summary|length > 260 %}…{% endif %}</div>{% endif %}
+        {% set summary = p | useful_summary %}
+        {% if summary %}<div class="summary">{{ summary[:260] }}{% if summary|length > 260 %}…{% endif %}</div>{% endif %}
       </div>
     </div>
     {% endfor %}

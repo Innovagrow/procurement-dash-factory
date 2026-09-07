@@ -14,6 +14,7 @@ from .config import BASE_DIR, settings
 from .db import get_session, init_db
 from .models import Match, NotificationLog, Profile, Program, SourceRun
 from .pipeline import run_matching, scan, send_deadline_reminders, send_digest
+from .messages import useful_summary
 from .schemas import MatchOut, ProfileIn, ProfileOut, ProgramOut, ScanRequest, SourceStatus
 from .scheduler import scheduler_status, start_scheduler, stop_scheduler
 from .sources import load_source_config
@@ -30,11 +31,32 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.filters["money"] = fmt_money
 templates.env.filters["date"] = fmt_date
 templates.env.filters["days_left"] = days_until
+templates.env.filters["useful_summary"] = useful_summary
+
+
+def _validate_settings() -> None:
+    """Προειδοποιήσεις για ρυθμίσεις που θα αποτύγχαναν σιωπηλά."""
+    if settings.api_key:
+        try:
+            settings.api_key.encode("ascii")
+        except UnicodeEncodeError:
+            logger.warning(
+                "Το ESPA_API_KEY περιέχει μη-ASCII χαρακτήρες. Οι HTTP headers "
+                "επιτρέπουν μόνο ASCII, οπότε κανένας client δεν θα μπορεί να "
+                "αυθεντικοποιηθεί. Χρησιμοποίησε λατινικούς χαρακτήρες/αριθμούς."
+            )
+    if settings.notify_instant_min_score < settings.default_min_score:
+        logger.warning(
+            "Το ESPA_INSTANT_MIN_SCORE (%s) είναι κάτω από το ESPA_MIN_SCORE (%s): "
+            "κάθε ταίριασμα θα στέλνεται ως άμεση ειδοποίηση.",
+            settings.notify_instant_min_score, settings.default_min_score,
+        )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    _validate_settings()
     logger.info("📡 ESPA Radar ξεκινά — βάση: %s", settings.database_url.split("@")[-1])
     start_scheduler()
     yield

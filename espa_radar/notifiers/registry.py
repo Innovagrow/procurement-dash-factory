@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import logging
 
+from dataclasses import dataclass, field
+
 from ..config import settings
 from ..db import session_scope
 from ..models import NotificationLog
@@ -57,14 +59,48 @@ def already_sent(dedupe_key: str, channel: str) -> bool:
         )
 
 
-def notify(notification: Notification, channels: list[str] | None = None) -> dict[str, bool]:
-    """Στέλνει σε όλα τα κανάλια. Επιστρέφει {κανάλι: επιτυχία}."""
-    results: dict[str, bool] = {}
+SENT = "sent"
+SKIPPED = "skipped"  # ήδη σταλμένο (dedupe)
+FAILED = "failed"
+
+
+@dataclass
+class NotifyResult:
+    """Αποτέλεσμα ανά κανάλι.
+
+    Ξεχωρίζει το «στάλθηκε» από το «παραλείφθηκε ως διπλότυπο»: και τα δύο
+    σημαίνουν ότι η ειδοποίηση έχει διεκπεραιωθεί, αλλά μόνο το πρώτο είναι
+    πραγματική αποστολή — αλλιώς οι μετρητές θα έδειχναν ειδοποιήσεις που
+    ποτέ δεν έφυγαν.
+    """
+
+    statuses: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def delivered(self) -> bool:
+        """Έφυγε όντως μήνυμα σε τουλάχιστον ένα κανάλι."""
+        return any(status == SENT for status in self.statuses.values())
+
+    @property
+    def handled(self) -> bool:
+        """Στάλθηκε τώρα ή είχε ήδη σταλεί."""
+        return any(status in (SENT, SKIPPED) for status in self.statuses.values())
+
+    def values(self):  # συμβατότητα με dict-like χρήση
+        return [status == SENT for status in self.statuses.values()]
+
+    def get(self, channel: str) -> str | None:
+        return self.statuses.get(channel)
+
+
+def notify(notification: Notification, channels: list[str] | None = None) -> NotifyResult:
+    """Στέλνει σε όλα τα κανάλια. Ένα κανάλι που αποτυγχάνει δεν ρίχνει τα άλλα."""
+    result = NotifyResult()
 
     for notifier in get_notifiers(channels):
         if notification.dedupe_key and already_sent(notification.dedupe_key, notifier.channel):
             logger.debug("Παράλειψη διπλής ειδοποίησης %s/%s", notification.dedupe_key, notifier.channel)
-            results[notifier.channel] = True
+            result.statuses[notifier.channel] = SKIPPED
             continue
 
         error: str | None = None
@@ -76,7 +112,7 @@ def notify(notification: Notification, channels: list[str] | None = None) -> dic
             error = str(exc)
             logger.error("Αποτυχία ειδοποίησης στο '%s': %s", notifier.channel, exc)
 
-        results[notifier.channel] = ok
+        result.statuses[notifier.channel] = SENT if ok else FAILED
         with session_scope() as session:
             session.add(
                 NotificationLog(
@@ -91,4 +127,4 @@ def notify(notification: Notification, channels: list[str] | None = None) -> dic
                 )
             )
 
-    return results
+    return result

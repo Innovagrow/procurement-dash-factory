@@ -69,22 +69,34 @@ def _budget_score(profile: Profile, program: Program) -> tuple[float | None, str
     return score, f"προϋπολογισμός {fmt_money(lo)}–{fmt_money(hi)} εντός κριτηρίων"
 
 
+def _criteria(profile: Profile, field: str) -> list[str]:
+    """Λίστα κριτηρίων, ανθεκτικά σε None.
+
+    Τα defaults των στηλών εφαρμόζονται μόνο κατά το INSERT, οπότε ένα προφίλ
+    που δεν έχει ακόμη αποθηκευτεί έχει None αντί για κενή λίστα.
+    """
+    return list(getattr(profile, field, None) or [])
+
+
 def evaluate(profile: Profile, program: Program) -> MatchResult:
     """Επιστρέφει σκορ 0–100 με αιτιολόγηση, ή απόρριψη με λόγο."""
     haystack = program.searchable
 
     # --- Σκληρά φίλτρα ---------------------------------------------------
-    excluded = _keyword_hits(list(profile.exclude_keywords or []), haystack)
+    excluded = _keyword_hits(_criteria(profile, "exclude_keywords"), haystack)
     if excluded:
         return MatchResult(False, rejected_because=f"περιέχει αποκλεισμένους όρους: {', '.join(excluded)}")
 
-    if profile.sources and program.source_id not in profile.sources:
+    allowed_sources = _criteria(profile, "sources")
+    if allowed_sources and program.source_id not in allowed_sources:
         return MatchResult(False, rejected_because=f"πηγή εκτός επιλογής ({program.source_id})")
 
     if program.status == STATUS_CLOSED:
         return MatchResult(False, rejected_because="η πρόσκληση έχει λήξει")
 
-    if program.status == STATUS_UPCOMING and not profile.include_upcoming:
+    # None (μη αποθηκευμένο προφίλ) σημαίνει το default του μοντέλου: True.
+    include_upcoming = profile.include_upcoming is not False
+    if program.status == STATUS_UPCOMING and not include_upcoming:
         return MatchResult(False, rejected_because="αναμενόμενη πρόσκληση (εξαιρείται)")
 
     remaining = days_until(program.deadline)
@@ -112,20 +124,20 @@ def evaluate(profile: Profile, program: Program) -> MatchResult:
     scores: dict[str, float] = {}
     reasons: list[str] = []
 
-    keywords = list(profile.keywords or [])
+    keywords = _criteria(profile, "keywords")
     if keywords:
         hits = _keyword_hits(keywords, haystack)
         scores["keywords"] = min(1.0, len(hits) / max(1, min(len(keywords), 3)))
         if hits:
             reasons.append(f"λέξεις-κλειδιά: {', '.join(hits[:6])}")
 
-    for dimension, profile_values, program_values, label in (
-        ("sectors", profile.sectors, program.sectors, "κλάδοι"),
-        ("regions", profile.regions, program.regions, "περιοχές"),
-        ("beneficiaries", profile.beneficiaries, program.beneficiaries, "δικαιούχοι"),
-        ("aid_types", profile.aid_types, program.aid_types, "είδος ενίσχυσης"),
+    for dimension, program_values, label in (
+        ("sectors", program.sectors, "κλάδοι"),
+        ("regions", program.regions, "περιοχές"),
+        ("beneficiaries", program.beneficiaries, "δικαιούχοι"),
+        ("aid_types", program.aid_types, "είδος ενίσχυσης"),
     ):
-        wanted = list(profile_values or [])
+        wanted = _criteria(profile, dimension)
         if not wanted:
             continue
         available = list(program_values or [])

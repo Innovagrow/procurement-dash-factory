@@ -182,5 +182,35 @@ bug. Τα `html` sources μπορεί επίσης να χρειαστούν δ�
 ## Έλεγχοι
 
 ```bash
-python tests/test_espa_radar.py     # 45 έλεγχοι, χωρίς δίκτυο
+pip install -r requirements-espa-dev.txt
+
+python tests/test_espa_radar.py     #  53 έλεγχοι — parsing, εξαγωγή, matching
+python tests/test_integration.py    # 171 έλεγχοι — πηγές, κανάλια, API, scheduler
+```
+
+224 έλεγχοι συνολικά, χωρίς εξωτερικό δίκτυο: σηκώνονται τοπικοί mock servers
+(HTTP για τις πηγές και τα webhooks, SMTP για τα email).
+
+Τι καλύπτουν:
+
+- **Parsers** και των τεσσάρων τύπων πηγής, με έλεγχο εξαγωγής προθεσμίας,
+  προϋπολογισμού, έντασης ενίσχυσης, περιφερειών, κλάδων, δικαιούχων.
+- **Κωδικοποίηση** windows-1253 χωρίς σωστό charset στα headers.
+- **Dedupe**: ίδιο URL, σχεδόν ίδιος τίτλος, τροποποιήσεις της ίδιας πρόσκλησης,
+  και ταυτόχρονη εγγραφή του ίδιου προγράμματος από δύο σαρώσεις.
+- **Κανάλια**: webhook με επαλήθευση HMAC, Telegram με τεμαχισμό μεγάλων
+  μηνυμάτων, email μέσω πραγματικού SMTP server, idempotency και αποτυχίες.
+- **API**: κάθε endpoint, validation, 404, API key.
+- **Scheduler**: ότι τα jobs προγραμματίζονται σε ώρα Ελλάδας και ότι ένα
+  σφάλμα σε job δεν ρίχνει τον scheduler.
+- **Ακραίες περιπτώσεις**: κενά/None παντού, υπερμεγέθη πεδία, άκυρες
+  ημερομηνίες, κακοσχηματισμένα ποσά.
+
+### Σε PostgreSQL
+
+Οι έλεγχοι τρέχουν και στις δύο βάσεις. Για Postgres:
+
+```bash
+ESPA_DATABASE_URL="postgresql+psycopg2://user:pass@localhost/espa_test" \
+  python tests/test_integration.py
 ```

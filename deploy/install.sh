@@ -255,13 +255,22 @@ $CADDY_HOST {
     reverse_proxy 127.0.0.1:$APP_PORT
 }
 CADDYCFG
-    # Κάθε αποτυχία εδώ επαναφέρει το αρχείο· το set -e δεν πρέπει να
-    # αφήσει τη ρύθμιση μισοαλλαγμένη.
-    if caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 \
-       && systemctl reload caddy >/dev/null 2>&1; then
-      ok "ενεργό (HTTPS αυτόματα)"
+    # Το «caddy validate --config» χωρίς --adapter διαβάζει το αρχείο ως JSON
+    # και αποτυγχάνει πάντα σε Caddyfile. Επιπλέον το reload της Caddy είναι
+    # ατομικό: αν η νέα ρύθμιση είναι άκυρη, κρατά την παλιά και επιστρέφει
+    # σφάλμα — οπότε το reload είναι από μόνο του ασφαλής έλεγχος.
+    CADDY_ERR=""
+    if ! caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
+      CADDY_ERR="$(caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile 2>&1 | tail -5)"
+    elif ! systemctl reload caddy >/dev/null 2>&1; then
+      CADDY_ERR="$(journalctl -u caddy -n 10 --no-pager 2>/dev/null | tail -5)"
+    fi
+    if [ -z "$CADDY_ERR" ]; then
+      rm -f /etc/caddy/Caddyfile.bak.espa
+      ok "ενεργό — το πιστοποιητικό βγαίνει σε 10-60 δευτερόλεπτα"
     else
-      warn "η Caddy δεν δέχτηκε τη ρύθμιση — επαναφορά"
+      warn "η Caddy δεν δέχτηκε τη ρύθμιση — επαναφορά. Αιτία:"
+      echo "$CADDY_ERR" | sed 's/^/      /'
       mv /etc/caddy/Caddyfile.bak.espa /etc/caddy/Caddyfile
       systemctl reload caddy >/dev/null 2>&1 || true
       CADDY_HOST=""

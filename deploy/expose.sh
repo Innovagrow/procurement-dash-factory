@@ -93,17 +93,29 @@ $HOST {
     reverse_proxy 127.0.0.1:$APP_PORT
 }
 CADDYCFG
-    if caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
-      systemctl reload caddy
+    # Το «caddy validate --config» χωρίς --adapter διαβάζει το αρχείο ως JSON
+    # και αποτυγχάνει πάντα σε Caddyfile. Επιπλέον το reload της Caddy είναι
+    # ατομικό: αν η νέα ρύθμιση είναι άκυρη, κρατά την παλιά και επιστρέφει
+    # σφάλμα — οπότε το reload είναι από μόνο του ασφαλής έλεγχος.
+    if caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile >/dev/null 2>&1 \
+       && systemctl reload caddy; then
+      rm -f "/etc/caddy/Caddyfile.bak.$$"
       ok "φορτώθηκε — το πιστοποιητικό θέλει 10-60 δευτερόλεπτα"
-      sleep 25
-      journalctl -u caddy --since "-2min" --no-pager 2>/dev/null \
-        | grep -iE "obtain|certificate|error|challenge" | tail -10 | sed 's/^/    /'
-      curl -sS -o /dev/null -w "  https -> %{http_code}\n" --max-time 20 "https://$HOST/" 2>&1 | tail -1
+      sleep 30
+      journalctl -u caddy --since "-3min" --no-pager 2>/dev/null \
+        | grep -iE "obtain|certificate|error|challenge|rate" | tail -12 | sed 's/^/    /'
+      code="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 25 "https://$HOST/" 2>/dev/null)"
+      if [ "$code" = "200" ]; then
+        ok "ΔΟΥΛΕΥΕΙ"
+        printf "\n\033[1;32m    https://%s\033[0m\n\n" "$HOST"
+      else
+        warn "https επιστρέφει $code — δες τα σφάλματα παραπάνω"
+      fi
     else
-      bad "άκυρη ρύθμιση — επαναφορά"
+      bad "άκυρη ρύθμιση — επαναφορά. Αιτία:"
+      caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile 2>&1 | tail -6 | sed 's/^/      /'
       mv "/etc/caddy/Caddyfile.bak.$$" /etc/caddy/Caddyfile
-      caddy validate --config /etc/caddy/Caddyfile 2>&1 | tail -5 | sed 's/^/    /'
+      systemctl reload caddy >/dev/null 2>&1 || true
     fi
     ;;
 esac

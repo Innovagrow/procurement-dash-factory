@@ -31,20 +31,34 @@ die()  { printf "\033[1;31m  ✗ %s\033[0m\n" "$*"; exit 1; }
 
 # Τρέχει μια εντολή σε cgroup με ταβάνι μνήμης και μέγιστη προτεραιότητα
 # θανάτου: αν λείψει μνήμη, θυσιάζεται αυτή, όχι οι υπάρχουσες υπηρεσίες.
+#
+# Το OOMScoreAdjust ΔΕΝ δίνεται στο systemd-run --scope: είναι ιδιότητα του
+# exec context ενός service, και τα scope units δεν έχουν τέτοιο. Το γράφουμε
+# απευθείας στο /proc/self/oom_score_adj — κληρονομείται σε fork και exec.
+SACRIFICE=(bash -c 'echo 1000 > /proc/self/oom_score_adj 2>/dev/null || true; exec "$@"' _)
+
+USE_SCOPE=0
+if command -v systemd-run >/dev/null 2>&1 \
+   && systemd-run --scope --quiet --collect \
+        -p MemoryMax=64M -p MemorySwapMax=0 -p CPUWeight=20 -p IOWeight=20 \
+        -- true >/dev/null 2>&1; then
+  USE_SCOPE=1
+fi
+
 bounded() {
-  if command -v systemd-run >/dev/null 2>&1; then
+  if [ "$USE_SCOPE" = "1" ]; then
     systemd-run --scope --quiet --collect \
       -p MemoryMax="$INSTALL_MEM_MAX" -p MemorySwapMax=0 \
-      -p OOMScoreAdjust=1000 -p CPUWeight=20 -p IOWeight=20 \
-      -- "$@"
+      -p CPUWeight=20 -p IOWeight=20 \
+      -- "${SACRIFICE[@]}" "$@"
   else
-    warn "χωρίς systemd-run — η εγκατάσταση τρέχει χωρίς όριο μνήμης"
-    "$@"
+    "${SACRIFICE[@]}" "$@"
   fi
 }
 
 # ============================================================
 say "Πόροι"
+[ "$USE_SCOPE" = "1" ] || warn "χωρίς όριο cgroup στην εγκατάσταση (θυσιάζεται πάντως πρώτη σε OOM)"
 MEM_AVAIL=$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo)
 DISK_FREE=$(df -Pm / | awk 'NR==2{print $4}')
 echo "  RAM διαθέσιμη: ${MEM_AVAIL} MB   δίσκος ελεύθερος: ${DISK_FREE} MB"

@@ -642,11 +642,24 @@ def test_api_full() -> None:
         check(any(s["ok"] is False for s in sources), "το /api/sources δείχνει σπασμένη πηγή")
         check(any(s["ok"] is True for s in sources), "το /api/sources δείχνει υγιείς πηγές")
 
-        # --- Dashboard με δεδομένα
+        # --- Dashboard: η σελίδα είναι κέλυφος, τα δεδομένα έρχονται από το API
         response = client.get("/")
-        check(response.status_code == 200, "GET / με δεδομένα")
-        check("Ενημερωμένο προφίλ" in response.text, "το dashboard δείχνει το προφίλ")
-        check("Mock RSS" in response.text, "το dashboard δείχνει τις πηγές")
+        check(response.status_code == 200 and "Ραντάρ Επιδοτήσεων" in response.text,
+              "GET / (κέλυφος σελίδας)")
+
+        response = client.get("/api/dashboard")
+        check(response.status_code == 200, f"GET /api/dashboard ({response.status_code})")
+        payload = response.json()
+        check(set(payload) >= {"stats", "sources", "taxonomy", "programs", "scheduler"},
+              "το /api/dashboard έχει όλα τα τμήματα", str(sorted(payload)))
+        check(payload["stats"]["programs"] > 0, "στατιστικά με δεδομένα")
+        check(any(s["name"] == "Mock RSS" for s in payload["sources"]),
+              "οι πηγές περιλαμβάνονται")
+        check(any(s["ok"] is False for s in payload["sources"]),
+              "η σπασμένη πηγή φαίνεται στο dashboard")
+        check(len(payload["programs"]) > 0 and "t" in payload["programs"][0],
+              "τα προγράμματα έρχονται σε συμπαγή μορφή")
+        check(len(payload["taxonomy"]["sectors"]) > 5, "η ταξινομία περιλαμβάνεται")
 
         # --- Καθαρισμός
         check(client.delete(f"/api/profiles/{profile_id}").status_code == 204, "DELETE προφίλ")
@@ -877,6 +890,12 @@ def test_edge_cases() -> None:
           == "Πρόσκληση υποβολής αιτήσεων", "κανονικός τίτλος μένει ανέπαφος")
     check(textutils.strip_amendment_prefix("Τροποποίηση") == "Τροποποίηση",
           "τίτλος μόνο «Τροποποίηση» δεν αδειάζει")
+    # Η κατάληξη πρέπει να φεύγει μαζί με το θέμα, αλλιώς μένει «ς, Ολοκλήρωσης…»
+    check(textutils.strip_amendment_prefix(
+              "Τροποποίησης, Ολοκλήρωσης, Οριστικοποίησης κόστους")
+          == "Ολοκλήρωσης, Οριστικοποίησης κόστους",
+          "δεν κόβεται στη μέση λέξης (κλιτή κατάληξη)",
+          textutils.strip_amendment_prefix("Τροποποίησης, Ολοκλήρωσης, Οριστικοποίησης κόστους"))
 
     # Το systemd EnvironmentFile δεν κόβει σχόλια στο τέλος γραμμής.
     from espa_radar import config as config_module

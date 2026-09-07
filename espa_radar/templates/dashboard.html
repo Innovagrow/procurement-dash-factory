@@ -3,300 +3,648 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ESPA Radar — Ραντάρ Επιδοτήσεων</title>
+<title>Ραντάρ Επιδοτήσεων</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:wght@700;800&family=Commissioner:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-  :root{
-    --bg:#f6f7f9; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
-    --accent:#0f766e; --accent-soft:#ccfbf1; --warn:#b45309; --danger:#b91c1c; --ok:#15803d;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --bg:#0b1220; --card:#111a2b; --ink:#e2e8f0; --muted:#94a3b8; --line:#1e293b;
-           --accent:#2dd4bf; --accent-soft:#134e4a; }
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
-       font:14px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  a{color:inherit}
-  header{background:var(--card);border-bottom:1px solid var(--line);padding:18px 24px;
-         display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-  header h1{margin:0;font-size:18px;letter-spacing:-.01em}
-  header p{margin:2px 0 0;color:var(--muted);font-size:12px}
-  .wrap{max-width:1180px;margin:0 auto;padding:24px}
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
-  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
-  .stat b{display:block;font-size:26px;letter-spacing:-.02em}
-  .stat span{color:var(--muted);font-size:12px}
-  h2{font-size:15px;margin:28px 0 12px;display:flex;align-items:center;gap:8px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
-  .match{display:flex;gap:14px;align-items:flex-start}
-  .score{flex:none;width:52px;height:52px;border-radius:10px;background:var(--accent-soft);color:var(--accent);
-         display:grid;place-items:center;font-weight:700;font-size:16px}
-  .match h3{margin:0 0 6px;font-size:15px;font-weight:600;line-height:1.35}
-  .match h3 a{text-decoration:none}
-  .match h3 a:hover{text-decoration:underline}
-  .meta{color:var(--muted);font-size:12px;display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}
-  .why{color:var(--accent);font-size:12.5px}
-  .summary{color:var(--muted);font-size:13px;margin-top:6px}
-  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid var(--line)}
-  .pill.open{background:var(--accent-soft);color:var(--accent);border-color:transparent}
-  .pill.soon{background:#fef3c7;color:var(--warn);border-color:transparent}
-  .pill.late{background:#fee2e2;color:var(--danger);border-color:transparent}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{text-align:right;padding:8px 10px;border-bottom:1px solid var(--line)}
-  th:first-child,td:first-child{text-align:right}
-  th{color:var(--muted);font-weight:500;font-size:12px}
-  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:6px}
-  .dot.ok{background:var(--ok)} .dot.bad{background:var(--danger)} .dot.idle{background:var(--muted)}
-  .empty{color:var(--muted);text-align:center;padding:32px;background:var(--card);
-         border:1px dashed var(--line);border-radius:12px}
-  details summary{cursor:pointer;font-weight:600;font-size:14px}
-  form{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
-  label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
-  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
-        background:var(--bg);color:var(--ink);font:inherit;font-size:13px}
-  select[multiple]{height:120px}
-  button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 18px;
-         font:inherit;font-weight:600;cursor:pointer}
-  button:hover{opacity:.9}
-  .full{grid-column:1/-1}
-  .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
-  code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:12px}
+:root{
+  --paper:#FBFAF7; --surface:#FFFFFF; --rail:#F3F2ED; --sunken:#EFEEE8;
+  --ink:#171C26; --ink-2:#545C6B; --ink-3:#8A92A1;
+  --line:#E2E0D8; --line-strong:#CFCCC2;
+  --accent:#1B4DE4; --accent-soft:#E9EEFD; --accent-ink:#123AAE;
+  --open:#0E7C66; --open-soft:#DDF0EA;
+  --soon:#A8630B; --soon-soft:#FAEEDB;
+  --bad:#B3261E; --bad-soft:#FBE9E7;
+  --shut:#7C828E; --shut-soft:#EDECE8;
+  --serif:"Alegreya",Georgia,serif;
+  --sans:"Commissioner",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#10151F; --surface:#161C28; --rail:#141A25; --sunken:#1B2231;
+  --ink:#E7EAF0; --ink-2:#9AA3B3; --ink-3:#6C7588;
+  --line:#252E3D; --line-strong:#334054;
+  --accent:#6C97FF; --accent-soft:#1A2440; --accent-ink:#9DB8FF;
+  --open:#43C3A1; --open-soft:#11322B;
+  --soon:#E4A75C; --soon-soft:#332711;
+  --bad:#F2837A; --bad-soft:#38201E;
+  --shut:#79818F; --shut-soft:#1E2530;
+}}
+:root[data-theme="dark"]{
+  --paper:#10151F; --surface:#161C28; --rail:#141A25; --sunken:#1B2231;
+  --ink:#E7EAF0; --ink-2:#9AA3B3; --ink-3:#6C7588;
+  --line:#252E3D; --line-strong:#334054;
+  --accent:#6C97FF; --accent-soft:#1A2440; --accent-ink:#9DB8FF;
+  --open:#43C3A1; --open-soft:#11322B;
+  --soon:#E4A75C; --soon-soft:#332711;
+  --bad:#F2837A; --bad-soft:#38201E;
+  --shut:#79818F; --shut-soft:#1E2530;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+     font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--accent-ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+
+.masthead{border-bottom:1px solid var(--line);background:var(--surface)}
+.masthead-inner{max-width:1280px;margin:0 auto;padding:20px 26px 16px;
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:18px 32px}
+.wordmark{flex:1 1 300px;min-width:0}
+.wordmark h1{font-family:var(--serif);font-weight:800;font-size:31px;line-height:1.05;
+  margin:0;letter-spacing:-.015em}
+.wordmark p{margin:6px 0 0;color:var(--ink-2);font-size:13.5px;max-width:60ch}
+.stamp{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end}
+.stamp div{display:flex;flex-direction:column;gap:1px}
+.stamp b{font-size:20px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.1}
+.stamp span{letter-spacing:.07em;font-size:10px;color:var(--ink-3);font-family:var(--mono)}
+
+/* Λωρίδα «δουλεύει;» */
+.pulse{background:var(--rail);border-bottom:1px solid var(--line)}
+.pulse-inner{max-width:1280px;margin:0 auto;padding:10px 26px;
+  display:flex;flex-wrap:wrap;gap:8px 26px;align-items:center;font-size:12.5px;color:var(--ink-2)}
+.beat{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.led{width:8px;height:8px;border-radius:50%;flex:none;background:var(--shut)}
+.led.ok{background:var(--open)} .led.bad{background:var(--bad)} .led.warn{background:var(--soon)}
+.pulse b{color:var(--ink);font-weight:500;font-family:var(--mono);font-size:12px}
+.pulse .grow{flex:1 1 auto}
+button.act{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);
+  border-radius:6px;padding:5px 12px;font:inherit;font-size:12.5px;font-weight:500;cursor:pointer}
+button.act:hover{border-color:var(--accent);color:var(--accent-ink)}
+button.act:disabled{opacity:.5;cursor:progress}
+
+.frame{max-width:1280px;margin:0 auto;padding:20px 26px 60px;
+  display:grid;grid-template-columns:300px minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:920px){.frame{grid-template-columns:1fr}}
+
+.rail{position:sticky;top:14px;background:var(--rail);border:1px solid var(--line);
+  border-radius:10px;padding:15px;display:flex;flex-direction:column;gap:15px;
+  max-height:calc(100vh - 28px);overflow-y:auto}
+@media (max-width:920px){.rail{position:static;max-height:none}}
+.rail-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.rail-head h2{font-family:var(--serif);font-weight:700;font-size:17px;margin:0}
+.linkbtn{background:none;border:0;padding:0;cursor:pointer;font:inherit;font-size:12px;
+  color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+legend{padding:0;font-size:10px;font-weight:600;letter-spacing:.08em;
+  color:var(--ink-3);font-family:var(--mono)}
+.checks{display:flex;flex-direction:column;gap:3px;max-height:190px;overflow-y:auto}
+.check{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:1px 0}
+.check input{accent-color:var(--accent);margin:0;flex:none;width:14px;height:14px}
+.check .n{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-3);
+  font-variant-numeric:tabular-nums}
+input[type="text"],input[type="number"],input[type="password"],select{width:100%;
+  padding:7px 9px;font:inherit;font-size:13px;background:var(--surface);color:var(--ink);
+  border:1px solid var(--line-strong);border-radius:6px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.hint{font-size:11.5px;color:var(--ink-3);margin:0}
+.save{background:var(--accent);color:#fff;border:0;border-radius:7px;padding:9px 14px;
+  font:inherit;font-size:13px;font-weight:600;cursor:pointer;width:100%}
+.save:hover{opacity:.9}
+.msg{font-size:12px;margin-top:6px}
+.msg.ok{color:var(--open)} .msg.err{color:var(--bad)}
+
+.results{min-width:0;display:flex;flex-direction:column;gap:12px}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;
+  padding-bottom:10px;border-bottom:1px solid var(--line)}
+.count{font-size:14px;color:var(--ink-2);flex:1 1 auto}
+.count b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;font-size:16px}
+.toolbar label{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+.toolbar select{width:auto;padding:5px 8px;font-size:12.5px}
+
+.register{display:flex;flex-direction:column}
+.entry{display:grid;grid-template-columns:3px 46px minmax(0,1fr) auto;gap:0 14px;
+  align-items:start;padding:13px 14px 13px 0;border-bottom:1px solid var(--line);
+  background:var(--surface)}
+.entry:first-child{border-top:1px solid var(--line);border-radius:8px 8px 0 0}
+.entry:last-child{border-radius:0 0 8px 8px}
+@media (max-width:640px){.entry{grid-template-columns:3px 42px minmax(0,1fr)}
+  .when{grid-column:2/-1;margin-top:8px;align-items:flex-start}}
+.stripe{align-self:stretch;border-radius:2px;background:var(--line-strong)}
+.entry[data-state="OPEN"] .stripe{background:var(--open)}
+.entry[data-state="UPCOMING"] .stripe{background:var(--accent)}
+.entry[data-state="CLOSED"] .stripe{background:var(--shut)}
+.score{font-family:var(--mono);font-size:17px;font-weight:500;text-align:right;
+  font-variant-numeric:tabular-nums;color:var(--ink-3);
+  display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.score.hit{color:var(--accent-ink)}
+.meter{width:34px;height:3px;border-radius:2px;background:var(--sunken);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent)}
+.body{min-width:0;display:flex;flex-direction:column;gap:5px}
+.body h3{margin:0;font-size:15px;font-weight:600;line-height:1.35}
+.body h3 a{color:var(--ink);text-decoration:none}
+.body h3 a:hover{color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font-size:12px;color:var(--ink-2)}
+.meta .ada{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+.tag{font-size:11px;padding:1.5px 7px;border-radius:999px;background:var(--sunken);
+  color:var(--ink-2);white-space:nowrap}
+.tag.reg{background:transparent;border:1px solid var(--line-strong);color:var(--ink-3)}
+.why{font-size:12.5px;color:var(--open)}
+.excerpt{font-size:13px;color:var(--ink-2);margin:0;max-width:72ch}
+.when{display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:130px;text-align:right}
+.pill{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;
+  background:var(--shut-soft);color:var(--shut);white-space:nowrap}
+.pill.open{background:var(--open-soft);color:var(--open)}
+.pill.soon{background:var(--soon-soft);color:var(--soon)}
+.pill.up{background:var(--accent-soft);color:var(--accent-ink)}
+.date{font-family:var(--mono);font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.date b{color:var(--ink);font-weight:500}
+.runway{width:118px;height:4px;border-radius:2px;background:var(--sunken);overflow:hidden}
+.runway i{display:block;height:100%;background:var(--open)}
+.runway.soon i{background:var(--soon)}
+.money{font-family:var(--mono);font-size:12px;color:var(--ink);font-variant-numeric:tabular-nums}
+.empty{padding:40px 24px;text-align:center;color:var(--ink-2);border:1px dashed var(--line-strong);
+  border-radius:10px;background:var(--surface)}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:6px}
+.more{margin:4px auto 0;padding:9px 20px;font:inherit;font-size:13px;font-weight:600;
+  background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);
+  border-radius:7px;cursor:pointer}
+
+.panels{max-width:1280px;margin:0 auto;padding:0 26px 56px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:24px}
+.panel h2{font-family:var(--serif);font-weight:700;font-size:19px;margin:0 0 4px}
+.panel > p{margin:0 0 12px;color:var(--ink-2);font-size:13px;max-width:64ch}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:420px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{font-size:10px;letter-spacing:.07em;color:var(--ink-3);font-weight:600;
+  background:var(--rail);font-family:var(--mono)}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2)}
+.src-name{font-weight:500}
+.src-id{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.errtext{font-size:11.5px;color:var(--bad);margin-top:3px;max-width:44ch}
+.loading{padding:60px 24px;text-align:center;color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>📡 ESPA Radar</h1>
-    <p>Συνεχής παρακολούθηση προγραμμάτων ΕΣΠΑ &amp; λοιπών επιδοτήσεων με βάση τα κριτήριά σου</p>
-  </div>
-  <div style="font-size:12px;color:var(--muted);text-align:left">
-    {% if jobs %}
-      {% for job in jobs %}<div>{{ job.name }} → {{ job.next_run[:16] if job.next_run else '—' }}</div>{% endfor %}
-    {% else %}<div>Scheduler ανενεργός</div>{% endif %}
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="wordmark">
+      <h1>Ραντάρ Επιδοτήσεων</h1>
+      <p>Προγράμματα ΕΣΠΑ, Ταμείου Ανάκαμψης και λοιπών ενισχύσεων από επίσημες πηγές,
+         βαθμολογημένα με τα κριτήριά σου.</p>
+    </div>
+    <div class="stamp">
+      <div><b id="s-total">—</b><span>ΠΡΟΓΡΑΜΜΑΤΑ</span></div>
+      <div><b id="s-open">—</b><span>ΑΝΟΙΧΤΑ</span></div>
+      <div><b id="s-dl">—</b><span>ΜΕ ΠΡΟΘΕΣΜΙΑ</span></div>
+      <div><b id="s-prof">—</b><span>ΠΡΟΦΙΛ</span></div>
+      <div><b id="s-notif">—</b><span>ΕΙΔΟΠΟΙΗΣΕΙΣ</span></div>
+    </div>
   </div>
 </header>
 
-<div class="wrap">
-
-  <div class="stats">
-    <div class="stat"><b>{{ stats.programs }}</b><span>προγράμματα στη βάση</span></div>
-    <div class="stat"><b>{{ stats.open }}</b><span>ανοιχτές προσκλήσεις</span></div>
-    <div class="stat"><b>{{ stats.profiles }}</b><span>ενεργά προφίλ κριτηρίων</span></div>
-    <div class="stat"><b>{{ stats.matches }}</b><span>ταιριάσματα</span></div>
-    <div class="stat"><b>{{ stats.notifications }}</b><span>ειδοποιήσεις που στάλθηκαν</span></div>
+<div class="pulse">
+  <div class="pulse-inner">
+    <span class="beat"><i class="led" id="led-sched"></i><span id="txt-sched">έλεγχος…</span></span>
+    <span class="beat"><i class="led" id="led-src"></i><span id="txt-src">—</span></span>
+    <span class="beat">τελευταία σάρωση <b id="txt-scan">—</b></span>
+    <span class="beat">επόμενη <b id="txt-next">—</b></span>
+    <span class="grow"></span>
+    <button class="act" id="btn-scan" type="button">Σάρωση τώρα</button>
+    <button class="act" id="btn-reload" type="button">Ανανέωση</button>
   </div>
-
-  <h2>🎯 Ευκαιρίες για σένα</h2>
-  {% if matches %}
-    {% for match in matches %}
-    {% set p = match.program %}
-    {% set left = p.deadline | days_left %}
-    <div class="card match">
-      <div class="score">{{ match.score | round | int }}</div>
-      <div style="flex:1;min-width:0">
-        <h3><a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.title }}</a></h3>
-        <div class="meta">
-          <span>{{ p.source_name }}</span>
-          {% if p.status == 'OPEN' %}<span class="pill open">Ανοιχτή</span>
-          {% elif p.status == 'UPCOMING' %}<span class="pill">Αναμενόμενη</span>
-          {% elif p.status == 'CLOSED' %}<span class="pill late">Έληξε</span>{% endif %}
-          {% if p.deadline %}
-            <span class="pill {% if left is not none and left <= 7 %}late{% elif left is not none and left <= 30 %}soon{% endif %}">
-              Λήξη {{ p.deadline | date }}{% if left is not none and left >= 0 %} · {{ left }} ημ.{% endif %}
-            </span>
-          {% endif %}
-          {% if p.budget_max %}<span>Έως {{ p.budget_max | money }}/έργο</span>{% endif %}
-          {% if p.subsidy_rate %}<span>Ενίσχυση έως {{ p.subsidy_rate | round | int }}%</span>{% endif %}
-          {% if p.regions %}<span>{{ p.regions[:3] | join(', ') }}</span>{% endif %}
-        </div>
-        {% if match.reasons %}<div class="why">✓ {{ match.reasons[:4] | join(' · ') }}</div>{% endif %}
-        {% set summary = p | useful_summary %}
-        {% if summary %}<div class="summary">{{ summary[:260] }}{% if summary|length > 260 %}…{% endif %}</div>{% endif %}
-      </div>
-    </div>
-    {% endfor %}
-  {% else %}
-    <div class="empty">
-      Δεν υπάρχουν ακόμη ταιριάσματα.<br>
-      Φτιάξε ένα προφίλ κριτηρίων παρακάτω και τρέξε μια σάρωση
-      (<code>POST /api/scan</code> ή <code>python -m espa_radar.cli scan</code>).
-    </div>
-  {% endif %}
-
-  <h2>🧭 Τα προφίλ κριτηρίων μου</h2>
-  {% if profiles %}
-  <div class="card">
-    <table>
-      <thead><tr>
-        <th>Όνομα</th><th>Κλάδοι</th><th>Περιοχές</th><th>Λέξεις-κλειδιά</th>
-        <th>Προϋπ/σμός</th><th>Κατώφλι</th><th>Κανάλια</th><th>Ενεργό</th>
-      </tr></thead>
-      <tbody>
-      {% for profile in profiles %}
-        <tr>
-          <td><strong>{{ profile.name }}</strong></td>
-          <td>{{ profile.sectors | join(', ') or '—' }}</td>
-          <td>{{ profile.regions | join(', ') or 'όλες' }}</td>
-          <td>{{ profile.keywords[:5] | join(', ') or '—' }}</td>
-          <td>{{ profile.budget_min | money }} – {{ profile.budget_max | money }}</td>
-          <td>{{ profile.min_score if profile.min_score is not none else '—' }}</td>
-          <td>{{ profile.notify_channels | join(', ') or 'default' }}</td>
-          <td>{{ '✅' if profile.is_active else '⏸️' }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-    <div class="empty">Κανένα προφίλ ακόμη.</div>
-  {% endif %}
-
-  <div class="card">
-    <details>
-      <summary>➕ Νέο προφίλ κριτηρίων</summary>
-      <form id="profile-form">
-        <div class="full">
-          <label>Όνομα προφίλ *</label>
-          <input name="name" required placeholder="π.χ. Ψηφιακός μετασχηματισμός — Κρήτη">
-        </div>
-        <div>
-          <label>Email ειδοποιήσεων</label>
-          <input name="notify_email" type="email" placeholder="you@example.com">
-        </div>
-        <div>
-          <label>Κλάδοι (Ctrl+κλικ για πολλαπλά)</label>
-          <select name="sectors" multiple>
-            {% for s in taxonomy.sectors %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
-          </select>
-        </div>
-        <div>
-          <label>Περιφέρειες (κενό = όλες)</label>
-          <select name="regions" multiple>
-            {% for r in taxonomy.regions %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
-          </select>
-        </div>
-        <div>
-          <label>Τύπος δικαιούχου</label>
-          <select name="beneficiaries" multiple>
-            {% for b in taxonomy.beneficiaries %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
-          </select>
-        </div>
-        <div>
-          <label>Είδος ενίσχυσης</label>
-          <select name="aid_types" multiple>
-            {% for a in taxonomy.aid_types %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="full">
-          <label>Λέξεις-κλειδιά (χωρισμένες με κόμμα)</label>
-          <input name="keywords" placeholder="ψηφιακός μετασχηματισμός, λογισμικό, e-shop">
-        </div>
-        <div class="full">
-          <label>Λέξεις αποκλεισμού</label>
-          <input name="exclude_keywords" placeholder="αγροτικός, αλιεία">
-        </div>
-        <div><label>Ελάχ. προϋπολογισμός (€)</label><input name="budget_min" type="number" step="1000"></div>
-        <div><label>Μέγ. προϋπολογισμός (€)</label><input name="budget_max" type="number" step="1000"></div>
-        <div><label>Ελάχ. ένταση ενίσχυσης (%)</label><input name="min_subsidy_rate" type="number" min="0" max="100"></div>
-        <div><label>Ελάχ. ημέρες μέχρι τη λήξη</label><input name="min_days_left" type="number" min="0" placeholder="π.χ. 10"></div>
-        <div><label>Κατώφλι ταιριάσματος (0-100)</label><input name="min_score" type="number" min="0" max="100" placeholder="45"></div>
-        <div>
-          <label>Κανάλια ειδοποίησης</label>
-          <select name="notify_channels" multiple>
-            <option value="console">Logs (console)</option>
-            <option value="email">Email</option>
-            <option value="telegram">Telegram</option>
-            <option value="webhook">Webhook</option>
-          </select>
-        </div>
-        <div class="full">
-          <button type="submit">Αποθήκευση προφίλ</button>
-          <span class="hint" id="form-msg"></span>
-        </div>
-      </form>
-    </details>
-  </div>
-
-  <h2>📶 Κατάσταση πηγών</h2>
-  <div class="card">
-    <table>
-      <thead><tr>
-        <th>Πηγή</th><th>Τύπος</th><th>Τελευταία σάρωση</th>
-        <th>Εγγραφές</th><th>Νέα</th><th>Κατάσταση</th>
-      </tr></thead>
-      <tbody>
-      {% for source in sources %}
-        <tr>
-          <td>{{ source.name }}<br><span style="color:var(--muted);font-size:11px">{{ source.source_id }}</span></td>
-          <td>{{ source.type }}</td>
-          <td>{{ source.last_run.strftime('%d/%m %H:%M') if source.last_run else '—' }}</td>
-          <td>{{ source.items_found if source.items_found is not none else '—' }}</td>
-          <td>{{ source.items_new if source.items_new is not none else '—' }}</td>
-          <td>
-            {% if not source.enabled %}<span class="dot idle"></span>ανενεργή
-            {% elif source.ok is none %}<span class="dot idle"></span>δεν έχει τρέξει
-            {% elif source.ok %}<span class="dot ok"></span>OK
-            {% else %}<span class="dot bad"></span>
-              <span title="{{ source.error }}">σφάλμα</span>
-            {% endif %}
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    <p class="hint">Μια πηγή σε «σφάλμα» συνήθως σημαίνει ότι άλλαξε η δομή της σελίδας — διόρθωσε τους
-    CSS selectors στο <code>espa_radar/sources.yml</code>. Οι υπόλοιπες πηγές συνεχίζουν κανονικά.</p>
-  </div>
-
 </div>
 
+<div class="frame">
+  <aside class="rail">
+    <div class="rail-head">
+      <h2>Τα κριτήριά μου</h2>
+      <button class="linkbtn" id="reset" type="button">Καθαρισμός</button>
+    </div>
+
+    <fieldset>
+      <legend>ΛΕΞΕΙΣ-ΚΛΕΙΔΙΑ</legend>
+      <input type="text" id="kw" placeholder="ψηφιακός, e-shop, φωτοβολταϊκά" autocomplete="off">
+    </fieldset>
+    <fieldset><legend>ΚΛΑΔΟΣ</legend><div class="checks" id="sectors"></div></fieldset>
+    <fieldset>
+      <legend>ΠΕΡΙΦΕΡΕΙΑ</legend><div class="checks" id="regions"></div>
+      <p class="hint">Κενό = και τα πανελλαδικά.</p>
+    </fieldset>
+    <fieldset><legend>ΔΙΚΑΙΟΥΧΟΣ</legend><div class="checks" id="beneficiaries"></div></fieldset>
+    <fieldset>
+      <legend>ΠΡΟΫΠΟΛΟΓΙΣΜΟΣ ΕΡΓΟΥ (€)</legend>
+      <div class="pair"><input type="number" id="bmin" placeholder="από" step="1000">
+        <input type="number" id="bmax" placeholder="έως" step="1000"></div>
+    </fieldset>
+    <fieldset>
+      <legend>ΕΛΑΧΙΣΤΑ</legend>
+      <div class="pair"><input type="number" id="rate" placeholder="% ενίσχυση" min="0" max="100">
+        <input type="number" id="days" placeholder="ημέρες" min="0"></div>
+    </fieldset>
+    <fieldset>
+      <legend>ΕΜΦΑΝΙΣΗ</legend>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="only-live" checked> Χωρίς τα ληγμένα</label>
+        <label class="check"><input type="checkbox" id="only-dated"> Μόνο με γνωστή προθεσμία</label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>ΑΠΟΚΛΕΙΣΜΟΣ</legend>
+      <input type="text" id="exclude" placeholder="αλιεία, ΟΤΑ" autocomplete="off">
+    </fieldset>
+
+    <fieldset>
+      <legend>ΕΙΔΟΠΟΙΗΣΕΙΣ</legend>
+      <p class="hint">Τα φίλτρα πάνω δουλεύουν μόνο σε αυτή τη σελίδα. Αποθήκευσέ τα ως
+        προφίλ για να παίρνεις ειδοποιήσεις όταν βγαίνει κάτι νέο.</p>
+      <input type="text" id="pname" placeholder="όνομα προφίλ" autocomplete="off">
+      <input type="text" id="pemail" placeholder="email παραλήπτη" autocomplete="off">
+      <input type="password" id="pkey" placeholder="API key (από την εγκατάσταση)" autocomplete="off">
+      <button class="save" id="btn-save" type="button">Αποθήκευση ως προφίλ</button>
+      <div class="msg" id="save-msg"></div>
+    </fieldset>
+  </aside>
+
+  <main class="results">
+    <div class="toolbar">
+      <div class="count" id="count">φόρτωση…</div>
+      <label>Ταξινόμηση
+        <select id="sort">
+          <option value="score">Ταίριασμα</option>
+          <option value="deadline">Προθεσμία</option>
+          <option value="recent">Πιο πρόσφατα</option>
+        </select>
+      </label>
+    </div>
+    <div class="register" id="register"><div class="loading">Φόρτωση δεδομένων…</div></div>
+    <button class="more" id="more" type="button" hidden>Περισσότερα</button>
+  </main>
+</div>
+
+<section class="panels">
+  <div class="panel">
+    <h2>Υγεία πηγών</h2>
+    <p>Κάθε σάρωση χτυπά όλες τις πηγές. Όποια πέσει καταγράφεται εδώ και οι υπόλοιπες
+       συνεχίζουν. Κάποιες μπλοκάρουν αιτήματα από κέντρα δεδομένων.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>ΠΗΓΗ</th><th>ΤΥΠΟΣ</th><th style="text-align:right">ΕΓΓΡΑΦΕΣ</th><th>ΚΑΤΑΣΤΑΣΗ</th></tr></thead>
+      <tbody id="src-rows"></tbody>
+    </table></div>
+  </div>
+
+  <div class="panel">
+    <h2>Ενεργά προφίλ</h2>
+    <p>Για κάθε προφίλ, ό,τι ταιριάζει πάνω από το κατώφλι στέλνεται ως ειδοποίηση.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>ΟΝΟΜΑ</th><th>ΚΡΙΤΗΡΙΑ</th><th>ΚΑΝΑΛΙΑ</th></tr></thead>
+      <tbody id="prof-rows"></tbody>
+    </table></div>
+  </div>
+</section>
+
 <script>
-const form = document.getElementById('profile-form');
-if (form) {
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const data = new FormData(form);
-    const multi = (key) => Array.from(form.querySelectorAll(`[name="${key}"] option:checked`)).map(o => o.value);
-    const csv = (key) => (data.get(key) || '').split(',').map(s => s.trim()).filter(Boolean);
-    const num = (key) => data.get(key) ? Number(data.get(key)) : null;
-
-    const payload = {
-      name: data.get('name'),
-      notify_email: data.get('notify_email') || null,
-      sectors: multi('sectors'),
-      regions: multi('regions'),
-      beneficiaries: multi('beneficiaries'),
-      aid_types: multi('aid_types'),
-      notify_channels: multi('notify_channels'),
-      keywords: csv('keywords'),
-      exclude_keywords: csv('exclude_keywords'),
-      budget_min: num('budget_min'),
-      budget_max: num('budget_max'),
-      min_subsidy_rate: num('min_subsidy_rate'),
-      min_days_left: num('min_days_left'),
-      min_score: num('min_score'),
-    };
-
-    const message = document.getElementById('form-msg');
-    message.textContent = 'Αποθήκευση…';
-    try {
-      const response = await fetch('/api/profiles', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload),
-      });
-      if (response.ok) {
-        message.textContent = '✅ Αποθηκεύτηκε — ανανέωση…';
-        setTimeout(() => location.reload(), 700);
-      } else {
-        const error = await response.json().catch(() => ({}));
-        message.textContent = '❌ ' + (error.detail ? JSON.stringify(error.detail) : response.status);
-      }
-    } catch (error) {
-      message.textContent = '❌ ' + error.message;
-    }
-  });
+const API_KEY_STORE = "espa-api-key";
+const CRIT_STORE = "espa-criteria";
+const WEIGHTS = {keywords:28, sectors:24, regions:16, beneficiaries:14, budget:10, rate:5};
+const TONOS = {"ά":"α","έ":"ε","ή":"η","ί":"ι","ό":"ο","ύ":"υ","ώ":"ω","ϊ":"ι","ϋ":"υ","ΐ":"ι","ΰ":"υ","ς":"σ"};
+const norm = (s) => (s || "").toLowerCase().replace(/[άέήίόύώϊϋΐΰς]/g, (c) => TONOS[c]).replace(/\s+/g, " ").trim();
+const STOP = new Set("ο η το τα οι του τησ των στο στη στην στον σε και με για απο ωσ προσ που τουσ τισ".split(" "));
+const words = (s) => new Set(norm(s).split(/[^0-9a-zα-ω]+/).filter((w) => w && !STOP.has(w)));
+function saysTheSame(a, b){
+  const wa = words(a), wb = words(b);
+  if (!wa.size || !wb.size) return false;
+  let shared = 0; for (const w of wa) if (wb.has(w)) shared++;
+  return shared / Math.min(wa.size, wb.size) >= 0.75;
 }
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+const daysUntil = (iso) => iso ? Math.round((new Date(iso + "T00:00:00") - TODAY) / 86400000) : null;
+const fmtMoney = (v) => v == null ? null :
+  v >= 1e6 ? (v/1e6).toFixed(2).replace(/\.?0+$/,"") + " εκατ. €" :
+  v >= 1000 ? Math.round(v/1000) + " χιλ. €" : Math.round(v) + " €";
+const fmtDate = (iso) => { if(!iso) return "—"; const [y,m,d]=iso.slice(0,10).split("-"); return `${d}/${m}/${y}`; };
+const fmtTime = (iso) => { if(!iso) return "—"; const d=new Date(iso);
+  return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; };
+
+let DATA = null, shown = 40;
+
+function evaluate(p, c){
+  const hay = norm([p.t, p.sum].filter(Boolean).join(" "));
+  const reasons = [];
+  for (const t of c.exclude) if (t && hay.includes(norm(t))) return null;
+  if (c.onlyLive && p.st === "CLOSED") return null;
+  if (c.onlyDated && !p.dl) return null;
+  const left = daysUntil(p.dl);
+  if (c.days != null && left != null && left < c.days) return null;
+  if (c.rate != null && p.r != null && p.r < c.rate) return null;
+
+  const lo = p.bmin != null ? p.bmin : p.bmax;
+  const hi = p.bmax != null ? p.bmax : p.bmin;
+  let budget = null;
+  if (c.bmin != null || c.bmax != null){
+    if (lo == null) budget = 0.5;
+    else {
+      const wl = c.bmin != null ? c.bmin : 0, wh = c.bmax != null ? c.bmax : Infinity;
+      if (hi < wl || lo > wh) return null;
+      budget = 1; reasons.push(`προϋπολογισμός ${fmtMoney(lo)}–${fmtMoney(hi)}`);
+    }
+  }
+  const scores = {};
+  if (c.keywords.length){
+    const hits = c.keywords.filter((k) => k && hay.includes(norm(k)));
+    scores.keywords = Math.min(1, hits.length / Math.min(c.keywords.length, 3));
+    if (hits.length) reasons.push(`λέξεις: ${hits.slice(0,4).join(", ")}`);
+  }
+  for (const [key, want, have, label] of [
+    ["sectors", c.sectors, p.sec, "κλάδοι"],
+    ["regions", c.regions, p.reg, "περιοχές"],
+    ["beneficiaries", c.beneficiaries, p.ben, "δικαιούχοι"]]){
+    if (!want.length) continue;
+    if (key === "regions" && !have.length){ scores.regions = 0.7; reasons.push("πανελλαδικό"); continue; }
+    const hits = have.filter((v) => want.includes(v));
+    scores[key] = Math.min(1, hits.length / Math.min(want.length, 2));
+    if (hits.length) reasons.push(`${label}: ${hits.slice(0,3).join(", ")}`);
+  }
+  if (budget != null) scores.budget = budget;
+  if (c.rate != null) scores.rate = p.r == null ? 0.5 : Math.min(1, 0.6 + (p.r - c.rate)/100);
+
+  const keys = Object.keys(scores);
+  if (!keys.length) return {score:null, reasons:[]};
+  const w = keys.reduce((s,k) => s + WEIGHTS[k], 0);
+  let score = (keys.reduce((s,k) => s + WEIGHTS[k]*scores[k], 0) / w) * 100;
+  const age = daysUntil(p.pd);
+  if (age != null && age >= -14){ score += 5; reasons.push("πρόσφατο"); }
+  if (left != null && left >= 0 && left <= 30){ score += 3; reasons.push(`λήγει σε ${left} ημ.`); }
+  return {score: Math.min(100, Math.round(score*10)/10), reasons};
+}
+
+const el = (t, c, x) => { const n = document.createElement(t); if(c) n.className=c; if(x!=null) n.textContent=x; return n; };
+
+function criteria(){
+  const csv = (id) => document.getElementById(id).value.split(",").map(s=>s.trim()).filter(Boolean);
+  const num = (id) => { const v = document.getElementById(id).value; return v === "" ? null : Number(v); };
+  const box = (g) => Array.from(document.querySelectorAll(`input[data-group="${g}"]:checked`)).map(e=>e.value);
+  return {keywords:csv("kw"), exclude:csv("exclude"), sectors:box("sectors"),
+    regions:box("regions"), beneficiaries:box("beneficiaries"),
+    bmin:num("bmin"), bmax:num("bmax"), rate:num("rate"), days:num("days"),
+    onlyLive:document.getElementById("only-live").checked,
+    onlyDated:document.getElementById("only-dated").checked,
+    sort:document.getElementById("sort").value};
+}
+function applyCriteria(c){
+  document.getElementById("kw").value = (c.keywords||[]).join(", ");
+  document.getElementById("exclude").value = (c.exclude||[]).join(", ");
+  for (const k of ["bmin","bmax","rate","days"]) document.getElementById(k).value = c[k] == null ? "" : c[k];
+  document.getElementById("only-live").checked = c.onlyLive !== false;
+  document.getElementById("only-dated").checked = !!c.onlyDated;
+  if (c.sort) document.getElementById("sort").value = c.sort;
+  for (const g of ["sectors","regions","beneficiaries"]){
+    const want = c[g] || [];
+    document.querySelectorAll(`input[data-group="${g}"]`).forEach(e => { e.checked = want.includes(e.value); });
+  }
+}
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+};
+
+function buildEntry(p, r){
+  const left = daysUntil(p.dl);
+  const state = p.st === "OPEN" && left != null && left < 0 ? "CLOSED" : p.st;
+  const e = el("article","entry"); e.dataset.state = state;
+  e.appendChild(el("div","stripe"));
+
+  const sc = el("div","score");
+  if (r.score == null) sc.textContent = "–";
+  else { sc.classList.add("hit"); sc.appendChild(el("span",null,String(Math.round(r.score))));
+    const m = el("div","meter"), f = el("i"); f.style.width = Math.min(100,r.score)+"%"; m.appendChild(f); sc.appendChild(m); }
+  e.appendChild(sc);
+
+  const b = el("div","body");
+  const h = el("h3"); const a = el("a",null,p.t); a.href=p.u; a.target="_blank"; a.rel="noopener";
+  h.appendChild(a); b.appendChild(h);
+  const meta = el("div","meta");
+  meta.appendChild(el("span",null,p.sn));
+  if (p.ada) meta.appendChild(el("span","ada","ΑΔΑ "+p.ada));
+  if (p.pd) meta.appendChild(el("span","ada","δημ. "+fmtDate(p.pd)));
+  b.appendChild(meta);
+  const tags = el("div","tags");
+  for (const s of p.sec.slice(0,3)) tags.appendChild(el("span","tag",s));
+  for (const g of p.reg.slice(0,3)) tags.appendChild(el("span","tag reg",g));
+  if (p.reg.length > 3) tags.appendChild(el("span","tag reg",`+${p.reg.length-3}`));
+  if (tags.children.length) b.appendChild(tags);
+  if (r.reasons && r.reasons.length) b.appendChild(el("div","why","✓ "+r.reasons.slice(0,3).join(" · ")));
+  if (p.sum && !saysTheSame(p.t, p.sum))
+    b.appendChild(el("p","excerpt", p.sum.length>200 ? p.sum.slice(0,199)+"…" : p.sum));
+  e.appendChild(b);
+
+  const w = el("div","when");
+  const label = {OPEN:"Ανοιχτή",UPCOMING:"Αναμενόμενη",CLOSED:"Έληξε",UNKNOWN:"Άγνωστη"}[state];
+  const pill = el("span","pill",label);
+  if (state === "OPEN") pill.classList.add(left != null && left <= 30 ? "soon" : "open");
+  if (state === "UPCOMING") pill.classList.add("up");
+  w.appendChild(pill);
+  if (p.dl){
+    const d = el("div","date"); d.appendChild(el("span",null,"λήξη ")); d.appendChild(el("b",null,fmtDate(p.dl)));
+    w.appendChild(d);
+    if (left != null && left >= 0){
+      const rw = el("div","runway"+(left<=30?" soon":"")), f = el("i");
+      f.style.width = Math.max(3, Math.min(100, left/90*100))+"%"; rw.appendChild(f); w.appendChild(rw);
+      w.appendChild(el("div","date", left===0 ? "λήγει σήμερα" : `${left} ημέρες`));
+    }
+  }
+  const money = [];
+  if (p.bmax != null) money.push("έως "+fmtMoney(p.bmax));
+  if (p.r != null) money.push(Math.round(p.r)+"% ενίσχυση");
+  if (money.length) w.appendChild(el("div","money",money.join(" · ")));
+  e.appendChild(w);
+  return e;
+}
+
+function render(){
+  if (!DATA) return;
+  const c = criteria(); store.set(CRIT_STORE, c);
+  const rows = [];
+  for (const p of DATA.programs){ const r = evaluate(p, c); if (r) rows.push({p, ...r}); }
+  const scored = rows.some(r => r.score != null);
+  rows.sort((a,b) => {
+    if (c.sort === "deadline"){
+      const la = daysUntil(a.p.dl), lb = daysUntil(b.p.dl);
+      if (la == null && lb == null) return (b.score||0)-(a.score||0);
+      if (la == null) return 1; if (lb == null) return -1; return la-lb;
+    }
+    if (c.sort === "recent") return (b.p.pd||"").localeCompare(a.p.pd||"");
+    if ((b.score||0) !== (a.score||0)) return (b.score||0)-(a.score||0);
+    return (b.p.pd||"").localeCompare(a.p.pd||"");
+  });
+
+  const reg = document.getElementById("register"); reg.replaceChildren();
+  for (const r of rows.slice(0, shown)) reg.appendChild(buildEntry(r.p, r));
+  if (!rows.length){
+    const e = el("div","empty");
+    e.appendChild(el("b",null,"Κανένα πρόγραμμα με αυτά τα κριτήρια"));
+    e.appendChild(el("span",null,"Χαλάρωσε ένα φίλτρο — συνήθως φταίει ο προϋπολογισμός ή το ελάχιστο ποσοστό."));
+    reg.appendChild(e);
+  }
+  const cnt = document.getElementById("count"); cnt.replaceChildren();
+  cnt.appendChild(el("b",null,String(rows.length)));
+  cnt.appendChild(document.createTextNode(" προγράμματα"+(scored?", κατά σειρά ταιριάσματος":"")));
+  const more = document.getElementById("more");
+  more.hidden = rows.length <= shown;
+  more.textContent = `Περισσότερα (${Math.max(0, rows.length-shown)})`;
+}
+
+function buildChecks(id, values, counts){
+  const box = document.getElementById(id); box.replaceChildren();
+  for (const v of values){
+    const n = counts.get(v) || 0; if (!n) continue;
+    const l = el("label","check");
+    const i = document.createElement("input"); i.type="checkbox"; i.value=v; i.dataset.group=id;
+    l.appendChild(i); l.appendChild(el("span",null,v)); l.appendChild(el("span","n",String(n)));
+    box.appendChild(l);
+  }
+}
+const tally = (field) => { const m = new Map();
+  for (const p of DATA.programs) for (const v of p[field]) m.set(v,(m.get(v)||0)+1); return m; };
+
+function paintStatus(){
+  const s = DATA.stats;
+  document.getElementById("s-total").textContent = s.programs;
+  document.getElementById("s-open").textContent = s.open;
+  document.getElementById("s-dl").textContent = s.deadline;
+  document.getElementById("s-prof").textContent = s.profiles;
+  document.getElementById("s-notif").textContent = s.notifications;
+
+  const jobs = DATA.scheduler.jobs || [];
+  const ledS = document.getElementById("led-sched");
+  ledS.className = "led " + (jobs.length ? "ok" : "bad");
+  document.getElementById("txt-sched").textContent =
+    jobs.length ? `scheduler ενεργός (${jobs.length} εργασίες)` : "scheduler ΑΝΕΝΕΡΓΟΣ";
+  const scan = jobs.find(j => j.id === "scan");
+  document.getElementById("txt-next").textContent = scan && scan.next_run ? fmtTime(scan.next_run) : "—";
+  document.getElementById("txt-scan").textContent = DATA.last_scan ? fmtTime(DATA.last_scan) : "ποτέ";
+
+  const enabled = DATA.sources.filter(x => x.enabled);
+  const live = enabled.filter(x => x.ok === true).length;
+  const ledR = document.getElementById("led-src");
+  ledR.className = "led " + (live === 0 ? "bad" : live < enabled.length ? "warn" : "ok");
+  document.getElementById("txt-src").textContent = `${live}/${enabled.length} πηγές απαντούν`;
+
+  const rows = document.getElementById("src-rows"); rows.replaceChildren();
+  for (const s2 of DATA.sources){
+    const tr = document.createElement("tr");
+    const c1 = document.createElement("td");
+    c1.appendChild(el("div","src-name",s2.name)); c1.appendChild(el("div","src-id",s2.id));
+    if (s2.err) c1.appendChild(el("div","errtext", s2.err.slice(0,120)));
+    tr.appendChild(c1);
+    tr.appendChild(el("td",null,s2.type));
+    tr.appendChild(el("td","num", s2.n == null ? "—" : String(s2.n)));
+    const c4 = document.createElement("td");
+    const st = el("div","beat"); const led = el("i","led");
+    let txt;
+    if (!s2.enabled){ txt = "ανενεργή"; }
+    else if (s2.ok === null || s2.ok === undefined){ txt = "δεν έτρεξε"; }
+    else if (s2.ok){ led.classList.add("ok"); txt = "απαντά"; }
+    else { led.classList.add("bad"); txt = "δεν απαντά"; }
+    st.appendChild(led); st.appendChild(el("span",null,txt)); c4.appendChild(st); tr.appendChild(c4);
+    rows.appendChild(tr);
+  }
+}
+
+async function loadProfiles(){
+  const rows = document.getElementById("prof-rows"); rows.replaceChildren();
+  try{
+    const r = await fetch("/api/profiles");
+    const list = await r.json();
+    if (!list.length){
+      const tr = document.createElement("tr"); const td = document.createElement("td");
+      td.colSpan = 3; td.style.color = "var(--ink-3)";
+      td.textContent = "Κανένα προφίλ ακόμη — αποθήκευσε τα κριτήριά σου αριστερά.";
+      tr.appendChild(td); rows.appendChild(tr); return;
+    }
+    for (const p of list){
+      const tr = document.createElement("tr");
+      tr.appendChild(el("td",null,p.name));
+      const crit = [...(p.sectors||[]), ...(p.regions||[]), ...(p.keywords||[])].slice(0,4).join(", ");
+      tr.appendChild(el("td",null, crit || "—"));
+      tr.appendChild(el("td",null,(p.notify_channels||[]).join(", ") || "default"));
+      rows.appendChild(tr);
+    }
+  } catch(e){ /* αγνοείται */ }
+}
+
+async function load(){
+  const r = await fetch("/api/dashboard");
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  DATA = await r.json();
+  paintStatus();
+  buildChecks("sectors", DATA.taxonomy.sectors, tally("sec"));
+  buildChecks("regions", DATA.taxonomy.regions, tally("reg"));
+  buildChecks("beneficiaries", DATA.taxonomy.beneficiaries, tally("ben"));
+  applyCriteria(store.get(CRIT_STORE) || {});
+  render();
+  loadProfiles();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const key = store.get(API_KEY_STORE);
+  if (key) document.getElementById("pkey").value = key;
+
+  const rerender = () => { shown = 40; render(); };
+  document.querySelector(".rail").addEventListener("input", (e) => {
+    if (["pname","pemail","pkey"].includes(e.target.id)) return;
+    rerender();
+  });
+  document.querySelector(".rail").addEventListener("change", rerender);
+  document.getElementById("sort").addEventListener("change", rerender);
+  document.getElementById("more").addEventListener("click", () => { shown += 40; render(); });
+  document.getElementById("reset").addEventListener("click", () => {
+    applyCriteria({keywords:[],exclude:[],sectors:[],regions:[],beneficiaries:[],onlyLive:true});
+    rerender();
+  });
+  document.getElementById("btn-reload").addEventListener("click", () => location.reload());
+
+  document.getElementById("btn-scan").addEventListener("click", async (ev) => {
+    const b = ev.target; const key2 = document.getElementById("pkey").value.trim();
+    b.disabled = true; b.textContent = "Σαρώνει… (λεπτά)";
+    try{
+      const r = await fetch("/api/scan", {method:"POST",
+        headers:{"Content-Type":"application/json", ...(key2 ? {"X-API-Key":key2} : {})},
+        body: JSON.stringify({notify:true})});
+      b.textContent = r.ok ? "Ολοκληρώθηκε — ανανέωση…" : "Απέτυχε (" + r.status + ")";
+      if (r.ok) setTimeout(() => location.reload(), 1200);
+    } catch(e){ b.textContent = "Σφάλμα δικτύου"; }
+    finally { setTimeout(() => { b.disabled = false; b.textContent = "Σάρωση τώρα"; }, 4000); }
+  });
+
+  document.getElementById("btn-save").addEventListener("click", async () => {
+    const msg = document.getElementById("save-msg");
+    const name = document.getElementById("pname").value.trim();
+    const email = document.getElementById("pemail").value.trim();
+    const key3 = document.getElementById("pkey").value.trim();
+    if (name.length < 2){ msg.className="msg err"; msg.textContent="Δώσε όνομα προφίλ."; return; }
+    store.set(API_KEY_STORE, key3);
+    const c = criteria();
+    msg.className = "msg"; msg.textContent = "Αποθήκευση…";
+    try{
+      const r = await fetch("/api/profiles", {method:"POST",
+        headers:{"Content-Type":"application/json", ...(key3 ? {"X-API-Key":key3} : {})},
+        body: JSON.stringify({name, notify_email: email || null,
+          sectors:c.sectors, regions:c.regions, beneficiaries:c.beneficiaries,
+          keywords:c.keywords, exclude_keywords:c.exclude,
+          budget_min:c.bmin, budget_max:c.bmax,
+          min_subsidy_rate:c.rate, min_days_left:c.days,
+          notify_channels: email ? ["email"] : []})});
+      if (r.ok){ msg.className="msg ok"; msg.textContent="✓ Αποθηκεύτηκε — θα ειδοποιείσαι.";
+        document.getElementById("pname").value=""; loadProfiles(); }
+      else if (r.status === 401){ msg.className="msg err"; msg.textContent="Λάθος ή κενό API key."; }
+      else { const e = await r.json().catch(()=>({})); msg.className="msg err";
+        msg.textContent = "Σφάλμα " + r.status + (e.detail ? ": " + JSON.stringify(e.detail).slice(0,90) : ""); }
+    } catch(e){ msg.className="msg err"; msg.textContent="Σφάλμα δικτύου: " + e.message; }
+  });
+
+  load().catch((e) => {
+    document.getElementById("register").replaceChildren(
+      Object.assign(document.createElement("div"), {className:"empty",
+        textContent:"Αποτυχία φόρτωσης δεδομένων: " + e.message}));
+    document.getElementById("count").textContent = "—";
+  });
+});
 </script>
 </body>
 </html>

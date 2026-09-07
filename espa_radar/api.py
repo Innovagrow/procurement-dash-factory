@@ -5,8 +5,8 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
@@ -14,12 +14,11 @@ from .config import BASE_DIR, settings
 from .db import get_session, init_db
 from .models import Match, NotificationLog, Profile, Program, SourceRun
 from .pipeline import run_matching, scan, send_deadline_reminders, send_digest
-from .messages import useful_summary
 from .schemas import MatchOut, ProfileIn, ProfileOut, ProgramOut, ScanRequest, SourceStatus
 from .scheduler import scheduler_status, start_scheduler, stop_scheduler
 from .sources import load_source_config
 from .taxonomy import ALL_AID_TYPES, ALL_BENEFICIARIES, ALL_REGIONS, ALL_SECTORS
-from .textutils import days_until, fmt_date, fmt_money
+from .textutils import utcnow
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,11 +26,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-templates.env.filters["money"] = fmt_money
-templates.env.filters["date"] = fmt_date
-templates.env.filters["days_left"] = days_until
-templates.env.filters["useful_summary"] = useful_summary
 
 
 def _validate_settings() -> None:
@@ -69,6 +63,11 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+
+# Το /api/dashboard είναι εκατοντάδες KB JSON· χωρίς συμπίεση το φόρτωμα
+# μέσω SSH τούνελ ή κινητού είναι αισθητά αργό.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
 # ============================================================
@@ -112,44 +111,17 @@ def redact_profile(profile: Profile, authenticated: bool) -> dict:
 # Dashboard
 # ============================================================
 
+DASHBOARD_FILE = BASE_DIR / "templates" / "dashboard.html"
+
+
 @app.get("/", response_class=HTMLResponse)
-def dashboard(request: Request, session: Session = Depends(get_session)):
-    profiles = session.scalars(select(Profile).order_by(Profile.created_at)).all()
-
-    matches = session.scalars(
-        select(Match)
-        .where(Match.is_dismissed.is_(False))
-        .order_by(desc(Match.score), desc(Match.created_at))
-        .limit(60)
-    ).all()
-
-    stats = {
-        "programs": session.scalar(select(func.count(Program.id))) or 0,
-        "open": session.scalar(select(func.count(Program.id)).where(Program.status == "OPEN")) or 0,
-        "profiles": len([p for p in profiles if p.is_active]),
-        "matches": session.scalar(select(func.count(Match.id)).where(Match.is_dismissed.is_(False))) or 0,
-        "notifications": session.scalar(
-            select(func.count(NotificationLog.id)).where(NotificationLog.ok.is_(True))
-        ) or 0,
-    }
-
-    return templates.TemplateResponse(
-        request,
-        "dashboard.html",
-        {
-            "stats": stats,
-            "matches": matches,
-            "profiles": profiles,
-            "sources": _source_status(session),
-            "jobs": scheduler_status(),
-            "taxonomy": {
-                "regions": ALL_REGIONS,
-                "sectors": ALL_SECTORS,
-                "beneficiaries": ALL_BENEFICIARIES,
-                "aid_types": ALL_AID_TYPES,
-            },
-        },
-    )
+def dashboard() -> HTMLResponse:
+    """Η σελίδα. Τα δεδομένα έρχονται από το /api/dashboard με μία κλήση."""
+    try:
+        return HTMLResponse(DASHBOARD_FILE.read_text(encoding="utf-8"))
+    except OSError as exc:
+        logger.error("Δεν βρέθηκε το dashboard: %s", exc)
+        raise HTTPException(status_code=500, detail="Λείπει το αρχείο της σελίδας")
 
 
 # ============================================================
@@ -340,6 +312,93 @@ def trigger_digest():
 @app.post("/api/reminders", dependencies=[Depends(require_api_key)])
 def trigger_reminders():
     return {"sent": send_deadline_reminders()}
+
+
+@app.get("/api/dashboard")
+def dashboard_data(
+    session: Session = Depends(get_session),
+    limit: int = Query(default=1000, le=5000),
+):
+    """Ό,τι χρειάζεται η σελίδα, με μία κλήση.
+
+    Το φιλτράρισμα και η βαθμολόγηση γίνονται στον browser, ώστε να μη χρειάζεται
+    ένα αίτημα ανά αλλαγή κριτηρίου σε μηχάνημα με 1 vCPU.
+    """
+    programs = session.scalars(
+        select(Program).order_by(desc(Program.first_seen_at)).limit(limit)
+    ).all()
+
+    last_runs = {}
+    for run in session.scalars(select(SourceRun).order_by(SourceRun.started_at)).all():
+        last_runs[run.source_id] = run
+
+    latest = max((r.started_at for r in last_runs.values()), default=None)
+
+    return {
+        "generated": utcnow(),
+        "stats": {
+            "programs": session.scalar(select(func.count(Program.id))) or 0,
+            "open": session.scalar(
+                select(func.count(Program.id)).where(Program.status == "OPEN")
+            ) or 0,
+            "deadline": session.scalar(
+                select(func.count(Program.id)).where(Program.deadline.is_not(None))
+            ) or 0,
+            "profiles": session.scalar(
+                select(func.count(Profile.id)).where(Profile.is_active.is_(True))
+            ) or 0,
+            "matches": session.scalar(
+                select(func.count(Match.id)).where(Match.is_dismissed.is_(False))
+            ) or 0,
+            "notifications": session.scalar(
+                select(func.count(NotificationLog.id)).where(NotificationLog.ok.is_(True))
+            ) or 0,
+        },
+        "scheduler": {"jobs": scheduler_status()},
+        "last_scan": latest,
+        "sources": [
+            {
+                "id": entry.get("id"),
+                "name": entry.get("name"),
+                "type": entry.get("type"),
+                "enabled": bool(entry.get("enabled", True)),
+                "ok": last_runs[entry["id"]].ok if entry.get("id") in last_runs else None,
+                "n": last_runs[entry["id"]].items_found if entry.get("id") in last_runs else None,
+                "new": last_runs[entry["id"]].items_new if entry.get("id") in last_runs else None,
+                "err": (last_runs[entry["id"]].error or "")[:200] if entry.get("id") in last_runs else None,
+                "at": last_runs[entry["id"]].started_at if entry.get("id") in last_runs else None,
+            }
+            for entry in load_source_config()
+            if entry.get("id")
+        ],
+        "taxonomy": {
+            "regions": ALL_REGIONS,
+            "sectors": ALL_SECTORS,
+            "beneficiaries": ALL_BENEFICIARIES,
+            "aid_types": ALL_AID_TYPES,
+        },
+        "programs": [
+            {
+                "id": p.id,
+                "t": p.title,
+                "u": p.url,
+                "s": p.source_id,
+                "sn": p.source_name,
+                "st": p.status,
+                "dl": p.deadline.date().isoformat() if p.deadline else None,
+                "pd": p.published_at.date().isoformat() if p.published_at else None,
+                "bmin": p.budget_min,
+                "bmax": p.budget_max,
+                "r": p.subsidy_rate,
+                "reg": p.regions or [],
+                "sec": p.sectors or [],
+                "ben": p.beneficiaries or [],
+                "sum": (p.summary or "")[:400] or None,
+                "ada": (p.raw or {}).get("ada"),
+            }
+            for p in programs
+        ],
+    }
 
 
 @app.get("/api/taxonomy")

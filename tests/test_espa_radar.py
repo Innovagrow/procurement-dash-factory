@@ -238,7 +238,10 @@ def test_api() -> None:
         check(response.status_code == 200 and response.json()["database"], "GET /health")
 
         response = client.get("/")
-        check(response.status_code == 200 and "ESPA Radar" in response.text, "GET / (dashboard)")
+        check(response.status_code == 200 and "Ραντάρ Επιδοτήσεων" in response.text,
+              "GET / (dashboard)")
+        check("/api/dashboard" in response.text,
+              "η σελίδα τραβά τα δεδομένα από το API")
 
         response = client.get("/api/taxonomy")
         check(response.status_code == 200 and "Κρήτη" in response.json()["regions"], "GET /api/taxonomy")

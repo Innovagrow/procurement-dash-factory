@@ -36,6 +36,13 @@ class ProfileIn(BaseModel):
 
 
 class ProfileOut(ProfileIn):
+    """Πλήρες προφίλ — περιλαμβάνει τους παραλήπτες ειδοποιήσεων.
+
+    Τα πεδία notify_email / telegram_chat_id / webhook_url είναι στοιχεία
+    επικοινωνίας. Όταν έχει οριστεί API key, οι μη αυθεντικοποιημένες
+    αναγνώσεις τα παίρνουν κρυμμένα (βλ. redact_profile στο api.py).
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int

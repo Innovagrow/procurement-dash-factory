@@ -80,6 +80,34 @@ def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
         raise HTTPException(status_code=401, detail="Μη έγκυρο API key")
 
 
+def is_authenticated(x_api_key: str | None = Header(default=None)) -> bool:
+    """Χωρίς ρυθμισμένο κλειδί όλα είναι ανοιχτά (τοπική χρήση)."""
+    if not settings.api_key:
+        return True
+    return x_api_key == settings.api_key
+
+
+# Πεδία που είναι στοιχεία επικοινωνίας, όχι κριτήρια αναζήτησης.
+_CONTACT_FIELDS = ("notify_email", "telegram_chat_id", "webhook_url", "owner_email")
+
+
+def redact_profile(profile: Profile, authenticated: bool) -> dict:
+    """Το προφίλ ως dict, με κρυμμένους τους παραλήπτες αν δεν έχει κλειδί.
+
+    Χωρίς αυτό, μια δημόσια εγκατάσταση θα έδινε σε οποιονδήποτε το email,
+    το Telegram chat id και το webhook URL κάθε χρήστη.
+    """
+    data = {
+        column.name: getattr(profile, column.name)
+        for column in Profile.__table__.columns
+    }
+    if not authenticated:
+        for field in _CONTACT_FIELDS:
+            if data.get(field):
+                data[field] = "···"
+    return data
+
+
 # ============================================================
 # Dashboard
 # ============================================================
@@ -129,8 +157,12 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 # ============================================================
 
 @app.get("/api/profiles", response_model=list[ProfileOut])
-def list_profiles(session: Session = Depends(get_session)):
-    return session.scalars(select(Profile).order_by(Profile.created_at)).all()
+def list_profiles(
+    session: Session = Depends(get_session),
+    authenticated: bool = Depends(is_authenticated),
+):
+    profiles = session.scalars(select(Profile).order_by(Profile.created_at)).all()
+    return [redact_profile(p, authenticated) for p in profiles]
 
 
 @app.post("/api/profiles", response_model=ProfileOut, status_code=201,
@@ -146,11 +178,15 @@ def create_profile(payload: ProfileIn, session: Session = Depends(get_session)):
 
 
 @app.get("/api/profiles/{profile_id}", response_model=ProfileOut)
-def get_profile(profile_id: int, session: Session = Depends(get_session)):
+def get_profile(
+    profile_id: int,
+    session: Session = Depends(get_session),
+    authenticated: bool = Depends(is_authenticated),
+):
     profile = session.get(Profile, profile_id)
     if profile is None:
         raise HTTPException(status_code=404, detail="Το προφίλ δεν βρέθηκε")
-    return profile
+    return redact_profile(profile, authenticated)
 
 
 @app.put("/api/profiles/{profile_id}", response_model=ProfileOut,

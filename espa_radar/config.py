@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -9,29 +10,42 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("ESPA_DATA_DIR", BASE_DIR.parent / "data"))
 
 
-def _bool(name: str, default: bool = False) -> bool:
-    raw = os.getenv(name)
+# Το systemd EnvironmentFile δεν αφαιρεί σχόλια στο τέλος γραμμής: το
+# «ESPA_NOTIFY_CHANNELS=telegram  # τα κανάλια μου» φτάνει ολόκληρο ως τιμή.
+# Τα καθαρίζουμε στους τυποποιημένους αναγνώστες — ΟΧΙ στα σκέτα strings,
+# γιατί ένα συνθηματικό ή token μπορεί κάλλιστα να περιέχει «#».
+_INLINE_COMMENT = re.compile(r"\s+#.*$")
+
+
+def _clean(raw: str | None) -> str | None:
     if raw is None:
+        return None
+    return _INLINE_COMMENT.sub("", raw).strip()
+
+
+def _bool(name: str, default: bool = False) -> bool:
+    raw = _clean(os.getenv(name))
+    if raw is None or raw == "":
         return default
-    return raw.strip().lower() in {"1", "true", "yes", "on", "ναι"}
+    return raw.lower() in {"1", "true", "yes", "on", "ναι"}
 
 
 def _int(name: str, default: int) -> int:
     try:
-        return int(os.getenv(name, "").strip() or default)
+        return int(_clean(os.getenv(name)) or default)
     except (TypeError, ValueError):
         return default
 
 
 def _float(name: str, default: float) -> float:
     try:
-        return float(os.getenv(name, "").strip() or default)
+        return float(_clean(os.getenv(name)) or default)
     except (TypeError, ValueError):
         return default
 
 
 def _list(name: str, default: str = "") -> list[str]:
-    raw = os.getenv(name, default) or ""
+    raw = _clean(os.getenv(name)) or default or ""
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
@@ -56,7 +70,7 @@ class Settings:
     deadline_reminder_days: list[int] = field(
         default_factory=lambda: [int(d) for d in _list("ESPA_DEADLINE_REMINDER_DAYS", "14,7,3,1")]
     )
-    timezone: str = field(default_factory=lambda: os.getenv("ESPA_TIMEZONE", "Europe/Athens"))
+    timezone: str = field(default_factory=lambda: _clean(os.getenv("ESPA_TIMEZONE")) or "Europe/Athens")
     scan_on_startup: bool = field(default_factory=lambda: _bool("ESPA_SCAN_ON_STARTUP", True))
     scheduler_enabled: bool = field(default_factory=lambda: _bool("ESPA_SCHEDULER_ENABLED", True))
 

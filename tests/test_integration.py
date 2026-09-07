@@ -878,6 +878,28 @@ def test_edge_cases() -> None:
     check(textutils.strip_amendment_prefix("Τροποποίηση") == "Τροποποίηση",
           "τίτλος μόνο «Τροποποίηση» δεν αδειάζει")
 
+    # Το systemd EnvironmentFile δεν κόβει σχόλια στο τέλος γραμμής.
+    from espa_radar import config as config_module
+    saved = dict(os.environ)
+    try:
+        os.environ["ESPA_NOTIFY_CHANNELS"] = "email,telegram   # τα κανάλια μου"
+        os.environ["ESPA_SCAN_INTERVAL_MINUTES"] = "60     # κάθε ώρα"
+        os.environ["ESPA_MIN_SCORE"] = "55   # κατώφλι"
+        os.environ["ESPA_SCAN_ON_STARTUP"] = "false  # όχι στην εκκίνηση"
+        os.environ["ESPA_SMTP_PASSWORD"] = "p@ss#word#123"
+        fresh = config_module.Settings()
+        check(fresh.notify_channels == ["email", "telegram"],
+              "κανάλια: αγνοείται το inline σχόλιο", str(fresh.notify_channels))
+        check(fresh.scan_interval_minutes == 60,
+              "αριθμός: αγνοείται το inline σχόλιο", str(fresh.scan_interval_minutes))
+        check(fresh.default_min_score == 55.0, "δεκαδικό: αγνοείται το inline σχόλιο")
+        check(fresh.scan_on_startup is False, "boolean: αγνοείται το inline σχόλιο")
+        check(fresh.smtp_password == "p@ss#word#123",
+              "συνθηματικό με # μένει ανέπαφο", fresh.smtp_password)
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
+
     # similarity σε κενά
     check(textutils.similarity("", "") == 0.0, "similarity κενών")
     check(textutils.similarity("α", "β") == 0.0, "similarity πολύ κοντών λέξεων")

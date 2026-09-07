@@ -321,3 +321,31 @@ model OAuthToken {
 
   @@map("oauth_tokens")
 }
+
+model Template {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+
+  // when this template is eligible
+  jobTypes   String[]
+  tone       String   @default("professional")
+  categories String[]
+  minScore   Int?
+
+  // the template itself
+  body      String   @db.Text
+  variables String[]
+  notes     String?  @db.Text
+
+  // lifecycle
+  isDefault  Boolean   @default(false)
+  isActive   Boolean   @default(true)
+  timesUsed  Int       @default(0)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([isActive])
+  @@map("templates")
+}

@@ -1,0 +1,226 @@
+# ============================================================
+# Μητρώο πηγών χρηματοδότησης.
+# Νέα πηγή = νέα εγγραφή εδώ. Δεν χρειάζεται κώδικας.
+#
+#   type: rss | json | html | diavgeia
+#   enabled: false για προσωρινή απενεργοποίηση
+#
+# Έλεγχος μιας πηγής:  python -m espa_radar.cli test-source <id>
+# Κατάσταση όλων:      GET /api/sources  (ή ο πίνακας στο dashboard)
+#
+# Οι πηγές τύπου `json` και `rss` είναι σταθερές. Οι `html` εξαρτώνται από
+# CSS selectors: αν αλλάξει η δομή του site, η πηγή θα βγει «σφάλμα» στο
+# dashboard χωρίς να ρίξει τις υπόλοιπες — τότε διορθώνεις τον selector εδώ.
+# ============================================================
+
+sources:
+
+  # ------------------------------------------------------------
+  # Ταμείο Ανάκαμψης «Ελλάδα 2.0» — WordPress REST API (σταθερό)
+  # ------------------------------------------------------------
+  - id: greece20_calls
+    name: Ελλάδα 2.0 - Προσκλήσεις χρηματοδότησης
+    type: json
+    url: https://greece20.gov.gr/wp-json/wp/v2/calls
+    params:
+      per_page: 50
+      orderby: date
+      order: desc
+    fields:
+      title: title.rendered
+      url: link
+      summary: excerpt.rendered
+      body: content.rendered
+      id: id
+      published: date
+    limit: 50
+    max_details: 25          # το REST δίνει άδειο content — διαβάζουμε τη σελίδα
+    detail_body: ".entry-content, article, main"
+
+  - id: greece20_decisions
+    name: Ελλάδα 2.0 - Αποφάσεις
+    type: json
+    url: https://greece20.gov.gr/wp-json/wp/v2/decisions
+    params:
+      per_page: 30
+      orderby: date
+      order: desc
+    fields:
+      title: title.rendered
+      url: link
+      summary: excerpt.rendered
+      body: content.rendered
+      id: id
+      published: date
+    limit: 30
+    enabled: false   # ενεργοποίησέ το αν θες και τις αποφάσεις ένταξης
+
+  # ------------------------------------------------------------
+  # ΕΛΙΔΕΚ — Έρευνα & Καινοτομία
+  # ------------------------------------------------------------
+  - id: elidek_rss
+    name: ΕΛΙΔΕΚ - Προκηρύξεις & Νέα
+    type: rss
+    url: https://www.elidek.gr/feed/
+    limit: 60
+
+  - id: elidek_posts
+    name: ΕΛΙΔΕΚ - Ανακοινώσεις (REST)
+    type: json
+    url: https://www.elidek.gr/wp-json/wp/v2/posts
+    params:
+      per_page: 30
+      orderby: date
+      order: desc
+    fields:
+      title: title.rendered
+      url: link
+      summary: excerpt.rendered
+      body: content.rendered
+      id: id
+      published: date
+    limit: 30
+
+  # ------------------------------------------------------------
+  # Αγροτική Ανάπτυξη (ΠΑΑ / Στρατηγικό Σχέδιο ΚΑΠ)
+  # ------------------------------------------------------------
+  - id: agrotiki_rss
+    name: Αγροτική Ανάπτυξη - Προσκλήσεις & Νέα
+    type: rss
+    url: https://www.agrotikianaptixi.gr/feed/
+    limit: 60
+
+  # ------------------------------------------------------------
+  # Διαύγεια — κάθε πρόσκληση/απόφαση χρηματοδότησης περνά από εδώ.
+  # Η αναζήτηση γίνεται στο ΘΕΜΑ της απόφασης (`subject`), γιατί το API
+  # αγνοεί σιωπηλά την παράμετρο `q` και θα επέστρεφε ό,τι να 'ναι.
+  # ------------------------------------------------------------
+  - id: diavgeia_prosklisis
+    name: Διαύγεια - Προσκλήσεις χρηματοδότησης
+    type: diavgeia
+    subject:
+      - πρόσκληση υποβολής αιτήσεων χρηματοδότησης
+      - πρόσκληση υποβολής προτάσεων
+      - πρόσκληση εκδήλωσης ενδιαφέροντος επιχειρήσεων
+    size: 50
+    must_not_match:
+      - πρακτικό συνεδρίασης
+      - ορισμός επιτροπής
+      - συγκρότηση επιτροπής
+      - ανάληψη υποχρέωσης
+      - χρηματικό ένταλμα
+      - απόφαση μετακίνησης
+
+  - id: diavgeia_draseis
+    name: Διαύγεια - Δράσεις ενίσχυσης επιχειρήσεων
+    type: diavgeia
+    subject:
+      - δράση ενίσχυσης επιχειρήσεων
+      - ενίσχυση επενδυτικών σχεδίων
+      - επιχορήγηση επιχειρήσεων
+    size: 50
+    must_not_match:
+      - πρακτικό συνεδρίασης
+      - ανάληψη υποχρέωσης
+      - χρηματικό ένταλμα
+      - λογιστική τακτοποίηση
+      - απόδοση προμήθειας
+      - μισθοδοσία
+
+  - id: diavgeia_kathestos
+    name: Διαύγεια - Καθεστώτα ενίσχυσης (Αναπτυξιακός Νόμος)
+    type: diavgeia
+    subject:
+      - καθεστώς ενίσχυσης
+      - υπαγωγή επενδυτικού σχεδίου
+    size: 40
+    must_not_match:
+      - ορισμός ορκωτού
+      - ολοκλήρωση - οριστικοποίηση
+      - πιστοποίηση της έναρξης
+      - ανάκληση
+
+  # ------------------------------------------------------------
+  # Ευρωπαϊκά προγράμματα (EU Funding & Tenders Portal)
+  # ------------------------------------------------------------
+  - id: eu_funding
+    name: EU Funding & Tenders - Προσκλήσεις
+    type: json
+    url: https://ec.europa.eu/info/funding-tenders/opportunities/data/referenceData/grantsTenders.json
+    items_path: fundingData.GrantTenderObj
+    date_format: epoch_ms
+    sort_by: publicationDateLong
+    url_template: https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/opportunities/topic-details/{identifier}
+    fields:
+      title: title
+      id: identifier
+      summary: callTitle
+      published: publicationDateLong
+      deadline: deadlineDatesLong
+    limit: 60
+    enabled: false   # μεγάλο αρχείο (~30MB)· ενεργοποίησέ το αν θες και EU προσκλήσεις
+
+  # ------------------------------------------------------------
+  # Επίσημη πύλη ΕΣΠΑ
+  # Σημείωση: το espa.gr μπλοκάρει αιτήματα από ορισμένα datacenter IPs.
+  # Δούλεψε κανονικά από δικό σου VPS/σπίτι· αν δεις «σφάλμα» στο dashboard
+  # και το site ανοίγει από browser, είναι φραγή IP, όχι bug.
+  # ------------------------------------------------------------
+  - id: espa_rss
+    name: ΕΣΠΑ - Νέα & Προσκλήσεις (RSS)
+    type: rss
+    url: https://www.espa.gr/el/Pages/RSS.aspx
+    limit: 120
+
+  - id: espa_proclamations
+    name: ΕΣΠΑ - Ενεργές Προσκλήσεις
+    type: html
+    url: https://www.espa.gr/el/Pages/ProclamationsFS.aspx
+    item: "table tr, .proclamation-item, .row-proclamation"
+    title: "a"
+    summary: "td:nth-of-type(2)"
+    meta: "td"
+    max_details: 6
+    detail_body: "#content, .main-content, main"
+
+  # ------------------------------------------------------------
+  # ΕΠΑνΕΚ / Ανταγωνιστικότητα
+  # ------------------------------------------------------------
+  - id: antagonistikotita
+    name: ΕΠΑνΕΚ - Προκηρύξεις
+    type: html
+    url: https://antagonistikotita.gr/epanek/proclamations.asp
+    item: ".proclamation, .list-item, table tr"
+    title: "a"
+    meta: "td, .date"
+    max_details: 6
+    detail_body: "#content, .content, main"
+
+  # ------------------------------------------------------------
+  # ΔΥΠΑ (πρώην ΟΑΕΔ) — προγράμματα απασχόλησης & επιχειρηματικότητας
+  # ------------------------------------------------------------
+  - id: dypa
+    name: ΔΥΠΑ - Προγράμματα Απασχόλησης & Επιχειρηματικότητας
+    type: html
+    url: https://www.dypa.gov.gr/programmata-apascholisis
+    item: ".views-row, article, .card, li.node"
+    title: "h2 a, h3 a, .title a, a"
+    summary: ".field-content, p"
+    max_details: 6
+    detail_body: ".node__content, article, main"
+
+  # ------------------------------------------------------------
+  # Αναπτυξιακός Νόμος / Υπ. Ανάπτυξης
+  # Το ependyseis.gr είναι στατικό site με ανακοινώσεις που σταματούν στο 2023,
+  # οπότε δεν προσφέρει τρέχουσες προσκλήσεις. Ο Αναπτυξιακός Νόμος καλύπτεται
+  # από το `diavgeia_kathestos` παραπάνω. Το αφήνουμε εδώ απενεργοποιημένο,
+  # για να ενεργοποιηθεί εύκολα αν ξαναρχίσει να ενημερώνεται.
+  # ------------------------------------------------------------
+  - id: ependyseis
+    name: Αναπτυξιακός Νόμος - Ενημέρωση
+    type: html
+    url: https://www.ependyseis.gr/
+    item: ".news-item, article, .list-group-item, .panel, td"
+    title: "a, h2, h3"
+    summary: "p"
+    enabled: false

@@ -1,0 +1,27 @@
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    ESPA_DATA_DIR=/data
+
+WORKDIR /app
+
+# Το lxml χρειάζεται build tools· τα αφαιρούμε μετά για μικρότερο image.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends gcc libxml2-dev libxslt1-dev curl \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-espa.txt .
+RUN pip install --no-cache-dir -r requirements-espa.txt \
+ && apt-get purge -y gcc libxml2-dev libxslt1-dev && apt-get autoremove -y
+
+COPY espa_radar ./espa_radar
+
+RUN mkdir -p /data
+VOLUME ["/data"]
+
+EXPOSE 8000
+HEALTHCHECK --interval=60s --timeout=10s --start-period=20s --retries=3 \
+  CMD curl -fsS http://localhost:8000/health || exit 1
+
+CMD ["uvicorn", "espa_radar.api:app", "--host", "0.0.0.0", "--port", "8000"]

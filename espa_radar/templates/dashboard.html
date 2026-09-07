@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESPA Radar — Ραντάρ Επιδοτήσεων</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
+    --accent:#0f766e; --accent-soft:#ccfbf1; --warn:#b45309; --danger:#b91c1c; --ok:#15803d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b1220; --card:#111a2b; --ink:#e2e8f0; --muted:#94a3b8; --line:#1e293b;
+           --accent:#2dd4bf; --accent-soft:#134e4a; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  a{color:inherit}
+  header{background:var(--card);border-bottom:1px solid var(--line);padding:18px 24px;
+         display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{margin:0;font-size:18px;letter-spacing:-.01em}
+  header p{margin:2px 0 0;color:var(--muted);font-size:12px}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .stat b{display:block;font-size:26px;letter-spacing:-.02em}
+  .stat span{color:var(--muted);font-size:12px}
+  h2{font-size:15px;margin:28px 0 12px;display:flex;align-items:center;gap:8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+  .match{display:flex;gap:14px;align-items:flex-start}
+  .score{flex:none;width:52px;height:52px;border-radius:10px;background:var(--accent-soft);color:var(--accent);
+         display:grid;place-items:center;font-weight:700;font-size:16px}
+  .match h3{margin:0 0 6px;font-size:15px;font-weight:600;line-height:1.35}
+  .match h3 a{text-decoration:none}
+  .match h3 a:hover{text-decoration:underline}
+  .meta{color:var(--muted);font-size:12px;display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .why{color:var(--accent);font-size:12.5px}
+  .summary{color:var(--muted);font-size:13px;margin-top:6px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid var(--line)}
+  .pill.open{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+  .pill.soon{background:#fef3c7;color:var(--warn);border-color:transparent}
+  .pill.late{background:#fee2e2;color:var(--danger);border-color:transparent}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:right;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:right}
+  th{color:var(--muted);font-weight:500;font-size:12px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:6px}
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--danger)} .dot.idle{background:var(--muted)}
+  .empty{color:var(--muted);text-align:center;padding:32px;background:var(--card);
+         border:1px dashed var(--line);border-radius:12px}
+  details summary{cursor:pointer;font-weight:600;font-size:14px}
+  form{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+        background:var(--bg);color:var(--ink);font:inherit;font-size:13px}
+  select[multiple]{height:120px}
+  button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 18px;
+         font:inherit;font-weight:600;cursor:pointer}
+  button:hover{opacity:.9}
+  .full{grid-column:1/-1}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+  code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>📡 ESPA Radar</h1>
+    <p>Συνεχής παρακολούθηση προγραμμάτων ΕΣΠΑ &amp; λοιπών επιδοτήσεων με βάση τα κριτήριά σου</p>
+  </div>
+  <div style="font-size:12px;color:var(--muted);text-align:left">
+    {% if jobs %}
+      {% for job in jobs %}<div>{{ job.name }} → {{ job.next_run[:16] if job.next_run else '—' }}</div>{% endfor %}
+    {% else %}<div>Scheduler ανενεργός</div>{% endif %}
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="stats">
+    <div class="stat"><b>{{ stats.programs }}</b><span>προγράμματα στη βάση</span></div>
+    <div class="stat"><b>{{ stats.open }}</b><span>ανοιχτές προσκλήσεις</span></div>
+    <div class="stat"><b>{{ stats.profiles }}</b><span>ενεργά προφίλ κριτηρίων</span></div>
+    <div class="stat"><b>{{ stats.matches }}</b><span>ταιριάσματα</span></div>
+    <div class="stat"><b>{{ stats.notifications }}</b><span>ειδοποιήσεις που στάλθηκαν</span></div>
+  </div>
+
+  <h2>🎯 Ευκαιρίες για σένα</h2>
+  {% if matches %}
+    {% for match in matches %}
+    {% set p = match.program %}
+    {% set left = p.deadline | days_left %}
+    <div class="card match">
+      <div class="score">{{ match.score | round | int }}</div>
+      <div style="flex:1;min-width:0">
+        <h3><a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.title }}</a></h3>
+        <div class="meta">
+          <span>{{ p.source_name }}</span>
+          {% if p.status == 'OPEN' %}<span class="pill open">Ανοιχτή</span>
+          {% elif p.status == 'UPCOMING' %}<span class="pill">Αναμενόμενη</span>
+          {% elif p.status == 'CLOSED' %}<span class="pill late">Έληξε</span>{% endif %}
+          {% if p.deadline %}
+            <span class="pill {% if left is not none and left <= 7 %}late{% elif left is not none and left <= 30 %}soon{% endif %}">
+              Λήξη {{ p.deadline | date }}{% if left is not none and left >= 0 %} · {{ left }} ημ.{% endif %}
+            </span>
+          {% endif %}
+          {% if p.budget_max %}<span>Έως {{ p.budget_max | money }}/έργο</span>{% endif %}
+          {% if p.subsidy_rate %}<span>Ενίσχυση έως {{ p.subsidy_rate | round | int }}%</span>{% endif %}
+          {% if p.regions %}<span>{{ p.regions[:3] | join(', ') }}</span>{% endif %}
+        </div>
+        {% if match.reasons %}<div class="why">✓ {{ match.reasons[:4] | join(' · ') }}</div>{% endif %}
+        {% if p.summary %}<div class="summary">{{ p.summary[:260] }}{% if p.summary|length > 260 %}…{% endif %}</div>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty">
+      Δεν υπάρχουν ακόμη ταιριάσματα.<br>
+      Φτιάξε ένα προφίλ κριτηρίων παρακάτω και τρέξε μια σάρωση
+      (<code>POST /api/scan</code> ή <code>python -m espa_radar.cli scan</code>).
+    </div>
+  {% endif %}
+
+  <h2>🧭 Τα προφίλ κριτηρίων μου</h2>
+  {% if profiles %}
+  <div class="card">
+    <table>
+      <thead><tr>
+        <th>Όνομα</th><th>Κλάδοι</th><th>Περιοχές</th><th>Λέξεις-κλειδιά</th>
+        <th>Προϋπ/σμός</th><th>Κατώφλι</th><th>Κανάλια</th><th>Ενεργό</th>
+      </tr></thead>
+      <tbody>
+      {% for profile in profiles %}
+        <tr>
+          <td><strong>{{ profile.name }}</strong></td>
+          <td>{{ profile.sectors | join(', ') or '—' }}</td>
+          <td>{{ profile.regions | join(', ') or 'όλες' }}</td>
+          <td>{{ profile.keywords[:5] | join(', ') or '—' }}</td>
+          <td>{{ profile.budget_min | money }} – {{ profile.budget_max | money }}</td>
+          <td>{{ profile.min_score if profile.min_score is not none else '—' }}</td>
+          <td>{{ profile.notify_channels | join(', ') or 'default' }}</td>
+          <td>{{ '✅' if profile.is_active else '⏸️' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">Κανένα προφίλ ακόμη.</div>
+  {% endif %}
+
+  <div class="card">
+    <details>
+      <summary>➕ Νέο προφίλ κριτηρίων</summary>
+      <form id="profile-form">
+        <div class="full">
+          <label>Όνομα προφίλ *</label>
+          <input name="name" required placeholder="π.χ. Ψηφιακός μετασχηματισμός — Κρήτη">
+        </div>
+        <div>
+          <label>Email ειδοποιήσεων</label>
+          <input name="notify_email" type="email" placeholder="you@example.com">
+        </div>
+        <div>
+          <label>Κλάδοι (Ctrl+κλικ για πολλαπλά)</label>
+          <select name="sectors" multiple>
+            {% for s in taxonomy.sectors %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Περιφέρειες (κενό = όλες)</label>
+          <select name="regions" multiple>
+            {% for r in taxonomy.regions %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Τύπος δικαιούχου</label>
+          <select name="beneficiaries" multiple>
+            {% for b in taxonomy.beneficiaries %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Είδος ενίσχυσης</label>
+          <select name="aid_types" multiple>
+            {% for a in taxonomy.aid_types %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="full">
+          <label>Λέξεις-κλειδιά (χωρισμένες με κόμμα)</label>
+          <input name="keywords" placeholder="ψηφιακός μετασχηματισμός, λογισμικό, e-shop">
+        </div>
+        <div class="full">
+          <label>Λέξεις αποκλεισμού</label>
+          <input name="exclude_keywords" placeholder="αγροτικός, αλιεία">
+        </div>
+        <div><label>Ελάχ. προϋπολογισμός (€)</label><input name="budget_min" type="number" step="1000"></div>
+        <div><label>Μέγ. προϋπολογισμός (€)</label><input name="budget_max" type="number" step="1000"></div>
+        <div><label>Ελάχ. ένταση ενίσχυσης (%)</label><input name="min_subsidy_rate" type="number" min="0" max="100"></div>
+        <div><label>Ελάχ. ημέρες μέχρι τη λήξη</label><input name="min_days_left" type="number" min="0" placeholder="π.χ. 10"></div>
+        <div><label>Κατώφλι ταιριάσματος (0-100)</label><input name="min_score" type="number" min="0" max="100" placeholder="45"></div>
+        <div>
+          <label>Κανάλια ειδοποίησης</label>
+          <select name="notify_channels" multiple>
+            <option value="console">Logs (console)</option>
+            <option value="email">Email</option>
+            <option value="telegram">Telegram</option>
+            <option value="webhook">Webhook</option>
+          </select>
+        </div>
+        <div class="full">
+          <button type="submit">Αποθήκευση προφίλ</button>
+          <span class="hint" id="form-msg"></span>
+        </div>
+      </form>
+    </details>
+  </div>
+
+  <h2>📶 Κατάσταση πηγών</h2>
+  <div class="card">
+    <table>
+      <thead><tr>
+        <th>Πηγή</th><th>Τύπος</th><th>Τελευταία σάρωση</th>
+        <th>Εγγραφές</th><th>Νέα</th><th>Κατάσταση</th>
+      </tr></thead>
+      <tbody>
+      {% for source in sources %}
+        <tr>
+          <td>{{ source.name }}<br><span style="color:var(--muted);font-size:11px">{{ source.source_id }}</span></td>
+          <td>{{ source.type }}</td>
+          <td>{{ source.last_run.strftime('%d/%m %H:%M') if source.last_run else '—' }}</td>
+          <td>{{ source.items_found if source.items_found is not none else '—' }}</td>
+          <td>{{ source.items_new if source.items_new is not none else '—' }}</td>
+          <td>
+            {% if not source.enabled %}<span class="dot idle"></span>ανενεργή
+            {% elif source.ok is none %}<span class="dot idle"></span>δεν έχει τρέξει
+            {% elif source.ok %}<span class="dot ok"></span>OK
+            {% else %}<span class="dot bad"></span>
+              <span title="{{ source.error }}">σφάλμα</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="hint">Μια πηγή σε «σφάλμα» συνήθως σημαίνει ότι άλλαξε η δομή της σελίδας — διόρθωσε τους
+    CSS selectors στο <code>espa_radar/sources.yml</code>. Οι υπόλοιπες πηγές συνεχίζουν κανονικά.</p>
+  </div>
+
+</div>
+
+<script>
+const form = document.getElementById('profile-form');
+if (form) {
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const multi = (key) => Array.from(form.querySelectorAll(`[name="${key}"] option:checked`)).map(o => o.value);
+    const csv = (key) => (data.get(key) || '').split(',').map(s => s.trim()).filter(Boolean);
+    const num = (key) => data.get(key) ? Number(data.get(key)) : null;
+
+    const payload = {
+      name: data.get('name'),
+      notify_email: data.get('notify_email') || null,
+      sectors: multi('sectors'),
+      regions: multi('regions'),
+      beneficiaries: multi('beneficiaries'),
+      aid_types: multi('aid_types'),
+      notify_channels: multi('notify_channels'),
+      keywords: csv('keywords'),
+      exclude_keywords: csv('exclude_keywords'),
+      budget_min: num('budget_min'),
+      budget_max: num('budget_max'),
+      min_subsidy_rate: num('min_subsidy_rate'),
+      min_days_left: num('min_days_left'),
+      min_score: num('min_score'),
+    };
+
+    const message = document.getElementById('form-msg');
+    message.textContent = 'Αποθήκευση…';
+    try {
+      const response = await fetch('/api/profiles', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) {
+        message.textContent = '✅ Αποθηκεύτηκε — ανανέωση…';
+        setTimeout(() => location.reload(), 700);
+      } else {
+        const error = await response.json().catch(() => ({}));
+        message.textContent = '❌ ' + (error.detail ? JSON.stringify(error.detail) : response.status);
+      }
+    } catch (error) {
+      message.textContent = '❌ ' + error.message;
+    }
+  });
+}
+</script>
+</body>
+</html>

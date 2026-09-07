@@ -1,0 +1,44 @@
+# Πλήρες stack: εφαρμογή + Postgres.
+# Εκκίνηση:  docker compose -f docker-compose.espa.yml up -d
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: espa
+      POSTGRES_PASSWORD: espa
+      POSTGRES_DB: espa_radar
+    volumes:
+      - espa-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U espa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  radar:
+    build:
+      context: .
+      dockerfile: Dockerfile.espa
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ESPA_DATABASE_URL: postgresql+psycopg2://espa:espa@db:5432/espa_radar
+      ESPA_TIMEZONE: Europe/Athens
+      ESPA_SCAN_INTERVAL_MINUTES: "180"
+      ESPA_NOTIFY_CHANNELS: "console"
+      # ESPA_SMTP_HOST: smtp.gmail.com
+      # ESPA_SMTP_USER: you@gmail.com
+      # ESPA_SMTP_PASSWORD: app-password
+      # ESPA_SMTP_FROM: you@gmail.com
+      # ESPA_TELEGRAM_BOT_TOKEN: ...
+      # ESPA_TELEGRAM_CHAT_ID: ...
+    ports:
+      - "8000:8000"
+    volumes:
+      - espa-data:/data
+    restart: unless-stopped
+
+volumes:
+  espa-db:
+  espa-data:

@@ -178,7 +178,9 @@ export interface EnqueueOptions {
 }
 
 function toJobOptions(options: EnqueueOptions, defaultJobId: string): JobsOptions {
-  const jobId = options.jobId === null ? undefined : (options.jobId ?? defaultJobId);
+  const rawJobId = options.jobId === null ? undefined : (options.jobId ?? defaultJobId);
+  // A caller-supplied id must survive the same rule as the generated ones.
+  const jobId = rawJobId === undefined ? undefined : rawJobId.replace(/:/g, '-');
   const opts: JobsOptions = {};
   if (jobId !== undefined) opts.jobId = jobId;
   if (options.priority !== undefined) opts.priority = options.priority;
@@ -188,13 +190,15 @@ function toJobOptions(options: EnqueueOptions, defaultJobId: string): JobsOption
 }
 
 /** Queues one discovery sweep. `lane` selects the standard or fast poll cadence. */
+// BullMQ rejects a custom job id containing ":" (it would collide with its own
+// key namespacing), so every deterministic id below uses "-" as the separator.
 export async function addDiscoverJob(
   data: DiscoverJobData,
   options: EnqueueOptions = {},
 ): Promise<string | null> {
   const suffix = data.profileId ?? 'all';
   // Ad-hoc sweeps are never de-duplicated: "poll now" must always poll now.
-  const defaultId = `discover:${data.lane}:${suffix}:${Date.now()}`;
+  const defaultId = `discover-${data.lane}-${suffix}-${Date.now()}`;
   const job = await discoverQueue().add(
     `discover-${data.lane}`,
     data,
@@ -213,7 +217,7 @@ export async function addScoreJob(
   options: ScoreEnqueueOptions = {},
 ): Promise<string | null> {
   const fingerprint = options.contentHash ? sha256Short(options.contentHash, 16) : 'nohash';
-  const defaultId = `score:${data.jobId}:${data.profileId}:${fingerprint}`;
+  const defaultId = `score-${data.jobId}-${data.profileId}-${fingerprint}`;
   const job = await scoreQueue().add('score', data, toJobOptions(options, defaultId));
   return job.id ?? null;
 }
@@ -222,7 +226,7 @@ export async function addDraftJob(
   data: DraftJobData,
   options: EnqueueOptions = {},
 ): Promise<string | null> {
-  const defaultId = `draft:${data.jobId}:${data.profileId}`;
+  const defaultId = `draft-${data.jobId}-${data.profileId}`;
   const job = await draftQueue().add('draft', data, toJobOptions(options, defaultId));
   return job.id ?? null;
 }
@@ -231,7 +235,7 @@ export async function addSubmitJob(
   data: SubmitJobData,
   options: EnqueueOptions = {},
 ): Promise<string | null> {
-  const defaultId = `submit:${data.proposalId}`;
+  const defaultId = `submit-${data.proposalId}`;
   const job = await submitQueue().add('submit', data, toJobOptions(options, defaultId));
   return job.id ?? null;
 }
@@ -240,7 +244,7 @@ export async function addMaintenanceJob(
   data: MaintenanceJobData,
   options: EnqueueOptions = {},
 ): Promise<string | null> {
-  const defaultId = `maintenance:${data.task}:${Date.now()}`;
+  const defaultId = `maintenance-${data.task}-${Date.now()}`;
   const job = await maintenanceQueue().add(data.task, data, toJobOptions(options, defaultId));
   return job.id ?? null;
 }
@@ -249,7 +253,7 @@ export async function addDigestJob(
   data: DigestJobData = {},
   options: EnqueueOptions = {},
 ): Promise<string | null> {
-  const defaultId = `digest:${Date.now()}`;
+  const defaultId = `digest-${Date.now()}`;
   const job = await notifyDigestQueue().add('digest', data, toJobOptions(options, defaultId));
   return job.id ?? null;
 }

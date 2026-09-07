@@ -44,6 +44,7 @@
     "p-limit": "^3.1.0",
     "pino": "^9.3.2",
     "pino-pretty": "^11.2.2",
+    "prisma": "^5.18.0",
     "rss-parser": "^3.13.0",
     "zod": "^3.23.8"
   },
@@ -51,7 +52,6 @@
     "@types/mailparser": "^3.4.4",
     "@types/node": "^22.5.0",
     "@types/nodemailer": "^6.4.15",
-    "prisma": "^5.18.0",
     "tsx": "^4.17.0",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"

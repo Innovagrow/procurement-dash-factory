@@ -237,7 +237,11 @@ async function addRepeatable<T>(
 
 function sameRepeat(existing: RepeatableView, definition: ScheduleDefinition): boolean {
   if (existing.name !== definition.name) return false;
-  if ((existing.id ?? '') !== definition.jobId) return false;
+  // BullMQ does not echo the caller's jobId back from getRepeatableJobs(), so an
+  // absent id means "unknown", not "different". Only a populated, mismatched id
+  // marks a repeatable as superseded. Comparing it strictly made every schedule
+  // look stale the instant it was added, which silently stopped all detection.
+  if (existing.id && existing.id !== definition.jobId) return false;
 
   const { every, pattern, tz } = definition.repeat;
 
@@ -270,6 +274,11 @@ export async function registerSchedules(): Promise<ScheduleSyncResult> {
   const definitions = buildSchedules();
   const result: ScheduleSyncResult = { registered: [], removed: [], errors: [] };
 
+  // Prune BEFORE registering. Doing it the other way round means a stale-match
+  // false positive deletes the schedule that was just installed.
+  const removed = await pruneStaleSchedules(definitions);
+  result.removed.push(...removed);
+
   for (const definition of definitions) {
     try {
       await definition.register();
@@ -280,9 +289,6 @@ export async function registerSchedules(): Promise<ScheduleSyncResult> {
       result.errors.push(`${definition.name}: ${message}`);
     }
   }
-
-  const removed = await pruneStaleSchedules(definitions);
-  result.removed.push(...removed);
 
   log.info(
     {

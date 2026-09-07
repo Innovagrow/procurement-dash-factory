@@ -28,10 +28,12 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
 # The dashboard is served from src/public; the server resolves it relative to dist.
 COPY --from=builder /app/src/public ./src/public
 
-RUN addgroup -g 1001 -S upbid && adduser -u 1001 -S upbid -G upbid && chown -R upbid:upbid /app
+RUN chmod +x /app/docker-entrypoint.sh \
+ && addgroup -g 1001 -S upbid && adduser -u 1001 -S upbid -G upbid && chown -R upbid:upbid /app
 USER upbid
 
 EXPOSE 3000
@@ -39,5 +41,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
   CMD curl -fsS "http://127.0.0.1:${PORT:-3000}/api/health/live" || exit 1
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--", "/app/docker-entrypoint.sh"]
 CMD ["node", "dist/bootstrap/all-in-one.js"]

@@ -30,11 +30,39 @@ https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_C
 fi
 systemctl enable --now docker
 
+echo "==> Preflight"
+MEM_AVAIL_MB=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+DISK_FREE_MB=$(df -Pm / | awk 'NR==2 {print $4}')
+FORCE="${FORCE:-0}"
+
+if [ "$MEM_AVAIL_MB" -lt 900 ] && [ "$FORCE" != "1" ]; then
+  echo "REFUSING: only ${MEM_AVAIL_MB} MB RAM available."
+  echo "  Postgres, Redis and Node need roughly 900 MB free. On a smaller box the"
+  echo "  kernel will OOM-kill whatever else is already running here."
+  echo "  Resize the droplet, use a separate one, or point DATABASE_URL and REDIS_URL"
+  echo "  at managed services and run only the app. Override with FORCE=1 if you are sure."
+  exit 1
+fi
+
+if [ "$DISK_FREE_MB" -lt 3000 ] && [ "$FORCE" != "1" ]; then
+  echo "REFUSING: only ${DISK_FREE_MB} MB free disk. Docker images need about 3 GB."
+  exit 1
+fi
+
+echo "    ${MEM_AVAIL_MB} MB RAM available, ${DISK_FREE_MB} MB disk free"
+
 echo "==> Firewall"
-ufw allow OpenSSH >/dev/null
-ufw allow 80/tcp   >/dev/null
-ufw allow 443/tcp  >/dev/null
-ufw --force enable >/dev/null
+# Only ever ADD rules. Enabling an inactive firewall would silently cut off
+# every port an existing service listens on.
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+  ufw allow OpenSSH >/dev/null
+  ufw allow 80/tcp   >/dev/null
+  ufw allow 443/tcp  >/dev/null
+  echo "    ufw already active: added 80 and 443, left every other rule alone"
+else
+  echo "    ufw is not active - leaving it that way (enabling it here could cut off"
+  echo "    services already listening on this box). Open 80/443 yourself if needed."
+fi
 
 echo "==> Fetching the application"
 if [ -d "$APP_DIR/.git" ]; then
@@ -80,10 +108,19 @@ else
   COMPOSE_FILES="-f docker-compose.yml"
 fi
 
+for PORT in 3000 80 443; do
+  if ss -ltn 2>/dev/null | grep -q ":${PORT} "; then
+    echo "ABORTING: something is already listening on port ${PORT}."
+    echo "          Starting UpBid would collide with it."
+    exit 1
+  fi
+done
+
 echo "==> Building and starting"
 # shellcheck disable=SC2086
 docker compose $COMPOSE_FILES up -d --build
 
+if [ "${AUTO_UPDATE:-0}" = "1" ]; then
 echo "==> Installing auto-update timer (pulls and redeploys every 10 minutes)"
 cat > /etc/systemd/system/upbid-update.service <<UNIT
 [Unit]
@@ -112,6 +149,9 @@ UNIT
 
 systemctl daemon-reload
 systemctl enable --now upbid-update.timer
+else
+  echo "==> Skipping auto-update timer (set AUTO_UPDATE=1 to install it)"
+fi
 
 echo ""
 echo "==> Done."

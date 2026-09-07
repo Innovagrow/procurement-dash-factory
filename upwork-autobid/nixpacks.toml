@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "openssl"]
+
+[phases.install]
+cmds = ["npm ci --no-audit --no-fund || npm install --no-audit --no-fund"]
+
+[phases.build]
+cmds = ["npx prisma generate", "npx tsc -p tsconfig.json"]
+
+[start]
+cmd = "node dist/bootstrap/all-in-one.js"

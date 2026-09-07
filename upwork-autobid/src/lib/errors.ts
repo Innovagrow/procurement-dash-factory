@@ -13,7 +13,7 @@ export class AppError extends Error {
   readonly status: number;
   readonly retryable: boolean;
   readonly details: Record<string, unknown>;
-  readonly cause?: unknown;
+  override readonly cause?: unknown;
 
   constructor(message: string, options: AppErrorOptions = {}) {
     super(message);

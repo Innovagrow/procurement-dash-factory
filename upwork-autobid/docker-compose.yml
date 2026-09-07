@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: upbid
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-upbid_dev_password}
+      POSTGRES_DB: upbid
+    volumes:
+      - upbid_pg:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U upbid -d upbid"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - upbid_redis:/data
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  migrate:
+    build: .
+    command: ["npx", "prisma", "db", "push", "--accept-data-loss"]
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql://upbid:${POSTGRES_PASSWORD:-upbid_dev_password}@postgres:5432/upbid
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  api:
+    build: .
+    command: ["node", "dist/server/index.js"]
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql://upbid:${POSTGRES_PASSWORD:-upbid_dev_password}@postgres:5432/upbid
+      REDIS_URL: redis://redis:6379
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+
+  worker:
+    build: .
+    command: ["node", "dist/workers/index.js"]
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql://upbid:${POSTGRES_PASSWORD:-upbid_dev_password}@postgres:5432/upbid
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+
+volumes:
+  upbid_pg:
+  upbid_redis:

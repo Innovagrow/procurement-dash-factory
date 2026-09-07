@@ -207,8 +207,15 @@ export function buildSchedules(): ScheduleDefinition[] {
   return definitions;
 }
 
+// BullMQ resolves a queue's job-name type from its data type, which stays
+// deferred behind an unresolved generic. Only `add` is needed here, so accept
+// the structural shape instead of threading six type parameters through.
+type AddableQueue<T> = {
+  add(name: string, data: T, opts?: JobsOptions): Promise<unknown>;
+};
+
 async function addRepeatable<T>(
-  queue: Queue<T>,
+  queue: AddableQueue<T>,
   name: string,
   data: T,
   jobId: string,

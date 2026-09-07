@@ -1343,7 +1343,8 @@
         if (!card) return;
         var id = card.getAttribute('data-id');
         var action = button.getAttribute('data-action');
-        if (action === 'approve') Queue.approve(id);
+        if (action === 'copyopen') Queue.copyAndOpen(id);
+        else if (action === 'approve') Queue.approve(id);
         else if (action === 'reject') Queue.reject(id);
         else if (action === 'regenerate') Queue.regenerate(id);
         else if (action === 'save') Queue.save(id, true);
@@ -1616,12 +1617,63 @@
           : '') +
         '</div>' +
         '<div class="q-actions">' +
-        '<button class="btn btn-primary" type="button" data-action="approve">Approve</button>' +
+        '<button class="btn btn-primary" type="button" data-action="copyopen" ' +
+        'title="Copy the letter and open the job on Upwork">Copy letter &amp; open job</button>' +
+        '<button class="btn" type="button" data-action="approve">Approve</button>' +
         '<button class="btn btn-danger" type="button" data-action="reject">Reject</button>' +
         '<button class="btn btn-wide btn-ghost" type="button" data-action="regenerate">Regenerate</button>' +
         '<button class="btn btn-wide btn-ghost" type="button" data-action="save">Save draft</button>' +
         '</div>'
       );
+    },
+
+    copyAndOpen: function (id) {
+      var entry = state.queue.byId[id];
+      if (!entry) return;
+      var job = entry.job || {};
+      var text = entry.text || '';
+      if (!text.trim()) {
+        toast('This proposal has no cover letter yet.', 'error');
+        return;
+      }
+
+      var opened = false;
+      function openJob() {
+        if (opened || !job.url) return;
+        opened = true;
+        window.open(job.url, '_blank', 'noopener');
+      }
+
+      function done() {
+        toast('Letter copied. Paste it into the Upwork proposal form.', 'ok');
+        openJob();
+      }
+
+      function fallbackCopy() {
+        // execCommand is deprecated but still the only option without a
+        // secure context or clipboard permission.
+        var scratch = document.createElement('textarea');
+        scratch.value = text;
+        scratch.setAttribute('readonly', 'readonly');
+        scratch.style.position = 'fixed';
+        scratch.style.opacity = '0';
+        document.body.appendChild(scratch);
+        scratch.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+        document.body.removeChild(scratch);
+        if (ok) done();
+        else {
+          toast('Could not copy automatically — select the letter and copy it.', 'error');
+          openJob();
+        }
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, fallbackCopy);
+      } else {
+        fallbackCopy();
+      }
     },
 
     updateCounter: function (card, entry) {
